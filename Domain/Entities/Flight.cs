@@ -12,7 +12,6 @@ public class Flight : BaseEntity
     public DateTime DepartureAt { get; set; }
     public DateTime ArrivalAt { get; set; }
     public FlightStatus Status { get; set; } = FlightStatus.Scheduled;
-
     public FlightSchedule? FlightSchedule { get; set; }
     public Route Route { get; set; } = null!;
     public Aircraft Aircraft { get; set; } = null!;
