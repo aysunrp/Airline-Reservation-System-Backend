@@ -10,6 +10,12 @@ public interface IBookingService
     /// </summary>
     Task<BookingDto> CreateBookingAsync(int? userId, CreateBookingRequestDto request, CancellationToken cancellationToken = default);
 
+    /// <summary>
+    /// Payment page summary: prices the same request the booking would be created from (fares by passenger type,
+    /// baggage, meals, tax and promo code) without holding seats or saving anything.
+    /// </summary>
+    Task<PriceBreakdownDto> QuoteAsync(CreateBookingRequestDto request, CancellationToken cancellationToken = default);
+
     /// <summary>Manage booking: finds a booking by its reference and the last name of one of its passengers.</summary>
     Task<BookingDto> GetByPnrAsync(string pnr, string lastName, CancellationToken cancellationToken = default);
 

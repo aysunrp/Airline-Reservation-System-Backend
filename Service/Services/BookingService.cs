@@ -72,16 +72,9 @@ public class BookingService : IBookingService
         var now = _timeProvider.GetUtcNow().UtcDateTime;
         var holdUntil = now.AddMinutes(_settings.SeatHoldMinutes);
 
-        var legs = await LoadLegsAsync(request, now, cancellationToken);
-        var passengerTypes = ResolvePassengerTypes(request, legs);
+        var quote = await PrepareAsync(request, now, cancellationToken);
         await CheckSavedPassengersAsync(userId, request, cancellationToken);
-        var seats = await HoldSeatsAsync(request, legs, passengerTypes, now, holdUntil, cancellationToken);
-
-        var baggageOptions = (await _baggageRepository.GetAllAsync(cancellationToken)).Where(o => o.IsActive).ToDictionary(o => o.Id);
-        var mealOptions = (await _mealRepository.GetAllAsync(cancellationToken)).Where(o => o.IsActive).ToDictionary(o => o.Id);
-        var promoCode = string.IsNullOrWhiteSpace(request.PromoCode)
-            ? null
-            : await _promoCodeService.ValidateAsync(request.PromoCode, cancellationToken);
+        var seats = await HoldSeatsAsync(request, quote.Legs, quote.PassengerTypes, now, holdUntil, cancellationToken);
 
         var booking = new Booking
         {
@@ -92,10 +85,10 @@ public class BookingService : IBookingService
             TripType = request.TripType,
             Status = BookingStatus.Pending,
             ExpiresAt = holdUntil,
-            PromoCodeId = promoCode?.Id
+            PromoCodeId = quote.PromoCode?.Id
         };
 
-        var bookingFlights = legs
+        var bookingFlights = quote.Legs
             .Select((leg, index) => new BookingFlight { FlightId = leg.Flight.Id, LegOrder = index + 1, CabinClass = leg.Request.CabinClass })
             .ToList();
         foreach (var bookingFlight in bookingFlights)
@@ -103,17 +96,16 @@ public class BookingService : IBookingService
             booking.Flights.Add(bookingFlight);
         }
 
-        decimal baseFare = 0, baggageTotal = 0, mealTotal = 0;
         for (var p = 0; p < request.Passengers.Count; p++)
         {
             var passengerRequest = request.Passengers[p];
-            var baggage = FindOption(baggageOptions, passengerRequest.BaggageOptionId, "baggage");
-            var meal = FindOption(mealOptions, passengerRequest.MealOptionId, "meal");
+            var baggage = quote.Baggage[p];
+            var meal = quote.Meals[p];
 
             var passenger = new BookingPassenger
             {
                 SavedPassengerId = passengerRequest.SavedPassengerId,
-                PassengerType = passengerTypes[p],
+                PassengerType = quote.PassengerTypes[p],
                 FirstName = passengerRequest.FirstName.Trim(),
                 LastName = passengerRequest.LastName.Trim(),
                 DateOfBirth = passengerRequest.DateOfBirth,
@@ -125,10 +117,9 @@ public class BookingService : IBookingService
                 DocumentExpiryDate = passengerRequest.DocumentExpiryDate
             };
 
-            for (var l = 0; l < legs.Count; l++)
+            for (var l = 0; l < quote.Legs.Count; l++)
             {
-                var fare = _pricingService.GetPassengerFare(legs[l].Fare, passengerTypes[p]);
-                seats.TryGetValue((p, legs[l].Flight.Id), out var seat);
+                seats.TryGetValue((p, quote.Legs[l].Flight.Id), out var seat);
 
                 // Baggage and meal are chosen once per passenger for the whole journey; they are charged on the first leg.
                 var isFirstLeg = l == 0;
@@ -137,22 +128,19 @@ public class BookingService : IBookingService
                     BookingFlight = bookingFlights[l],
                     FlightSeatId = seat?.Id,
                     TicketNumber = RandomNumberGenerator.GetString("0123456789", TicketNumberLength),
-                    FareAmount = fare,
+                    FareAmount = _pricingService.GetPassengerFare(quote.Legs[l].Fare, quote.PassengerTypes[p]),
                     BaggageOptionId = baggage?.Id,
                     BaggagePrice = isFirstLeg ? baggage?.Price ?? 0 : 0,
                     MealOptionId = meal?.Id,
                     MealPrice = isFirstLeg ? meal?.Price ?? 0 : 0,
                     Status = TicketStatus.Pending
                 });
-                baseFare += fare;
             }
 
-            baggageTotal += baggage?.Price ?? 0;
-            mealTotal += meal?.Price ?? 0;
             booking.Passengers.Add(passenger);
         }
 
-        var price = _pricingService.Calculate(baseFare, baggageTotal, mealTotal, promoCode);
+        var price = quote.Price;
         booking.BaseFare = price.BaseFare;
         booking.BaggageTotal = price.Baggage;
         booking.MealTotal = price.Meals;
@@ -173,6 +161,13 @@ public class BookingService : IBookingService
         }
 
         return await GetByPnrInternalAsync(booking.Pnr, cancellationToken);
+    }
+
+    public async Task<PriceBreakdownDto> QuoteAsync(CreateBookingRequestDto request, CancellationToken cancellationToken = default)
+    {
+        await _validator.ValidateAndThrowAsync(request, cancellationToken);
+        var quote = await PrepareAsync(request, _timeProvider.GetUtcNow().UtcDateTime, cancellationToken);
+        return quote.Price;
     }
 
     public async Task<BookingDto> GetByPnrAsync(string pnr, string lastName, CancellationToken cancellationToken = default)
@@ -241,6 +236,40 @@ public class BookingService : IBookingService
         }
 
         return legs;
+    }
+
+    /// <summary>Everything the price depends on, resolved once and shared by quoting and booking.</summary>
+    private sealed record BookingQuote(
+        List<(BookingLegRequestDto Request, Flight Flight, decimal Fare)> Legs,
+        List<PassengerType> PassengerTypes,
+        List<BaggageOption?> Baggage,
+        List<MealOption?> Meals,
+        PromoCodeDto? PromoCode,
+        PriceBreakdownDto Price);
+
+    /// <summary>Checks flights, passengers, add-ons and the promo code, and prices the booking. Seats are not checked or held.</summary>
+    private async Task<BookingQuote> PrepareAsync(CreateBookingRequestDto request, DateTime now, CancellationToken cancellationToken)
+    {
+        var legs = await LoadLegsAsync(request, now, cancellationToken);
+        var passengerTypes = ResolvePassengerTypes(request, legs);
+
+        var baggageOptions = (await _baggageRepository.GetAllAsync(cancellationToken)).Where(o => o.IsActive).ToDictionary(o => o.Id);
+        var mealOptions = (await _mealRepository.GetAllAsync(cancellationToken)).Where(o => o.IsActive).ToDictionary(o => o.Id);
+        var baggage = request.Passengers.Select(p => FindOption(baggageOptions, p.BaggageOptionId, "baggage")).ToList();
+        var meals = request.Passengers.Select(p => FindOption(mealOptions, p.MealOptionId, "meal")).ToList();
+
+        var promoCode = string.IsNullOrWhiteSpace(request.PromoCode)
+            ? null
+            : await _promoCodeService.ValidateAsync(request.PromoCode, cancellationToken);
+
+        var baseFare = passengerTypes.Sum(type => legs.Sum(leg => _pricingService.GetPassengerFare(leg.Fare, type)));
+        var price = _pricingService.Calculate(
+            baseFare,
+            baggage.Sum(o => o?.Price ?? 0),
+            meals.Sum(o => o?.Price ?? 0),
+            promoCode);
+
+        return new BookingQuote(legs, passengerTypes, baggage, meals, promoCode, price);
     }
 
     private List<PassengerType> ResolvePassengerTypes(CreateBookingRequestDto request, List<(BookingLegRequestDto Request, Flight Flight, decimal Fare)> legs)
