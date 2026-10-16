@@ -13,6 +13,7 @@ namespace Service
         public static IServiceCollection AddServiceLayer(this IServiceCollection services, IConfiguration configuration)
         {
             services.Configure<PricingSettings>(configuration.GetSection(PricingSettings.SectionName));
+            services.Configure<JwtSettings>(configuration.GetSection(JwtSettings.SectionName));
 
             services.TryAddSingleton(TimeProvider.System);
             services.AddValidatorsFromAssembly(typeof(DependencyInjection).Assembly);
@@ -20,6 +21,10 @@ namespace Service
             services.AddScoped<IPricingService, PricingService>();
             services.AddScoped<IPromoCodeService, PromoCodeService>();
             services.AddScoped<ICancellationPolicyService, CancellationPolicyService>();
+
+            services.AddSingleton<IPasswordHasher, PasswordHasher>();
+            services.AddScoped<ITokenService, TokenService>();
+            services.AddScoped<IAuthService, AuthService>();
 
             return services;
         }

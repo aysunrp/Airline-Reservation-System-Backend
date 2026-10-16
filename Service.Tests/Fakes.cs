@@ -28,6 +28,11 @@ internal class FakeRepository<T> : IBaseRepository<T> where T : BaseEntity
 
     public Task AddAsync(T entity, CancellationToken cancellationToken = default)
     {
+        if (entity.Id == 0)
+        {
+            entity.Id = Items.Count == 0 ? 1 : Items.Max(x => x.Id) + 1;
+        }
+
         Items.Add(entity);
         return Task.CompletedTask;
     }
@@ -49,6 +54,19 @@ internal sealed class FakePromoCodeRepository : FakeRepository<PromoCode>, IProm
 
     public Task<PromoCode?> GetByCodeAsync(string code, CancellationToken cancellationToken = default)
         => Task.FromResult(Items.FirstOrDefault(p => p.Code == code));
+}
+
+internal sealed class FakeUserRepository : FakeRepository<User>, IUserRepository
+{
+    public FakeUserRepository(params User[] items) : base(items)
+    {
+    }
+
+    public Task<User?> GetByEmailAsync(string email, CancellationToken cancellationToken = default)
+        => Task.FromResult(Items.FirstOrDefault(u => u.Email == email));
+
+    public Task<bool> EmailExistsAsync(string email, CancellationToken cancellationToken = default)
+        => Task.FromResult(Items.Any(u => u.Email == email));
 }
 
 internal sealed class FakeCancellationRuleRepository : FakeRepository<CancellationRule>, ICancellationRuleRepository
