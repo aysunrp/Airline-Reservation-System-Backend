@@ -58,6 +58,10 @@ public class CancellationServiceTests
         Assert.Equal(booking.Price.Total, result.Cancellation.RefundAmount);
         Assert.Equal(RefundStatus.Pending, result.Cancellation.RefundStatus);
         Assert.Equal(SeatStatus.Available, _context.Data.Seat(101).Status);
+
+        // My Trips shows the refund state of the cancelled booking.
+        var trip = Assert.Single(await _context.CreateBookingService().GetMyBookingsAsync(1));
+        Assert.Equal(RefundStatus.Pending, trip.RefundStatus);
     }
 
     [Fact]

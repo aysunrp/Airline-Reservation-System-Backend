@@ -6,14 +6,14 @@ namespace Repository.Repositories.Interfaces;
 public interface IBookingRepository : IBaseRepository<Booking>
 {
     /// <summary>
-    /// Returns a tracked booking with everything the booking details page shows: legs with flight and route airports,
-    /// passengers with tickets and seats, payments, cancellation with refunds and the promo code.
+    /// Returns a tracked booking with everything the booking details page shows: legs with flight, aircraft and route airports,
+    /// passengers with tickets, seats and baggage/meal options, payments, cancellation with refunds and the promo code.
     /// </summary>
     Task<Booking?> GetByPnrAsync(string pnr, CancellationToken cancellationToken = default);
 
     Task<bool> PnrExistsAsync(string pnr, CancellationToken cancellationToken = default);
 
-    /// <summary>A user's bookings with their flight legs and route airports, newest first (no tracking).</summary>
+    /// <summary>A user's bookings with legs (route airports, aircraft), passenger seats and refunds, newest first (no tracking).</summary>
     Task<IReadOnlyList<Booking>> GetByUserIdAsync(int userId, CancellationToken cancellationToken = default);
 
     /// <summary>

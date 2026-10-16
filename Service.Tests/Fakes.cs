@@ -245,6 +245,8 @@ internal sealed class FakeBookingRepository : FakeRepository<Booking>, IBookingR
                     ticket.BookingPassenger = passenger;
                     ticket.BookingFlightId = ticket.BookingFlight.Id;
                     ticket.FlightSeat = ticket.FlightSeatId is int seatId ? _data.Seat(seatId) : null;
+                    ticket.BaggageOption = TestData.BaggageOptions.FirstOrDefault(o => o.Id == ticket.BaggageOptionId);
+                    ticket.MealOption = TestData.MealOptions.FirstOrDefault(o => o.Id == ticket.MealOptionId);
                 }
             }
 

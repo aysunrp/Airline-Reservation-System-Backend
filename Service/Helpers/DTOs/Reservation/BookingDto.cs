@@ -12,7 +12,9 @@ public record BookingLegDto(
     string DestinationCity,
     DateTime DepartureAt,
     DateTime ArrivalAt,
-    CabinClass CabinClass);
+    CabinClass CabinClass,
+    string AircraftModel,
+    IReadOnlyList<string> Seats);
 
 public record TicketDto(
     int LegOrder,
@@ -21,8 +23,10 @@ public record TicketDto(
     TicketStatus Status,
     decimal FareAmount,
     int? BaggageOptionId,
+    string? BaggageName,
     decimal BaggagePrice,
     int? MealOptionId,
+    string? MealName,
     decimal MealPrice);
 
 public record BookingPassengerDto(
@@ -67,4 +71,6 @@ public record BookingSummaryDto(
     TripType TripType,
     decimal TotalAmount,
     DateTime CreatedAt,
+    int PassengerCount,
+    RefundStatus? RefundStatus,
     IReadOnlyList<BookingLegDto> Legs);
