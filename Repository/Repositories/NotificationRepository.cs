@@ -19,4 +19,9 @@ public class NotificationRepository : BaseRepository<Notification>, INotificatio
 
     public Task<int> GetUnreadCountAsync(int userId, CancellationToken cancellationToken = default)
         => Set.CountAsync(n => n.UserId == userId && !n.IsRead, cancellationToken);
+
+    public async Task<IReadOnlyList<Notification>> GetUnreadTrackedAsync(int userId, CancellationToken cancellationToken = default)
+        => await Set
+            .Where(n => n.UserId == userId && !n.IsRead)
+            .ToListAsync(cancellationToken);
 }

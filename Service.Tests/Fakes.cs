@@ -79,6 +79,22 @@ internal sealed class FakeSavedPassengerRepository : FakeRepository<SavedPasseng
         => Task.FromResult<IReadOnlyList<SavedPassenger>>(Items.Where(p => p.UserId == userId).ToList());
 }
 
+internal sealed class FakeNotificationRepository : FakeRepository<Notification>, INotificationRepository
+{
+    public FakeNotificationRepository(params Notification[] items) : base(items)
+    {
+    }
+
+    public Task<IReadOnlyList<Notification>> GetByUserIdAsync(int userId, CancellationToken cancellationToken = default)
+        => Task.FromResult<IReadOnlyList<Notification>>(Items.Where(n => n.UserId == userId).OrderByDescending(n => n.CreatedAt).ToList());
+
+    public Task<int> GetUnreadCountAsync(int userId, CancellationToken cancellationToken = default)
+        => Task.FromResult(Items.Count(n => n.UserId == userId && !n.IsRead));
+
+    public Task<IReadOnlyList<Notification>> GetUnreadTrackedAsync(int userId, CancellationToken cancellationToken = default)
+        => Task.FromResult<IReadOnlyList<Notification>>(Items.Where(n => n.UserId == userId && !n.IsRead).ToList());
+}
+
 internal sealed class FakeCancellationRuleRepository : FakeRepository<CancellationRule>, ICancellationRuleRepository
 {
     public FakeCancellationRuleRepository(params CancellationRule[] items) : base(items)
