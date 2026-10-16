@@ -33,6 +33,7 @@ namespace Service
             services.AddScoped<ISeatService, SeatService>();
             services.AddScoped<IBookingExpiryService, BookingExpiryService>();
             services.AddScoped<IBookingService, BookingService>();
+            services.AddScoped<IPaymentService, PaymentService>();
             services.AddHostedService<BookingExpiryWorker>();
 
             return services;

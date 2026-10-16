@@ -1,3 +1,5 @@
+using Domain.Entities;
+using Domain.Enums;
 using Repository.Repositories.Interfaces;
 using Service.Helpers.DTOs.Notification;
 using Service.Helpers.Exceptions;
@@ -58,4 +60,14 @@ public class NotificationService : INotificationService
 
         await _notificationRepository.SaveChangesAsync(cancellationToken);
     }
+
+    public Task QueueAsync(int userId, int? bookingId, NotificationType type, string title, string message, CancellationToken cancellationToken = default)
+        => _notificationRepository.AddAsync(new Notification
+        {
+            UserId = userId,
+            BookingId = bookingId,
+            Type = type,
+            Title = title,
+            Message = message
+        }, cancellationToken);
 }

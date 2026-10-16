@@ -1,72 +1,26 @@
 using Domain.Entities;
 using Domain.Enums;
 using FluentValidation;
-using Microsoft.Extensions.Options;
 using Service.Helpers.DTOs.Reservation;
 using Service.Helpers.Exceptions;
-using Service.Helpers.Settings;
-using Service.Helpers.Validators;
 using Service.Services;
 
 namespace Service.Tests;
 
 public class BookingServiceTests
 {
-    private readonly TestData _data = new();
-    private readonly FixedTimeProvider _clock = new(TestData.Now);
-    private readonly FakeBookingRepository _bookings;
-    private readonly FakePromoCodeRepository _promoCodes = new(new PromoCode { Id = 5, Code = "AEROVA10", DiscountPercent = 10 });
-    private readonly FakeSavedPassengerRepository _savedPassengers = new(new SavedPassenger { Id = 7, UserId = 1, FirstName = "Orkhan", LastName = "Aliyev" });
+    private readonly BookingTestContext _context = new();
 
-    public BookingServiceTests()
-    {
-        _bookings = new FakeBookingRepository(_data)
-        {
-            PromoCodeLookup = id => _promoCodes.GetByIdAsync(id).Result
-        };
-    }
+    private TestData _data => _context.Data;
+    private FakeBookingRepository _bookings => _context.Bookings;
 
-    private BookingService CreateService()
-    {
-        var seats = _data.FlightSeats();
-        var seatService = new SeatService(_data.Flights(), seats, _clock);
-        return new BookingService(
-            _bookings,
-            _data.Flights(),
-            seats,
-            new FakeRepository<BaggageOption>(TestData.BaggageOptions),
-            new FakeRepository<MealOption>(TestData.MealOptions),
-            _savedPassengers,
-            new PricingService(Options.Create(new PricingSettings())),
-            new PromoCodeService(_promoCodes, _clock),
-            new BookingExpiryService(_bookings, seatService, _clock),
-            new CreateBookingRequestValidator(_clock),
-            Options.Create(new BookingSettings { SeatHoldMinutes = 15 }),
-            _clock);
-    }
+    private BookingService CreateService() => _context.CreateBookingService();
 
-    private static BookingPassengerRequestDto Passenger(string firstName, int birthYear, params (int FlightId, int SeatId)[] seats) => new()
-    {
-        FirstName = firstName,
-        LastName = "Panahli",
-        DateOfBirth = new DateOnly(birthYear, 3, 1),
-        Gender = Gender.Female,
-        NationalityCode = "AZ",
-        DocumentType = DocumentType.Passport,
-        DocumentNumber = "C0123456" + firstName.Length,
-        DocumentIssuingCountry = "AZ",
-        DocumentExpiryDate = new DateOnly(2030, 1, 1),
-        Seats = seats.Select(s => new PassengerSeatRequestDto { FlightId = s.FlightId, FlightSeatId = s.SeatId }).ToList()
-    };
+    private static BookingPassengerRequestDto Passenger(string firstName, int birthYear, params (int FlightId, int SeatId)[] seats)
+        => BookingTestContext.Passenger(firstName, birthYear, seats);
 
-    private static CreateBookingRequestDto OneWay(params BookingPassengerRequestDto[] passengers) => new()
-    {
-        TripType = TripType.OneWay,
-        Legs = { new BookingLegRequestDto { FlightId = 1, CabinClass = CabinClass.Economy } },
-        Passengers = passengers.ToList(),
-        ContactEmail = "Aysun@Example.com",
-        ContactPhone = "+994 50 834 39 43"
-    };
+    private static CreateBookingRequestDto OneWay(params BookingPassengerRequestDto[] passengers)
+        => BookingTestContext.OneWay(passengers);
 
     [Fact]
     public async Task OneWay_WithInfant_HoldsSeatsAndPricesBooking()

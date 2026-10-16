@@ -1,3 +1,4 @@
+using Domain.Enums;
 using Service.Helpers.DTOs.Notification;
 
 namespace Service.Services.Interfaces;
@@ -12,4 +13,7 @@ public interface INotificationService
     Task MarkAsReadAsync(int userId, int notificationId, CancellationToken cancellationToken = default);
 
     Task MarkAllAsReadAsync(int userId, CancellationToken cancellationToken = default);
+
+    /// <summary>Adds a notification for the user. Does not save; it is committed with the caller's unit of work.</summary>
+    Task QueueAsync(int userId, int? bookingId, NotificationType type, string title, string message, CancellationToken cancellationToken = default);
 }
