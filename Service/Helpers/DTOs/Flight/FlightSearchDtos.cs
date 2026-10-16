@@ -6,6 +6,12 @@ namespace Service.Helpers.DTOs.Flight;
 public class FlightSearchRequestDto
 {
     public List<FlightSearchLegDto> Legs { get; set; } = new();
+
+    /// <summary>When set, only flights selling this cabin are returned.</summary>
+    public CabinClass? CabinClass { get; set; }
+
+    /// <summary>Travellers who need a seat (infants on a lap are not counted); flights with fewer free seats are hidden.</summary>
+    public int Passengers { get; set; } = 1;
 }
 
 public class FlightSearchLegDto
@@ -36,6 +42,7 @@ public record FlightResultDto(
     int DurationMinutes,
     int Stops,
     IReadOnlyList<FlightStopDto> Via,
+    int AircraftId,
     string AircraftModel,
     FlightStatus Status,
     IReadOnlyDictionary<CabinClass, decimal> Fares);

@@ -200,6 +200,14 @@ internal sealed class FakeFlightSeatRepository : FakeRepository<FlightSeat>, IFl
 
     public Task<IReadOnlyList<FlightSeat>> GetTrackedByIdsAsync(IReadOnlyCollection<int> seatIds, CancellationToken cancellationToken = default)
         => Task.FromResult<IReadOnlyList<FlightSeat>>(Items.Where(s => seatIds.Contains(s.Id)).ToList());
+
+    public Task<IReadOnlyDictionary<int, int>> GetFreeSeatCountsAsync(IReadOnlyCollection<int> flightIds, CabinClass? cabinClass, DateTime now, CancellationToken cancellationToken = default)
+        => Task.FromResult<IReadOnlyDictionary<int, int>>(Items
+            .Where(s => flightIds.Contains(s.FlightId)
+                        && (cabinClass == null || s.AircraftSeat.CabinClass == cabinClass)
+                        && (s.Status == SeatStatus.Available || (s.Status == SeatStatus.Held && s.HeldUntil <= now)))
+            .GroupBy(s => s.FlightId)
+            .ToDictionary(g => g.Key, g => g.Count()));
 }
 
 /// <summary>
