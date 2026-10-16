@@ -2,5 +2,6 @@
   <Project Path="AirlineReservationSystem/AirlineReservationSystem.csproj" />
   <Project Path="Domain/Domain.csproj" />
   <Project Path="Repository/Repository.csproj" />
+  <Project Path="Service.Tests/Service.Tests.csproj" />
   <Project Path="Service/Service.csproj" />
 </Solution>
