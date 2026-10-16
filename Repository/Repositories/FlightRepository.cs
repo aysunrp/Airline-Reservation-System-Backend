@@ -29,6 +29,35 @@ public class FlightRepository : BaseRepository<Flight>, IFlightRepository
     public Task<Flight?> GetDetailsAsync(int id, CancellationToken cancellationToken = default)
         => WithDetails().FirstOrDefaultAsync(f => f.Id == id, cancellationToken);
 
+    public async Task<IReadOnlyList<Flight>> GetAllWithDetailsAsync(CancellationToken cancellationToken = default)
+        => await WithDetails()
+            .OrderBy(f => f.DepartureAt)
+            .ToListAsync(cancellationToken);
+
+    public async Task<IReadOnlyList<Flight>> GetUpcomingAsync(DateTime from, int take, CancellationToken cancellationToken = default)
+        => await WithDetails()
+            .Where(f => f.DepartureAt >= from && f.Status != FlightStatus.Cancelled)
+            .OrderBy(f => f.DepartureAt)
+            .Take(take)
+            .ToListAsync(cancellationToken);
+
+    public Task<Flight?> GetForUpdateAsync(int id, CancellationToken cancellationToken = default)
+        => Set.AsSplitQuery()
+            .Include(f => f.Route).ThenInclude(r => r.Origin)
+            .Include(f => f.Route).ThenInclude(r => r.Destination)
+            .Include(f => f.Aircraft)
+            .Include(f => f.Segments).ThenInclude(s => s.Origin)
+            .Include(f => f.Segments).ThenInclude(s => s.Destination)
+            .Include(f => f.Fares)
+            .Include(f => f.Seats)
+            .FirstOrDefaultAsync(f => f.Id == id, cancellationToken);
+
+    public Task<bool> ExistsAsync(string flightNumber, DateTime departureAt, int? excludeId = null, CancellationToken cancellationToken = default)
+        => Set.AnyAsync(f => f.FlightNumber == flightNumber && f.DepartureAt == departureAt && f.Id != excludeId, cancellationToken);
+
+    public Task<bool> HasBookingsAsync(int id, CancellationToken cancellationToken = default)
+        => Context.Set<BookingFlight>().AnyAsync(bf => bf.FlightId == id, cancellationToken);
+
     // Route airports, aircraft, ordered segments with their airports, and fares: everything a result card shows.
     private IQueryable<Flight> WithDetails()
         => Set.AsNoTracking()

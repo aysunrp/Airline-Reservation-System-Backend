@@ -124,6 +124,35 @@ internal sealed class FakeFlightRepository : FakeRepository<Flight>, IFlightRepo
     {
     }
 
+    public HashSet<int> WithBookings { get; } = new();
+
+    /// <summary>Resolve navigations on save like EF fix-up would (used by the admin flight tests).</summary>
+    public Func<int, Route?>? RouteLookup { get; set; }
+    public Func<int, Aircraft?>? AircraftLookup { get; set; }
+
+    public override Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
+    {
+        foreach (var flight in Items)
+        {
+            if (RouteLookup?.Invoke(flight.RouteId) is { } route)
+            {
+                flight.Route = route;
+                foreach (var segment in flight.Segments)
+                {
+                    segment.Origin ??= route.Origin;
+                    segment.Destination ??= route.Destination;
+                }
+            }
+
+            if (AircraftLookup?.Invoke(flight.AircraftId) is { } aircraft)
+            {
+                flight.Aircraft = aircraft;
+            }
+        }
+
+        return Task.FromResult(1);
+    }
+
     public Task<IReadOnlyList<Flight>> SearchAsync(int originAirportId, int destinationAirportId, DateOnly date, CancellationToken cancellationToken = default)
         => Task.FromResult<IReadOnlyList<Flight>>(Items
             .Where(f => f.Route.OriginAirportId == originAirportId
@@ -135,6 +164,25 @@ internal sealed class FakeFlightRepository : FakeRepository<Flight>, IFlightRepo
 
     public Task<Flight?> GetDetailsAsync(int id, CancellationToken cancellationToken = default)
         => Task.FromResult(Items.FirstOrDefault(f => f.Id == id));
+
+    public Task<IReadOnlyList<Flight>> GetAllWithDetailsAsync(CancellationToken cancellationToken = default)
+        => Task.FromResult<IReadOnlyList<Flight>>(Items.OrderBy(f => f.DepartureAt).ToList());
+
+    public Task<IReadOnlyList<Flight>> GetUpcomingAsync(DateTime from, int take, CancellationToken cancellationToken = default)
+        => Task.FromResult<IReadOnlyList<Flight>>(Items
+            .Where(f => f.DepartureAt >= from && f.Status != FlightStatus.Cancelled)
+            .OrderBy(f => f.DepartureAt)
+            .Take(take)
+            .ToList());
+
+    public Task<Flight?> GetForUpdateAsync(int id, CancellationToken cancellationToken = default)
+        => Task.FromResult(Items.FirstOrDefault(f => f.Id == id));
+
+    public Task<bool> ExistsAsync(string flightNumber, DateTime departureAt, int? excludeId = null, CancellationToken cancellationToken = default)
+        => Task.FromResult(Items.Any(f => f.FlightNumber == flightNumber && f.DepartureAt == departureAt && f.Id != excludeId));
+
+    public Task<bool> HasBookingsAsync(int id, CancellationToken cancellationToken = default)
+        => Task.FromResult(WithBookings.Contains(id));
 }
 
 internal sealed class FakeFlightSeatRepository : FakeRepository<FlightSeat>, IFlightSeatRepository
@@ -223,6 +271,15 @@ internal sealed class FakeBookingRepository : FakeRepository<Booking>, IBookingR
 
     public Task<IReadOnlyList<Booking>> GetByUserIdAsync(int userId, CancellationToken cancellationToken = default)
         => Task.FromResult<IReadOnlyList<Booking>>(Items.Where(b => b.UserId == userId).OrderByDescending(b => b.CreatedAt).ToList());
+
+    public Task<IReadOnlyList<int>> GetUserIdsWithActiveBookingsOnFlightAsync(int flightId, CancellationToken cancellationToken = default)
+        => Task.FromResult<IReadOnlyList<int>>(Items
+            .Where(b => b.UserId != null
+                        && b.Status is BookingStatus.Pending or BookingStatus.Confirmed
+                        && b.Flights.Any(f => f.FlightId == flightId))
+            .Select(b => b.UserId!.Value)
+            .Distinct()
+            .ToList());
 
     public Task<IReadOnlyList<Booking>> GetExpiredPendingAsync(DateTime now, CancellationToken cancellationToken = default)
         => Task.FromResult<IReadOnlyList<Booking>>(Items.Where(b => b.Status == BookingStatus.Pending && b.ExpiresAt <= now).ToList());

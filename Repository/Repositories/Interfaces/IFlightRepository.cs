@@ -9,4 +9,18 @@ public interface IFlightRepository : IBaseRepository<Flight>
 
     /// <summary>Returns a flight with route, aircraft, segments and fares (no tracking).</summary>
     Task<Flight?> GetDetailsAsync(int id, CancellationToken cancellationToken = default);
+
+    /// <summary>All flights with their details for the admin flights table, ordered by departure (no tracking).</summary>
+    Task<IReadOnlyList<Flight>> GetAllWithDetailsAsync(CancellationToken cancellationToken = default);
+
+    /// <summary>Next non-cancelled departures from the given time (no tracking).</summary>
+    Task<IReadOnlyList<Flight>> GetUpcomingAsync(DateTime from, int take, CancellationToken cancellationToken = default);
+
+    /// <summary>A flight with route, aircraft, segments, fares and seats, tracked so it can be edited.</summary>
+    Task<Flight?> GetForUpdateAsync(int id, CancellationToken cancellationToken = default);
+
+    Task<bool> ExistsAsync(string flightNumber, DateTime departureAt, int? excludeId = null, CancellationToken cancellationToken = default);
+
+    /// <summary>True when any booking (in any status) contains the flight.</summary>
+    Task<bool> HasBookingsAsync(int id, CancellationToken cancellationToken = default);
 }

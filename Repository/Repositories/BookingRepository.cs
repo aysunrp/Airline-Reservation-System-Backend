@@ -34,6 +34,15 @@ public class BookingRepository : BaseRepository<Booking>, IBookingRepository
             .OrderByDescending(b => b.CreatedAt)
             .ToListAsync(cancellationToken);
 
+    public async Task<IReadOnlyList<int>> GetUserIdsWithActiveBookingsOnFlightAsync(int flightId, CancellationToken cancellationToken = default)
+        => await Set.AsNoTracking()
+            .Where(b => b.UserId != null
+                        && (b.Status == BookingStatus.Pending || b.Status == BookingStatus.Confirmed)
+                        && b.Flights.Any(f => f.FlightId == flightId))
+            .Select(b => b.UserId!.Value)
+            .Distinct()
+            .ToListAsync(cancellationToken);
+
     public async Task<IReadOnlyList<Booking>> GetExpiredPendingAsync(DateTime now, CancellationToken cancellationToken = default)
         => await Set.AsSplitQuery()
             .Include(b => b.Passengers).ThenInclude(p => p.Tickets)

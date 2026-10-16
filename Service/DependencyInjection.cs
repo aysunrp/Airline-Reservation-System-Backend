@@ -40,6 +40,7 @@ namespace Service
             services.AddScoped<IAdminAircraftService, AdminAircraftService>();
             services.AddScoped<IAdminRouteService, AdminRouteService>();
             services.AddScoped<IAdminScheduleService, AdminScheduleService>();
+            services.AddScoped<IAdminFlightService, AdminFlightService>();
             services.AddHostedService<BookingExpiryWorker>();
 
             return services;
