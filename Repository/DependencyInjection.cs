@@ -28,6 +28,7 @@ namespace Repository
             services.AddScoped<IFlightRepository, FlightRepository>();
             services.AddScoped<IFlightSeatRepository, FlightSeatRepository>();
             services.AddScoped<IBookingRepository, BookingRepository>();
+            services.AddScoped<IBookingPassengerRepository, BookingPassengerRepository>();
             services.AddScoped<INotificationRepository, NotificationRepository>();
 
             return services;

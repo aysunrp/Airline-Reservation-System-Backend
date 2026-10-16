@@ -45,13 +45,24 @@ public class CancellationService : ICancellationService
         await _validator.ValidateAndThrowAsync(request, cancellationToken);
 
         var booking = await GetCancellableBookingAsync(request.Pnr, request.LastName, cancellationToken);
+        return await CancelBookingAsync(booking, request.Reason, cancellationToken);
+    }
+
+    public async Task<BookingDto> CancelByAdminAsync(string pnr, string? reason, CancellationToken cancellationToken = default)
+    {
+        var booking = await GetCancellableBookingAsync(pnr, null, cancellationToken);
+        return await CancelBookingAsync(booking, reason, cancellationToken);
+    }
+
+    private async Task<BookingDto> CancelBookingAsync(Booking booking, string? reason, CancellationToken cancellationToken)
+    {
         var quote = await QuoteAsync(booking, cancellationToken);
 
         var cancellation = new Cancellation
         {
             BookingId = booking.Id,
             RequestedAt = _timeProvider.GetUtcNow().UtcDateTime,
-            Reason = string.IsNullOrWhiteSpace(request.Reason) ? null : request.Reason.Trim(),
+            Reason = string.IsNullOrWhiteSpace(reason) ? null : reason.Trim(),
             AmountPaid = quote.AmountPaid,
             FeeAmount = quote.FeeAmount,
             RefundAmount = quote.RefundAmount
@@ -95,10 +106,11 @@ public class CancellationService : ICancellationService
         return booking.ToDto();
     }
 
-    private async Task<Booking> GetCancellableBookingAsync(string pnr, string lastName, CancellationToken cancellationToken)
+    /// <summary>lastName is null for admins, who can open any booking.</summary>
+    private async Task<Booking> GetCancellableBookingAsync(string pnr, string? lastName, CancellationToken cancellationToken)
     {
         var booking = await _bookingRepository.GetByPnrAsync(BookingService.NormalizePnr(pnr), cancellationToken);
-        if (booking is null || !BookingService.HasPassengerNamed(booking, lastName))
+        if (booking is null || (lastName is not null && !BookingService.HasPassengerNamed(booking, lastName)))
         {
             throw new NotFoundException(BookingService.BookingNotFoundMessage);
         }

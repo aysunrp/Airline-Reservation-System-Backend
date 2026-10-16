@@ -38,3 +38,14 @@ internal sealed class FakeFlightScheduleRepository : FakeRepository<FlightSchedu
     public Task<FlightSchedule?> GetWithDetailsAsync(int id, CancellationToken cancellationToken = default)
         => Task.FromResult(Items.FirstOrDefault(s => s.Id == id));
 }
+
+/// <summary>Reads booked passengers straight from the fake booking store.</summary>
+internal sealed class FakeBookingPassengerRepository : FakeRepository<BookingPassenger>, IBookingPassengerRepository
+{
+    private readonly FakeBookingRepository _bookings;
+
+    public FakeBookingPassengerRepository(FakeBookingRepository bookings) => _bookings = bookings;
+
+    public async Task<IReadOnlyList<BookingPassenger>> GetAllWithBookingsAsync(CancellationToken cancellationToken = default)
+        => (await _bookings.GetAllAsync(cancellationToken)).SelectMany(b => b.Passengers).ToList();
+}

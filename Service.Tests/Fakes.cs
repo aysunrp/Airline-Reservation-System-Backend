@@ -230,6 +230,7 @@ internal sealed class FakeBookingRepository : FakeRepository<Booking>, IBookingR
 
             foreach (var leg in booking.Flights)
             {
+                leg.Id = leg.Id == 0 ? _nextId++ : leg.Id;
                 leg.Booking = booking;
                 leg.Flight ??= _data.Flight(leg.FlightId);
             }
@@ -242,6 +243,7 @@ internal sealed class FakeBookingRepository : FakeRepository<Booking>, IBookingR
                 {
                     ticket.Id = ticket.Id == 0 ? _nextId++ : ticket.Id;
                     ticket.BookingPassenger = passenger;
+                    ticket.BookingFlightId = ticket.BookingFlight.Id;
                     ticket.FlightSeat = ticket.FlightSeatId is int seatId ? _data.Seat(seatId) : null;
                 }
             }
@@ -271,6 +273,19 @@ internal sealed class FakeBookingRepository : FakeRepository<Booking>, IBookingR
 
     public Task<IReadOnlyList<Booking>> GetByUserIdAsync(int userId, CancellationToken cancellationToken = default)
         => Task.FromResult<IReadOnlyList<Booking>>(Items.Where(b => b.UserId == userId).OrderByDescending(b => b.CreatedAt).ToList());
+
+    public Task<IReadOnlyList<Booking>> GetForAdminAsync(string? pnr, string? passengerName, BookingStatus? status, int? take = null, CancellationToken cancellationToken = default)
+    {
+        var query = Items
+            .Where(b => string.IsNullOrWhiteSpace(pnr) || b.Pnr.Contains(pnr.Trim()))
+            .Where(b => string.IsNullOrWhiteSpace(passengerName)
+                        || b.Passengers.Any(p => $"{p.FirstName} {p.LastName}".Contains(passengerName.Trim(), StringComparison.OrdinalIgnoreCase)))
+            .Where(b => status is null || b.Status == status)
+            .OrderByDescending(b => b.CreatedAt)
+            .ThenByDescending(b => b.Id);
+
+        return Task.FromResult<IReadOnlyList<Booking>>((take is null ? query : query.Take(take.Value)).ToList());
+    }
 
     public Task<IReadOnlyList<int>> GetUserIdsWithActiveBookingsOnFlightAsync(int flightId, CancellationToken cancellationToken = default)
         => Task.FromResult<IReadOnlyList<int>>(Items

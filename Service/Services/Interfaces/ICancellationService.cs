@@ -12,4 +12,7 @@ public interface ICancellationService
     /// a refund request is recorded (Pending, or NotEligible when the fare rules allow no refund).
     /// </summary>
     Task<BookingDto> CancelAsync(CancelBookingRequestDto request, CancellationToken cancellationToken = default);
+
+    /// <summary>Admin "Cancel Booking": same rules and refund handling, without the last-name check.</summary>
+    Task<BookingDto> CancelByAdminAsync(string pnr, string? reason, CancellationToken cancellationToken = default);
 }

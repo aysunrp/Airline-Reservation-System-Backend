@@ -34,6 +34,40 @@ public class BookingRepository : BaseRepository<Booking>, IBookingRepository
             .OrderByDescending(b => b.CreatedAt)
             .ToListAsync(cancellationToken);
 
+    public async Task<IReadOnlyList<Booking>> GetForAdminAsync(string? pnr, string? passengerName, BookingStatus? status, int? take = null, CancellationToken cancellationToken = default)
+    {
+        var query = Set.AsNoTracking().AsSplitQuery()
+            .Include(b => b.Flights).ThenInclude(f => f.Flight).ThenInclude(f => f.Route).ThenInclude(r => r.Origin)
+            .Include(b => b.Flights).ThenInclude(f => f.Flight).ThenInclude(f => f.Route).ThenInclude(r => r.Destination)
+            .Include(b => b.Passengers).ThenInclude(p => p.Tickets).ThenInclude(t => t.FlightSeat!).ThenInclude(s => s.AircraftSeat)
+            .AsQueryable();
+
+        if (!string.IsNullOrWhiteSpace(pnr))
+        {
+            var fragment = pnr.Trim();
+            query = query.Where(b => b.Pnr.Contains(fragment));
+        }
+
+        if (!string.IsNullOrWhiteSpace(passengerName))
+        {
+            var fragment = passengerName.Trim();
+            query = query.Where(b => b.Passengers.Any(p => (p.FirstName + " " + p.LastName).Contains(fragment)));
+        }
+
+        if (status is not null)
+        {
+            query = query.Where(b => b.Status == status);
+        }
+
+        query = query.OrderByDescending(b => b.CreatedAt);
+        if (take is not null)
+        {
+            query = query.Take(take.Value);
+        }
+
+        return await query.ToListAsync(cancellationToken);
+    }
+
     public async Task<IReadOnlyList<int>> GetUserIdsWithActiveBookingsOnFlightAsync(int flightId, CancellationToken cancellationToken = default)
         => await Set.AsNoTracking()
             .Where(b => b.UserId != null

@@ -1,4 +1,5 @@
 using Domain.Entities;
+using Domain.Enums;
 using Service.Helpers.DTOs.Reservation;
 
 namespace Service.Helpers.Mappings;
@@ -43,6 +44,35 @@ public static class BookingMappings
                     cancellation.FeeAmount,
                     cancellation.RefundAmount,
                     cancellation.Refunds.OrderByDescending(r => r.CreatedAt).FirstOrDefault()?.Status));
+    }
+
+    /// <summary>Expects legs with route airports and passengers with tickets and seats to be loaded.</summary>
+    public static AdminBookingRowDto ToAdminRowDto(this Booking booking)
+    {
+        var firstLeg = booking.Flights.OrderBy(f => f.LegOrder).First();
+        var passengers = booking.Passengers.OrderBy(p => p.Id).ToList();
+        var lead = passengers.FirstOrDefault(p => p.PassengerType == PassengerType.Adult) ?? passengers.First();
+
+        var seats = passengers
+            .SelectMany(p => p.Tickets)
+            // Compared by id: no-tracking queries do not link tickets to legs loaded through another include.
+            .Where(t => t.BookingFlightId == firstLeg.Id)
+            .Where(t => t.FlightSeat is not null)
+            .Select(t => $"{t.FlightSeat!.AircraftSeat.RowNumber}{t.FlightSeat.AircraftSeat.Letter}")
+            .ToList();
+
+        return new AdminBookingRowDto(
+            booking.Id,
+            booking.Pnr,
+            $"{lead.FirstName} {lead.LastName}",
+            passengers.Count,
+            firstLeg.Flight.FlightNumber,
+            $"{firstLeg.Flight.Route.Origin.City} → {firstLeg.Flight.Route.Destination.City}",
+            firstLeg.Flight.DepartureAt,
+            firstLeg.CabinClass,
+            seats,
+            booking.TotalAmount,
+            booking.Status);
     }
 
     public static BookingSummaryDto ToSummaryDto(this Booking booking)

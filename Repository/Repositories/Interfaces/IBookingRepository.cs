@@ -1,4 +1,5 @@
 using Domain.Entities;
+using Domain.Enums;
 
 namespace Repository.Repositories.Interfaces;
 
@@ -14,6 +15,12 @@ public interface IBookingRepository : IBaseRepository<Booking>
 
     /// <summary>A user's bookings with their flight legs and route airports, newest first (no tracking).</summary>
     Task<IReadOnlyList<Booking>> GetByUserIdAsync(int userId, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Admin bookings table: optional PNR fragment, passenger name fragment and status filters, newest first,
+    /// with legs, route airports and seats (no tracking).
+    /// </summary>
+    Task<IReadOnlyList<Booking>> GetForAdminAsync(string? pnr, string? passengerName, BookingStatus? status, int? take = null, CancellationToken cancellationToken = default);
 
     /// <summary>Accounts with a pending or confirmed booking on the flight (for flight update notifications).</summary>
     Task<IReadOnlyList<int>> GetUserIdsWithActiveBookingsOnFlightAsync(int flightId, CancellationToken cancellationToken = default);

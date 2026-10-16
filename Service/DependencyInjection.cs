@@ -41,6 +41,9 @@ namespace Service
             services.AddScoped<IAdminRouteService, AdminRouteService>();
             services.AddScoped<IAdminScheduleService, AdminScheduleService>();
             services.AddScoped<IAdminFlightService, AdminFlightService>();
+            services.AddScoped<IAdminBookingService, AdminBookingService>();
+            services.AddScoped<IAdminPassengerService, AdminPassengerService>();
+            services.AddScoped<IAdminDashboardService, AdminDashboardService>();
             services.AddHostedService<BookingExpiryWorker>();
 
             return services;
