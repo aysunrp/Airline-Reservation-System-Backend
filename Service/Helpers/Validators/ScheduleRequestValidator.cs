@@ -18,6 +18,7 @@ public class ScheduleRequestValidator : AbstractValidator<ScheduleRequestDto>
         RuleFor(x => x.DaysOfWeek)
             .Must(d => d != ScheduleDays.None && (d & ~ScheduleDays.Everyday) == 0)
             .WithMessage("Select at least one day of the week.");
+        RuleFor(x => x.ValidFrom).NotEqual(default(DateOnly)).WithMessage("Enter the date the schedule starts.");
         RuleFor(x => x.ValidTo).GreaterThanOrEqualTo(x => x.ValidFrom).When(x => x.ValidTo is not null)
             .WithMessage("The end date cannot be before the start date.");
     }

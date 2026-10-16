@@ -113,6 +113,11 @@ public class AdminRouteAndScheduleTests
         inactiveAircraft.DefaultAircraftId = 2;
         await Assert.ThrowsAsync<BusinessRuleException>(() => service.CreateAsync(inactiveAircraft));
 
+        var noStart = Schedule(route.Id);
+        noStart.ValidFrom = default;
+        noStart.ValidTo = null;
+        await Assert.ThrowsAsync<ValidationException>(() => service.CreateAsync(noStart));
+
         await Assert.ThrowsAsync<NotFoundException>(() => service.CreateAsync(Schedule(99)));
     }
 

@@ -1,6 +1,7 @@
 using Domain.Entities;
 using Domain.Enums;
 using FluentValidation;
+using FluentValidation.Results;
 using Microsoft.EntityFrameworkCore;
 using Repository.Repositories.Interfaces;
 using Service.Helpers.DTOs.Flight;
@@ -72,6 +73,7 @@ public class AdminFlightService : IAdminFlightService
         var flightNumber = FlightNumber.Normalize(request.FlightNumber);
         var departureAt = AsUtc(request.DepartureAt);
         var arrivalAt = AsUtc(request.ArrivalAt);
+        EnsureDepartureInFuture(departureAt);
         await EnsureUniqueAsync(flightNumber, departureAt, null, cancellationToken);
 
         var route = await GetActiveRouteAsync(request, cancellationToken);
@@ -138,6 +140,12 @@ public class AdminFlightService : IAdminFlightService
 
         var statusChanged = flight.Status != request.Status;
         var timesChanged = flight.DepartureAt != departureAt || flight.ArrivalAt != arrivalAt;
+
+        // A flight that already left can still get a new status (e.g. Completed), but cannot be moved into the past.
+        if (flight.DepartureAt != departureAt)
+        {
+            EnsureDepartureInFuture(departureAt);
+        }
 
         if (routeChanged || flight.Segments.Count == 0)
         {
@@ -337,6 +345,17 @@ public class AdminFlightService : IAdminFlightService
         foreach (var userId in await _bookingRepository.GetUserIdsWithActiveBookingsOnFlightAsync(flight.Id, cancellationToken))
         {
             await _notificationService.QueueAsync(userId, null, NotificationType.FlightUpdate, "Flight Update", message, cancellationToken);
+        }
+    }
+
+    private void EnsureDepartureInFuture(DateTime departureAt)
+    {
+        if (departureAt <= _timeProvider.GetUtcNow().UtcDateTime)
+        {
+            throw new ValidationException(new[]
+            {
+                new ValidationFailure(nameof(FlightRequestDto.DepartureAt), "The departure must be in the future.")
+            });
         }
     }
 

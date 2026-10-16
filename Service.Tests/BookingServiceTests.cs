@@ -184,6 +184,15 @@ public class BookingServiceTests
     }
 
     [Fact]
+    public async Task MissingDocumentExpiry_ThrowsValidation()
+    {
+        var passenger = Passenger("Aysun", 1990, (1, 103));
+        passenger.DocumentExpiryDate = null;
+
+        await Assert.ThrowsAsync<ValidationException>(() => CreateService().CreateBookingAsync(null, OneWay(passenger)));
+    }
+
+    [Fact]
     public async Task InvalidIdCardNumber_ThrowsValidation()
     {
         var passenger = Passenger("Aysun", 1990, (1, 103));
