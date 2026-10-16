@@ -69,6 +69,16 @@ internal sealed class FakeUserRepository : FakeRepository<User>, IUserRepository
         => Task.FromResult(Items.Any(u => u.Email == email));
 }
 
+internal sealed class FakeSavedPassengerRepository : FakeRepository<SavedPassenger>, ISavedPassengerRepository
+{
+    public FakeSavedPassengerRepository(params SavedPassenger[] items) : base(items)
+    {
+    }
+
+    public Task<IReadOnlyList<SavedPassenger>> GetByUserIdAsync(int userId, CancellationToken cancellationToken = default)
+        => Task.FromResult<IReadOnlyList<SavedPassenger>>(Items.Where(p => p.UserId == userId).ToList());
+}
+
 internal sealed class FakeCancellationRuleRepository : FakeRepository<CancellationRule>, ICancellationRuleRepository
 {
     public FakeCancellationRuleRepository(params CancellationRule[] items) : base(items)

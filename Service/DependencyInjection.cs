@@ -25,6 +25,7 @@ namespace Service
             services.AddSingleton<IPasswordHasher, PasswordHasher>();
             services.AddScoped<ITokenService, TokenService>();
             services.AddScoped<IAuthService, AuthService>();
+            services.AddScoped<IProfileService, ProfileService>();
 
             return services;
         }
