@@ -1,4 +1,5 @@
 using Domain.Entities;
+using Domain.Enums;
 using Microsoft.EntityFrameworkCore;
 using Repository.Data;
 using Repository.Repositories.Interfaces;
@@ -13,10 +14,12 @@ public class BookingRepository : BaseRepository<Booking>, IBookingRepository
 
     public Task<Booking?> GetByPnrAsync(string pnr, CancellationToken cancellationToken = default)
         => Set.AsSplitQuery()
-            .Include(b => b.Flights).ThenInclude(f => f.Flight)
-            .Include(b => b.Passengers).ThenInclude(p => p.Tickets)
+            .Include(b => b.Flights).ThenInclude(f => f.Flight).ThenInclude(f => f.Route).ThenInclude(r => r.Origin)
+            .Include(b => b.Flights).ThenInclude(f => f.Flight).ThenInclude(f => f.Route).ThenInclude(r => r.Destination)
+            .Include(b => b.Passengers).ThenInclude(p => p.Tickets).ThenInclude(t => t.FlightSeat!).ThenInclude(s => s.AircraftSeat)
             .Include(b => b.Payments)
-            .Include(b => b.Cancellation)
+            .Include(b => b.Cancellation!).ThenInclude(c => c.Refunds)
+            .Include(b => b.PromoCode)
             .FirstOrDefaultAsync(b => b.Pnr == pnr, cancellationToken);
 
     public Task<bool> PnrExistsAsync(string pnr, CancellationToken cancellationToken = default)
@@ -24,8 +27,16 @@ public class BookingRepository : BaseRepository<Booking>, IBookingRepository
 
     public async Task<IReadOnlyList<Booking>> GetByUserIdAsync(int userId, CancellationToken cancellationToken = default)
         => await Set.AsNoTracking()
-            .Include(b => b.Flights).ThenInclude(f => f.Flight)
+            .AsSplitQuery()
+            .Include(b => b.Flights).ThenInclude(f => f.Flight).ThenInclude(f => f.Route).ThenInclude(r => r.Origin)
+            .Include(b => b.Flights).ThenInclude(f => f.Flight).ThenInclude(f => f.Route).ThenInclude(r => r.Destination)
             .Where(b => b.UserId == userId)
             .OrderByDescending(b => b.CreatedAt)
+            .ToListAsync(cancellationToken);
+
+    public async Task<IReadOnlyList<Booking>> GetExpiredPendingAsync(DateTime now, CancellationToken cancellationToken = default)
+        => await Set.AsSplitQuery()
+            .Include(b => b.Passengers).ThenInclude(p => p.Tickets)
+            .Where(b => b.Status == BookingStatus.Pending && b.ExpiresAt != null && b.ExpiresAt <= now)
             .ToListAsync(cancellationToken);
 }

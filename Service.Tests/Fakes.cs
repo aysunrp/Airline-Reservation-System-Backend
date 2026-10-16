@@ -43,7 +43,7 @@ internal class FakeRepository<T> : IBaseRepository<T> where T : BaseEntity
 
     public void Delete(T entity) => Items.Remove(entity);
 
-    public Task<int> SaveChangesAsync(CancellationToken cancellationToken = default) => Task.FromResult(0);
+    public virtual Task<int> SaveChangesAsync(CancellationToken cancellationToken = default) => Task.FromResult(0);
 }
 
 internal sealed class FakePromoCodeRepository : FakeRepository<PromoCode>, IPromoCodeRepository
@@ -152,4 +152,78 @@ internal sealed class FakeFlightSeatRepository : FakeRepository<FlightSeat>, IFl
 
     public Task<IReadOnlyList<FlightSeat>> GetTrackedByIdsAsync(IReadOnlyCollection<int> seatIds, CancellationToken cancellationToken = default)
         => Task.FromResult<IReadOnlyList<FlightSeat>>(Items.Where(s => seatIds.Contains(s.Id)).ToList());
+}
+
+/// <summary>
+/// In-memory booking store. SaveChangesAsync assigns ids and wires navigations the way EF relationship fix-up would,
+/// so mapped DTOs can be built from what the service saved.
+/// </summary>
+internal sealed class FakeBookingRepository : FakeRepository<Booking>, IBookingRepository
+{
+    private readonly TestData _data;
+    private int _nextId = 1000;
+
+    public FakeBookingRepository(TestData data, params Booking[] items) : base(items) => _data = data;
+
+    public int SaveCount { get; private set; }
+
+    /// <summary>Resolves Booking.PromoCode like an EF include would.</summary>
+    public Func<int, PromoCode?>? PromoCodeLookup { get; set; }
+
+    public override Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
+    {
+        SaveCount++;
+        foreach (var booking in Items)
+        {
+            if (booking.PromoCodeId is int promoCodeId && PromoCodeLookup is not null)
+            {
+                booking.PromoCode ??= PromoCodeLookup(promoCodeId);
+            }
+
+            foreach (var leg in booking.Flights)
+            {
+                leg.Booking = booking;
+                leg.Flight ??= _data.Flight(leg.FlightId);
+            }
+
+            foreach (var passenger in booking.Passengers)
+            {
+                passenger.Id = passenger.Id == 0 ? _nextId++ : passenger.Id;
+                passenger.Booking = booking;
+                foreach (var ticket in passenger.Tickets)
+                {
+                    ticket.Id = ticket.Id == 0 ? _nextId++ : ticket.Id;
+                    ticket.BookingPassenger = passenger;
+                    ticket.FlightSeat = ticket.FlightSeatId is int seatId ? _data.Seat(seatId) : null;
+                }
+            }
+
+            foreach (var payment in booking.Payments)
+            {
+                payment.Id = payment.Id == 0 ? _nextId++ : payment.Id;
+                payment.Booking = booking;
+            }
+
+            if (booking.Cancellation is { } cancellation)
+            {
+                cancellation.Id = cancellation.Id == 0 ? _nextId++ : cancellation.Id;
+                cancellation.Booking = booking;
+                booking.Cancellation = cancellation;
+            }
+        }
+
+        return Task.FromResult(1);
+    }
+
+    public Task<Booking?> GetByPnrAsync(string pnr, CancellationToken cancellationToken = default)
+        => Task.FromResult(Items.FirstOrDefault(b => b.Pnr == pnr));
+
+    public Task<bool> PnrExistsAsync(string pnr, CancellationToken cancellationToken = default)
+        => Task.FromResult(Items.Any(b => b.Pnr == pnr));
+
+    public Task<IReadOnlyList<Booking>> GetByUserIdAsync(int userId, CancellationToken cancellationToken = default)
+        => Task.FromResult<IReadOnlyList<Booking>>(Items.Where(b => b.UserId == userId).OrderByDescending(b => b.CreatedAt).ToList());
+
+    public Task<IReadOnlyList<Booking>> GetExpiredPendingAsync(DateTime now, CancellationToken cancellationToken = default)
+        => Task.FromResult<IReadOnlyList<Booking>>(Items.Where(b => b.Status == BookingStatus.Pending && b.ExpiresAt <= now).ToList());
 }

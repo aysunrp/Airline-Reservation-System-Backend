@@ -67,6 +67,21 @@ internal sealed class TestData
 
     public FlightSeat Seat(int id) => Seats.Single(s => s.Id == id);
 
+    public Flight Flight(int id) => id == Outbound.Id ? Outbound : Return;
+
+    public static BaggageOption[] BaggageOptions =>
+    [
+        new() { Id = 1, Code = "bag10", Name = "+10 kg", WeightKg = 10, Price = 30 },
+        new() { Id = 2, Code = "bag20", Name = "+20 kg", WeightKg = 20, Price = 50 },
+        new() { Id = 3, Code = "bag30", Name = "+30 kg", WeightKg = 30, Price = 70, IsActive = false }
+    ];
+
+    public static MealOption[] MealOptions =>
+    [
+        new() { Id = 1, Code = "classic", Name = "Classic Dining", Price = 18 },
+        new() { Id = 2, Code = "signature", Name = "Signature Dining", Price = 35 }
+    ];
+
     public FakeAirportRepository Airports() => new(Baku, London, Istanbul);
 
     public FakeFlightRepository Flights() => new(Outbound, Return);
