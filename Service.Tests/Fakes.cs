@@ -227,3 +227,24 @@ internal sealed class FakeBookingRepository : FakeRepository<Booking>, IBookingR
     public Task<IReadOnlyList<Booking>> GetExpiredPendingAsync(DateTime now, CancellationToken cancellationToken = default)
         => Task.FromResult<IReadOnlyList<Booking>>(Items.Where(b => b.Status == BookingStatus.Pending && b.ExpiresAt <= now).ToList());
 }
+
+internal sealed class FakeAircraftRepository : FakeRepository<Aircraft>, IAircraftRepository
+{
+    public FakeAircraftRepository(params Aircraft[] items) : base(items)
+    {
+    }
+
+    public HashSet<int> InUse { get; } = new();
+
+    public Task<IReadOnlyList<Aircraft>> GetAllWithSeatsAsync(CancellationToken cancellationToken = default)
+        => Task.FromResult<IReadOnlyList<Aircraft>>(Items.OrderBy(a => a.Name).ToList());
+
+    public Task<Aircraft?> GetWithSeatsAsync(int id, CancellationToken cancellationToken = default)
+        => Task.FromResult(Items.FirstOrDefault(a => a.Id == id));
+
+    public Task<bool> RegistrationExistsAsync(string registrationNumber, int? excludeId = null, CancellationToken cancellationToken = default)
+        => Task.FromResult(Items.Any(a => a.RegistrationNumber == registrationNumber && a.Id != excludeId));
+
+    public Task<bool> IsInUseAsync(int id, CancellationToken cancellationToken = default)
+        => Task.FromResult(InUse.Contains(id));
+}
