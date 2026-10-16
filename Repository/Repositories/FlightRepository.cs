@@ -17,9 +17,7 @@ public class FlightRepository : BaseRepository<Flight>, IFlightRepository
         var from = date.ToDateTime(TimeOnly.MinValue, DateTimeKind.Utc);
         var to = from.AddDays(1);
 
-        return await Set.AsNoTracking()
-            .Include(f => f.Fares)
-            .Include(f => f.Segments.OrderBy(s => s.SequenceNo))
+        return await WithDetails()
             .Where(f => f.Route.OriginAirportId == originAirportId
                         && f.Route.DestinationAirportId == destinationAirportId
                         && f.DepartureAt >= from && f.DepartureAt < to
@@ -29,10 +27,16 @@ public class FlightRepository : BaseRepository<Flight>, IFlightRepository
     }
 
     public Task<Flight?> GetDetailsAsync(int id, CancellationToken cancellationToken = default)
+        => WithDetails().FirstOrDefaultAsync(f => f.Id == id, cancellationToken);
+
+    // Route airports, aircraft, ordered segments with their airports, and fares: everything a result card shows.
+    private IQueryable<Flight> WithDetails()
         => Set.AsNoTracking()
-            .Include(f => f.Route)
+            .AsSplitQuery()
+            .Include(f => f.Route).ThenInclude(r => r.Origin)
+            .Include(f => f.Route).ThenInclude(r => r.Destination)
             .Include(f => f.Aircraft)
-            .Include(f => f.Segments.OrderBy(s => s.SequenceNo))
-            .Include(f => f.Fares)
-            .FirstOrDefaultAsync(f => f.Id == id, cancellationToken);
+            .Include(f => f.Segments.OrderBy(s => s.SequenceNo)).ThenInclude(s => s.Origin)
+            .Include(f => f.Segments).ThenInclude(s => s.Destination)
+            .Include(f => f.Fares);
 }

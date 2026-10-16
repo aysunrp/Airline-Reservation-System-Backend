@@ -28,6 +28,8 @@ namespace Service
             services.AddScoped<IProfileService, ProfileService>();
             services.AddScoped<INotificationService, NotificationService>();
             services.AddScoped<IAirportService, AirportService>();
+            services.AddScoped<IFlightSearchService, FlightSearchService>();
+            services.AddScoped<ISeatService, SeatService>();
 
             return services;
         }

@@ -104,3 +104,52 @@ internal sealed class FakeCancellationRuleRepository : FakeRepository<Cancellati
     public Task<IReadOnlyList<CancellationRule>> GetByCabinClassAsync(CabinClass cabinClass, CancellationToken cancellationToken = default)
         => Task.FromResult<IReadOnlyList<CancellationRule>>(Items.Where(r => r.CabinClass == cabinClass).ToList());
 }
+
+internal sealed class FakeAirportRepository : FakeRepository<Airport>, IAirportRepository
+{
+    public FakeAirportRepository(params Airport[] items) : base(items)
+    {
+    }
+
+    public Task<Airport?> GetByCodeAsync(string code, CancellationToken cancellationToken = default)
+        => Task.FromResult(Items.FirstOrDefault(a => a.Code == code));
+
+    public Task<IReadOnlyList<Airport>> GetActiveAsync(CancellationToken cancellationToken = default)
+        => Task.FromResult<IReadOnlyList<Airport>>(Items.Where(a => a.IsActive).ToList());
+}
+
+internal sealed class FakeFlightRepository : FakeRepository<Flight>, IFlightRepository
+{
+    public FakeFlightRepository(params Flight[] items) : base(items)
+    {
+    }
+
+    public Task<IReadOnlyList<Flight>> SearchAsync(int originAirportId, int destinationAirportId, DateOnly date, CancellationToken cancellationToken = default)
+        => Task.FromResult<IReadOnlyList<Flight>>(Items
+            .Where(f => f.Route.OriginAirportId == originAirportId
+                        && f.Route.DestinationAirportId == destinationAirportId
+                        && DateOnly.FromDateTime(f.DepartureAt) == date
+                        && f.Status != FlightStatus.Cancelled)
+            .OrderBy(f => f.DepartureAt)
+            .ToList());
+
+    public Task<Flight?> GetDetailsAsync(int id, CancellationToken cancellationToken = default)
+        => Task.FromResult(Items.FirstOrDefault(f => f.Id == id));
+}
+
+internal sealed class FakeFlightSeatRepository : FakeRepository<FlightSeat>, IFlightSeatRepository
+{
+    public FakeFlightSeatRepository(params FlightSeat[] items) : base(items)
+    {
+    }
+
+    public Task<IReadOnlyList<FlightSeat>> GetByFlightIdAsync(int flightId, CancellationToken cancellationToken = default)
+        => Task.FromResult<IReadOnlyList<FlightSeat>>(Items.Where(s => s.FlightId == flightId)
+            .OrderBy(s => s.AircraftSeat.RowNumber).ThenBy(s => s.AircraftSeat.Letter).ToList());
+
+    public Task<IReadOnlyList<FlightSeat>> GetTrackedByIdsAsync(int flightId, IReadOnlyCollection<int> seatIds, CancellationToken cancellationToken = default)
+        => Task.FromResult<IReadOnlyList<FlightSeat>>(Items.Where(s => s.FlightId == flightId && seatIds.Contains(s.Id)).ToList());
+
+    public Task<IReadOnlyList<FlightSeat>> GetTrackedByIdsAsync(IReadOnlyCollection<int> seatIds, CancellationToken cancellationToken = default)
+        => Task.FromResult<IReadOnlyList<FlightSeat>>(Items.Where(s => seatIds.Contains(s.Id)).ToList());
+}

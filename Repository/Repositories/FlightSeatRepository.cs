@@ -22,6 +22,12 @@ public class FlightSeatRepository : BaseRepository<FlightSeat>, IFlightSeatRepos
 
     public async Task<IReadOnlyList<FlightSeat>> GetTrackedByIdsAsync(int flightId, IReadOnlyCollection<int> seatIds, CancellationToken cancellationToken = default)
         => await Set
+            .Include(s => s.AircraftSeat)
             .Where(s => s.FlightId == flightId && seatIds.Contains(s.Id))
+            .ToListAsync(cancellationToken);
+
+    public async Task<IReadOnlyList<FlightSeat>> GetTrackedByIdsAsync(IReadOnlyCollection<int> seatIds, CancellationToken cancellationToken = default)
+        => await Set
+            .Where(s => seatIds.Contains(s.Id))
             .ToListAsync(cancellationToken);
 }
