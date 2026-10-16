@@ -56,6 +56,21 @@ internal sealed class BookingTestContext
         new PaymentRequestValidator(Clock),
         Clock);
 
+    // Same bands as the booking-details page (Economy and Business).
+    public FakeCancellationRuleRepository CancellationRules { get; } = new(
+        new CancellationRule { CabinClass = CabinClass.Economy, MinDaysBeforeDeparture = 30, FeePercent = 20 },
+        new CancellationRule { CabinClass = CabinClass.Economy, MinDaysBeforeDeparture = 14, FeePercent = 40 },
+        new CancellationRule { CabinClass = CabinClass.Business, MinDaysBeforeDeparture = 7, FeePercent = 0 },
+        new CancellationRule { CabinClass = CabinClass.Business, MinDaysBeforeDeparture = 1, FeePercent = 15 });
+
+    public CancellationService CreateCancellationService() => new(
+        Bookings,
+        new CancellationPolicyService(CancellationRules, Clock),
+        CreateSeatService(),
+        new NotificationService(Notifications),
+        new CancelBookingRequestValidator(),
+        Clock);
+
     public static PaymentRequestDto CardPayment(string pnr) => new()
     {
         Pnr = pnr,

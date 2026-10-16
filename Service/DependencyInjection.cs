@@ -34,6 +34,7 @@ namespace Service
             services.AddScoped<IBookingExpiryService, BookingExpiryService>();
             services.AddScoped<IBookingService, BookingService>();
             services.AddScoped<IPaymentService, PaymentService>();
+            services.AddScoped<ICancellationService, CancellationService>();
             services.AddHostedService<BookingExpiryWorker>();
 
             return services;

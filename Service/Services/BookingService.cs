@@ -178,15 +178,22 @@ public class BookingService : IBookingService
     public async Task<BookingDto> GetByPnrAsync(string pnr, string lastName, CancellationToken cancellationToken = default)
     {
         var booking = await _bookingRepository.GetByPnrAsync(NormalizePnr(pnr), cancellationToken);
-        var name = lastName?.Trim();
-
-        if (booking is null || string.IsNullOrEmpty(name)
-            || !booking.Passengers.Any(p => string.Equals(p.LastName, name, StringComparison.OrdinalIgnoreCase)))
+        if (booking is null || !HasPassengerNamed(booking, lastName))
         {
             throw new NotFoundException(NotFoundMessage);
         }
 
         return booking.ToDto();
+    }
+
+    internal const string BookingNotFoundMessage = NotFoundMessage;
+
+    /// <summary>Manage-booking access check: one of the passengers must have this last name.</summary>
+    internal static bool HasPassengerNamed(Booking booking, string? lastName)
+    {
+        var name = lastName?.Trim();
+        return !string.IsNullOrEmpty(name)
+               && booking.Passengers.Any(p => string.Equals(p.LastName, name, StringComparison.OrdinalIgnoreCase));
     }
 
     public async Task<IReadOnlyList<BookingSummaryDto>> GetMyBookingsAsync(int userId, CancellationToken cancellationToken = default)
