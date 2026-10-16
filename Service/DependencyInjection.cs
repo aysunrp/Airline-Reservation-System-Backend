@@ -38,6 +38,8 @@ namespace Service
             services.AddScoped<ICancellationService, CancellationService>();
 
             services.AddScoped<IAdminAircraftService, AdminAircraftService>();
+            services.AddScoped<IAdminRouteService, AdminRouteService>();
+            services.AddScoped<IAdminScheduleService, AdminScheduleService>();
             services.AddHostedService<BookingExpiryWorker>();
 
             return services;

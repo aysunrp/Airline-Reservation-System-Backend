@@ -19,6 +19,8 @@ namespace Repository
 
             services.AddScoped<IAirportRepository, AirportRepository>();
             services.AddScoped<IAircraftRepository, AircraftRepository>();
+            services.AddScoped<IRouteRepository, RouteRepository>();
+            services.AddScoped<IFlightScheduleRepository, FlightScheduleRepository>();
             services.AddScoped<IUserRepository, UserRepository>();
             services.AddScoped<ISavedPassengerRepository, SavedPassengerRepository>();
             services.AddScoped<IPromoCodeRepository, PromoCodeRepository>();
