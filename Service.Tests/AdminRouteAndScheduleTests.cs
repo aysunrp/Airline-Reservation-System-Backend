@@ -295,4 +295,24 @@ public class AdminRouteAndScheduleTests
         nullStop.Stops = new() { null! };
         await Assert.ThrowsAsync<ValidationException>(() => service.CreateAsync(nullStop));
     }
+
+    [Fact]
+    public async Task ScheduleTimes_AreComparedInUtc()
+    {
+        var westbound = await CreateRouteService().CreateAsync(new RouteRequestDto { OriginCode = "IST", DestinationCode = "LHR", DistanceKm = 2500, DurationMinutes = 230 });
+        var service = CreateScheduleService();
+
+        // Istanbul 08:00 is 05:00 UTC and London 07:50 is 07:50 UTC in November: the local clock goes back, the flight does not.
+        var request = Schedule(westbound.Id);
+        request.DepartureTime = new TimeOnly(8, 0);
+        request.ArrivalTime = new TimeOnly(7, 50);
+        request.ArrivalDayOffset = 0;
+        Assert.Equal(new TimeOnly(7, 50), (await service.CreateAsync(request)).ArrivalTime);
+
+        // Istanbul 09:00 is 06:00 UTC, so a London arrival at 05:30 the same day would land before take-off.
+        request.DepartureTime = new TimeOnly(9, 0);
+        request.ArrivalTime = new TimeOnly(5, 30);
+        var error = await Assert.ThrowsAsync<ValidationException>(() => service.CreateAsync(request));
+        Assert.Contains(error.Errors, e => e.PropertyName == nameof(ScheduleRequestDto.ArrivalTime));
+    }
 }

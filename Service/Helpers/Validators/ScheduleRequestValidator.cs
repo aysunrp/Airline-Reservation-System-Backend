@@ -18,9 +18,8 @@ public class ScheduleRequestValidator : AbstractValidator<ScheduleRequestDto>
             .Must(FlightNumber.IsValid).WithMessage("Use a flight number like AV 101.");
         RuleFor(x => x.RouteId).GreaterThan(0);
         RuleFor(x => x.DefaultAircraftId).GreaterThan(0).When(x => x.DefaultAircraftId is not null);
+        // Departure and arrival are local times in different time zones, so AdminScheduleService compares them in UTC.
         RuleFor(x => x.ArrivalDayOffset).InclusiveBetween(0, 2);
-        RuleFor(x => x.ArrivalTime).GreaterThan(x => x.DepartureTime).When(x => x.ArrivalDayOffset == 0)
-            .WithMessage("Arrival must be after departure, or set the arrival to the next day.");
         RuleFor(x => x.DaysOfWeek)
             .Must(d => d != ScheduleDays.None && (d & ~ScheduleDays.Everyday) == 0)
             .WithMessage("Select at least one day of the week.");

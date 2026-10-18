@@ -1,10 +1,12 @@
 using Domain.Entities;
 using Domain.Enums;
 using FluentValidation;
+using FluentValidation.Results;
 using Repository.Repositories.Interfaces;
 using Service.Helpers.DTOs.Flight;
 using Service.Helpers.Exceptions;
 using Service.Helpers.Mappings;
+using Service.Helpers.Scheduling;
 using Service.Helpers.Validators;
 using Service.Services.Interfaces;
 
@@ -123,6 +125,20 @@ public class AdminScheduleService : IAdminScheduleService
 
         ApplyFares(request.Fares, schedule);
         await ApplyStopsAsync(request.Stops, route, schedule, cancellationToken);
+        CheckTimesInUtc(schedule);
+    }
+
+    // Checked on the first operating day; generated flights check every day again because of daylight saving.
+    private static void CheckTimesInUtc(FlightSchedule schedule)
+    {
+        try
+        {
+            ScheduleTimeCalculator.Calculate(schedule, schedule.ValidFrom);
+        }
+        catch (BusinessRuleException ex)
+        {
+            throw new ValidationException(new[] { new ValidationFailure(nameof(ScheduleRequestDto.ArrivalTime), ex.Message) });
+        }
     }
 
     // Existing rows are updated in place so the unique (schedule, cabin) and (schedule, stop number)
