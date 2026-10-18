@@ -10,4 +10,14 @@ public class SeedSettings
 
     /// <summary>After seeding, creates the flights of all active schedules for FlightGeneration:DaysAhead days.</summary>
     public bool GenerateFlights { get; set; } = true;
+
+    /// <summary>
+    /// Creates a development Admin account from <see cref="AdminEmail"/> and <see cref="AdminPassword"/> when the API
+    /// starts (Development only). Both values belong in user-secrets or environment variables, never in appsettings.
+    /// </summary>
+    public bool CreateAdmin { get; set; }
+
+    public string? AdminEmail { get; set; }
+
+    public string? AdminPassword { get; set; }
 }

@@ -46,6 +46,7 @@ namespace Service
             services.AddScoped<IAdminFlightService, AdminFlightService>();
             services.AddScoped<IFlightGenerationService, FlightGenerationService>();
             services.AddScoped<IDemoDataSeeder, DemoDataSeeder>();
+            services.AddScoped<IDevelopmentAdminSeeder, DevelopmentAdminSeeder>();
             services.AddScoped<IAdminBookingService, AdminBookingService>();
             services.AddScoped<IAdminPassengerService, AdminPassengerService>();
             services.AddScoped<IAdminDashboardService, AdminDashboardService>();
