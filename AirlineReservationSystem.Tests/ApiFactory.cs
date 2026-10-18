@@ -48,6 +48,9 @@ public sealed class ApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
 
             // Tests never depend on the developer's user-secrets.
             services.PostConfigure<JwtSettings>(settings => settings.Secret = JwtSecret);
+
+            // Tests trigger generation themselves; a background run would change their flight counts.
+            services.PostConfigure<FlightGenerationSettings>(settings => settings.WorkerEnabled = false);
         });
     }
 
