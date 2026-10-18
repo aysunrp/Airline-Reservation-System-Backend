@@ -98,6 +98,9 @@ app.UseAuthorization();
 
 app.MapControllers();
 
+// Demo data only in Development and only when Seed:Enabled is true (see DemoSeedStartup).
+await app.SeedDemoDataIfEnabledAsync();
+
 app.Run();
 
 // Lets the integration tests start the API with WebApplicationFactory<Program>.
