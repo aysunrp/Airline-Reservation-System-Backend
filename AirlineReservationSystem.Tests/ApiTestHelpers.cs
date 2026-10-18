@@ -2,7 +2,12 @@ using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using Domain.Entities;
+using Domain.Enums;
+using Microsoft.Extensions.DependencyInjection;
+using Repository.Data;
 using Service.Helpers.DTOs.Account;
+using Service.Services.Interfaces;
 
 namespace AirlineReservationSystem.Tests;
 
@@ -29,6 +34,27 @@ internal static class ApiTestHelpers
         }, Json);
         response.EnsureSuccessStatusCode();
         return (await response.Content.ReadFromJsonAsync<AuthResponseDto>(Json))!;
+    }
+
+    /// <summary>
+    /// There is no public way to become an admin, so the test writes an Admin account straight into the
+    /// test database and signs in through the API like the admin panel would.
+    /// </summary>
+    public static async Task<HttpClient> CreateAdminClientAsync(this ApiFactory factory)
+    {
+        var email = UniqueEmail("admin");
+        using (var scope = factory.Services.CreateScope())
+        {
+            var hasher = scope.ServiceProvider.GetRequiredService<IPasswordHasher>();
+            var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+            db.Users.Add(new User { Email = email, PasswordHash = hasher.Hash("admin-pass"), FirstName = "Aerova", LastName = "Admin", Role = UserRole.Admin });
+            await db.SaveChangesAsync();
+        }
+
+        var client = factory.CreateClient();
+        var response = await client.PostAsJsonAsync("/api/auth/login", new LoginRequestDto { Email = email, Password = "admin-pass" }, Json);
+        response.EnsureSuccessStatusCode();
+        return client.WithToken((await response.ReadAsync<AuthResponseDto>()).AccessToken);
     }
 
     public static HttpClient WithToken(this HttpClient client, string token)
