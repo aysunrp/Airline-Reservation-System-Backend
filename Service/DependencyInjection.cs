@@ -17,6 +17,7 @@ namespace Service
             services.Configure<BookingSettings>(configuration.GetSection(BookingSettings.SectionName));
             services.Configure<SeatLayoutSettings>(configuration.GetSection(SeatLayoutSettings.SectionName));
             services.Configure<FlightGenerationSettings>(configuration.GetSection(FlightGenerationSettings.SectionName));
+            services.Configure<SeedSettings>(configuration.GetSection(SeedSettings.SectionName));
 
             services.TryAddSingleton(TimeProvider.System);
             services.AddValidatorsFromAssembly(typeof(DependencyInjection).Assembly);
@@ -44,6 +45,7 @@ namespace Service
             services.AddScoped<IAdminScheduleService, AdminScheduleService>();
             services.AddScoped<IAdminFlightService, AdminFlightService>();
             services.AddScoped<IFlightGenerationService, FlightGenerationService>();
+            services.AddScoped<IDemoDataSeeder, DemoDataSeeder>();
             services.AddScoped<IAdminBookingService, AdminBookingService>();
             services.AddScoped<IAdminPassengerService, AdminPassengerService>();
             services.AddScoped<IAdminDashboardService, AdminDashboardService>();
