@@ -173,6 +173,14 @@ Authorization: Bearer {{adminToken}}
   "fares": { "Economy": 420, "Comfort": 560, "Business": 890 }
 }
 
+### Admin: generate the missing flights of all active schedules (dates optional, default today + 90 days)
+POST {{host}}/api/admin/schedules/generate?from=2026-11-01&to=2026-11-30
+Authorization: Bearer {{adminToken}}
+
+### Admin: generate the flights of one schedule
+POST {{host}}/api/admin/schedules/1/generate
+Authorization: Bearer {{adminToken}}
+
 ### Admin: block a seat
 PATCH {{host}}/api/admin/flights/1/seats/1
 Content-Type: application/json
