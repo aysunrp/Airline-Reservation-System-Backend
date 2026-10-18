@@ -14,9 +14,9 @@ internal sealed class TestData
     public static readonly DateTime OutboundDeparture = new(2026, 11, 10, 9, 0, 0, DateTimeKind.Utc);
     public static readonly DateTime ReturnDeparture = new(2026, 11, 17, 15, 0, 0, DateTimeKind.Utc);
 
-    public Airport Baku { get; } = new() { Id = 1, Code = "GYD", Name = "Heydar Aliyev", City = "Baku", CountryCode = "AZ" };
-    public Airport London { get; } = new() { Id = 2, Code = "LHR", Name = "Heathrow", City = "London", CountryCode = "GB" };
-    public Airport Istanbul { get; } = new() { Id = 3, Code = "IST", Name = "Istanbul", City = "Istanbul", CountryCode = "TR" };
+    public Airport Baku { get; } = new() { Id = 1, Code = "GYD", Name = "Heydar Aliyev", City = "Baku", CountryCode = "AZ", TimeZoneId = "Asia/Baku" };
+    public Airport London { get; } = new() { Id = 2, Code = "LHR", Name = "Heathrow", City = "London", CountryCode = "GB", TimeZoneId = "Europe/London" };
+    public Airport Istanbul { get; } = new() { Id = 3, Code = "IST", Name = "Istanbul", City = "Istanbul", CountryCode = "TR", TimeZoneId = "Europe/Istanbul" };
 
     public Flight Outbound { get; }
     public Flight Return { get; }

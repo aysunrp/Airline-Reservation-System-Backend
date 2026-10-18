@@ -24,8 +24,8 @@ internal static class TestSeed
         using var scope = services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
 
-        var baku = new Airport { Code = "GYD", Name = "Heydar Aliyev International", City = "Baku", CountryCode = "AZ" };
-        var london = new Airport { Code = "LHR", Name = "Heathrow", City = "London", CountryCode = "GB" };
+        var baku = new Airport { Code = "GYD", Name = "Heydar Aliyev International", City = "Baku", CountryCode = "AZ", TimeZoneId = "Asia/Baku" };
+        var london = new Airport { Code = "LHR", Name = "Heathrow", City = "London", CountryCode = "GB", TimeZoneId = "Europe/London" };
         var route = new Route { Origin = baku, Destination = london, DistanceKm = 3950, DurationMinutes = 340 };
 
         var aircraft = new Aircraft { Name = "AEROVA Horizon", Model = "A350-900", RegistrationNumber = "4K-AV08" };
