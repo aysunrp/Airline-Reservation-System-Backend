@@ -98,6 +98,9 @@ app.UseAuthorization();
 
 app.MapControllers();
 
+// Development admin account (Seed:CreateAdmin) and demo data (Seed:Enabled): Development only, off by default (see DemoSeedStartup).
+await app.SeedDemoDataIfEnabledAsync();
+
 app.Run();
 
 // Lets the integration tests start the API with WebApplicationFactory<Program>.

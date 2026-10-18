@@ -51,6 +51,15 @@ public sealed class ApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
 
             // Tests trigger generation themselves; a background run would change their flight counts.
             services.PostConfigure<FlightGenerationSettings>(settings => settings.WorkerEnabled = false);
+
+            // A developer's local Seed:* user-secrets must not seed test databases; tests switch these on themselves.
+            services.PostConfigure<SeedSettings>(settings =>
+            {
+                settings.Enabled = false;
+                settings.CreateAdmin = false;
+                settings.AdminEmail = null;
+                settings.AdminPassword = null;
+            });
         });
     }
 
