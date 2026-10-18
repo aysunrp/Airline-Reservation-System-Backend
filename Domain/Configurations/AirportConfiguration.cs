@@ -12,6 +12,7 @@ public class AirportConfiguration : IEntityTypeConfiguration<Airport>
         builder.Property(x => x.Name).IsRequired().HasMaxLength(150);
         builder.Property(x => x.City).IsRequired().HasMaxLength(100);
         builder.Property(x => x.CountryCode).IsRequired().HasMaxLength(2);
+        builder.Property(x => x.TimeZoneId).IsRequired().HasMaxLength(64);
         builder.HasIndex(x => x.Code).IsUnique();
     }
 }
