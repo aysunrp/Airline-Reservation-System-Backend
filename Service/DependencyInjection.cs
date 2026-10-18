@@ -48,6 +48,7 @@ namespace Service
             services.AddScoped<IAdminPassengerService, AdminPassengerService>();
             services.AddScoped<IAdminDashboardService, AdminDashboardService>();
             services.AddHostedService<BookingExpiryWorker>();
+            services.AddHostedService<FlightGenerationWorker>();
 
             return services;
         }
