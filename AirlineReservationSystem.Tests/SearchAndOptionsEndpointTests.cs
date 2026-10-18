@@ -34,6 +34,7 @@ public class SearchAndOptionsEndpointTests : IClassFixture<ApiFactory>
         var airports = await (await _client.GetAsync("/api/airports")).ReadAsync<List<AirportDto>>();
 
         Assert.Equal(new[] { "Baku", "London" }, airports.Select(a => a.City));
+        Assert.Equal(new[] { "Asia/Baku", "Europe/London" }, airports.Select(a => a.TimeZoneId));
     }
 
     [Fact]

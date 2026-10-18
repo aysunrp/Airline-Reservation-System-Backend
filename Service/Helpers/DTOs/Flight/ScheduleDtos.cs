@@ -17,7 +17,16 @@ public record ScheduleDto(
     ScheduleDays DaysOfWeek,
     DateOnly ValidFrom,
     DateOnly? ValidTo,
-    bool IsActive);
+    bool IsActive,
+    IReadOnlyDictionary<CabinClass, decimal> Fares,
+    IReadOnlyList<ScheduleStopDto> Stops);
+
+public record ScheduleStopDto(
+    int SequenceNo,
+    string AirportCode,
+    string City,
+    int ArrivalOffsetMinutes,
+    int LayoverMinutes);
 
 public class ScheduleRequestDto
 {
@@ -34,4 +43,27 @@ public class ScheduleRequestDto
     public DateOnly ValidFrom { get; set; }
     public DateOnly? ValidTo { get; set; }
     public bool IsActive { get; set; } = true;
+
+    /// <summary>Base price per cabin for the flights of this schedule; each cabin at most once.</summary>
+    public List<ScheduleFareRequestDto> Fares { get; set; } = new();
+
+    /// <summary>Intermediate airports, numbered 1, 2, ... in flying order. Empty for a non-stop schedule.</summary>
+    public List<ScheduleStopRequestDto> Stops { get; set; } = new();
+}
+
+public class ScheduleFareRequestDto
+{
+    public CabinClass CabinClass { get; set; }
+    public decimal BasePrice { get; set; }
+}
+
+public class ScheduleStopRequestDto
+{
+    public int SequenceNo { get; set; }
+    public string AirportCode { get; set; } = string.Empty;
+
+    /// <summary>Minutes from the scheduled departure until landing at the stop.</summary>
+    public int ArrivalOffsetMinutes { get; set; }
+
+    public int LayoverMinutes { get; set; }
 }

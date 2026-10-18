@@ -19,6 +19,8 @@ public class AppDbContext : DbContext
     public DbSet<PromoCode> PromoCodes => Set<PromoCode>();
     public DbSet<CancellationRule> CancellationRules => Set<CancellationRule>();
     public DbSet<FlightSchedule> FlightSchedules => Set<FlightSchedule>();
+    public DbSet<FlightScheduleFare> FlightScheduleFares => Set<FlightScheduleFare>();
+    public DbSet<FlightScheduleStop> FlightScheduleStops => Set<FlightScheduleStop>();
     public DbSet<Flight> Flights => Set<Flight>();
     public DbSet<FlightSegment> FlightSegments => Set<FlightSegment>();
     public DbSet<FlightFare> FlightFares => Set<FlightFare>();

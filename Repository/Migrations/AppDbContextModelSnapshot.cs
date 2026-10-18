@@ -139,6 +139,11 @@ namespace Repository.Migrations
                         .HasMaxLength(150)
                         .HasColumnType("nvarchar(150)");
 
+                    b.Property<string>("TimeZoneId")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
                     b.Property<DateTime?>("UpdatedAt")
                         .HasColumnType("datetime2");
 
@@ -609,6 +614,79 @@ namespace Repository.Migrations
                     b.HasIndex("RouteId");
 
                     b.ToTable("FlightSchedules");
+                });
+
+            modelBuilder.Entity("Domain.Entities.FlightScheduleFare", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<decimal>("BasePrice")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<string>("CabinClass")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("FlightScheduleId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("FlightScheduleId", "CabinClass")
+                        .IsUnique();
+
+                    b.ToTable("FlightScheduleFares");
+                });
+
+            modelBuilder.Entity("Domain.Entities.FlightScheduleStop", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("AirportId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("ArrivalOffsetMinutes")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("FlightScheduleId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("LayoverMinutes")
+                        .HasColumnType("int");
+
+                    b.Property<int>("SequenceNo")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AirportId");
+
+                    b.HasIndex("FlightScheduleId", "SequenceNo")
+                        .IsUnique();
+
+                    b.ToTable("FlightScheduleStops");
                 });
 
             modelBuilder.Entity("Domain.Entities.FlightSeat", b =>
@@ -1306,6 +1384,36 @@ namespace Repository.Migrations
                     b.Navigation("Route");
                 });
 
+            modelBuilder.Entity("Domain.Entities.FlightScheduleFare", b =>
+                {
+                    b.HasOne("Domain.Entities.FlightSchedule", "FlightSchedule")
+                        .WithMany("Fares")
+                        .HasForeignKey("FlightScheduleId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("FlightSchedule");
+                });
+
+            modelBuilder.Entity("Domain.Entities.FlightScheduleStop", b =>
+                {
+                    b.HasOne("Domain.Entities.Airport", "Airport")
+                        .WithMany()
+                        .HasForeignKey("AirportId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Domain.Entities.FlightSchedule", "FlightSchedule")
+                        .WithMany("Stops")
+                        .HasForeignKey("FlightScheduleId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Airport");
+
+                    b.Navigation("FlightSchedule");
+                });
+
             modelBuilder.Entity("Domain.Entities.FlightSeat", b =>
                 {
                     b.HasOne("Domain.Entities.AircraftSeat", "AircraftSeat")
@@ -1508,6 +1616,13 @@ namespace Repository.Migrations
                     b.Navigation("Seats");
 
                     b.Navigation("Segments");
+                });
+
+            modelBuilder.Entity("Domain.Entities.FlightSchedule", b =>
+                {
+                    b.Navigation("Fares");
+
+                    b.Navigation("Stops");
                 });
 
             modelBuilder.Entity("Domain.Entities.User", b =>
