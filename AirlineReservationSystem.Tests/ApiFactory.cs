@@ -32,6 +32,11 @@ public sealed class ApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
     /// <summary>Signing key the API runs with; tests can set an invalid one to check the startup validation.</summary>
     public string JwtSecret { get; init; } = TestJwtSecret;
 
+    private Task<SeedData>? _seed;
+
+    /// <summary>Writes the test flight network once per database and returns its ids (tests of a class run one after another).</summary>
+    public Task<SeedData> GetSeedAsync() => _seed ??= TestSeed.CreateAsync(Services);
+
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
         builder.UseEnvironment("Development");
