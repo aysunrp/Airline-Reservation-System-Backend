@@ -296,7 +296,7 @@ public class AdminFlightService : IAdminFlightService
         }
     }
 
-    private static void AddSeatInventory(Flight flight, Aircraft aircraft)
+    internal static void AddSeatInventory(Flight flight, Aircraft aircraft)
     {
         foreach (var seat in aircraft.Seats)
         {
