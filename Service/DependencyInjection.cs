@@ -16,6 +16,7 @@ namespace Service
             services.Configure<JwtSettings>(configuration.GetSection(JwtSettings.SectionName));
             services.Configure<BookingSettings>(configuration.GetSection(BookingSettings.SectionName));
             services.Configure<SeatLayoutSettings>(configuration.GetSection(SeatLayoutSettings.SectionName));
+            services.Configure<FlightGenerationSettings>(configuration.GetSection(FlightGenerationSettings.SectionName));
 
             services.TryAddSingleton(TimeProvider.System);
             services.AddValidatorsFromAssembly(typeof(DependencyInjection).Assembly);
@@ -42,6 +43,7 @@ namespace Service
             services.AddScoped<IAdminRouteService, AdminRouteService>();
             services.AddScoped<IAdminScheduleService, AdminScheduleService>();
             services.AddScoped<IAdminFlightService, AdminFlightService>();
+            services.AddScoped<IFlightGenerationService, FlightGenerationService>();
             services.AddScoped<IAdminBookingService, AdminBookingService>();
             services.AddScoped<IAdminPassengerService, AdminPassengerService>();
             services.AddScoped<IAdminDashboardService, AdminDashboardService>();

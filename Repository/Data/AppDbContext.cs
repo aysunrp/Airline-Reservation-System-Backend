@@ -49,5 +49,12 @@ public class AppDbContext : DbContext
             .HasIndex(t => t.FlightSeatId)
             .IsUnique()
             .HasFilter($"[FlightSeatId] IS NOT NULL AND [Status] <> '{nameof(TicketStatus.Cancelled)}'");
+
+        // A schedule produces at most one flight per operating day. Flights created by hand have no
+        // scheduled date and stay unrestricted (SQL Server would otherwise treat NULLs as equal).
+        modelBuilder.Entity<Flight>()
+            .HasIndex(f => new { f.FlightScheduleId, f.ScheduledDate })
+            .IsUnique()
+            .HasFilter("[FlightScheduleId] IS NOT NULL AND [ScheduledDate] IS NOT NULL");
     }
 }

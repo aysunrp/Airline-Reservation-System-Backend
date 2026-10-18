@@ -3,6 +3,7 @@ using Repository.Repositories.Interfaces;
 using Service.Helpers.DTOs.Flight;
 using Service.Helpers.Exceptions;
 using Service.Helpers.Mappings;
+using Service.Helpers.Scheduling;
 using Service.Services.Interfaces;
 
 namespace Service.Services;
@@ -40,7 +41,10 @@ public class FlightSearchService : IFlightSearchService
             var origin = await GetAirportAsync(leg.OriginCode, cancellationToken);
             var destination = await GetAirportAsync(leg.DestinationCode, cancellationToken);
 
-            var flights = await _flightRepository.SearchAsync(origin.Id, destination.Id, leg.Date, cancellationToken);
+            // The date is the departure day at the origin airport, from its local midnight to the next one.
+            var fromUtc = ScheduleTimeCalculator.ToUtc(leg.Date, TimeOnly.MinValue, origin);
+            var toUtc = ScheduleTimeCalculator.ToUtc(leg.Date.AddDays(1), TimeOnly.MinValue, origin);
+            var flights = await _flightRepository.SearchAsync(origin.Id, destination.Id, fromUtc, toUtc, cancellationToken);
             var bookable = await FilterBookableAsync(flights, request.CabinClass, request.Passengers, cancellationToken);
             results.Add(new FlightSearchLegResultDto(i, origin.Code, destination.Code, leg.Date, bookable.Select(f => f.ToResultDto()).ToList()));
         }

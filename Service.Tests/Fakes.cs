@@ -153,17 +153,53 @@ internal sealed class FakeFlightRepository : FakeRepository<Flight>, IFlightRepo
         return Task.FromResult(1);
     }
 
-    public Task<IReadOnlyList<Flight>> SearchAsync(int originAirportId, int destinationAirportId, DateOnly date, CancellationToken cancellationToken = default)
+    public Task<IReadOnlyList<Flight>> SearchAsync(int originAirportId, int destinationAirportId, DateTime fromUtc, DateTime toUtc, CancellationToken cancellationToken = default)
         => Task.FromResult<IReadOnlyList<Flight>>(Items
             .Where(f => f.Route.OriginAirportId == originAirportId
                         && f.Route.DestinationAirportId == destinationAirportId
-                        && DateOnly.FromDateTime(f.DepartureAt) == date
+                        && f.DepartureAt >= fromUtc && f.DepartureAt < toUtc
                         && f.Status != FlightStatus.Cancelled)
             .OrderBy(f => f.DepartureAt)
             .ToList());
 
     public Task<Flight?> GetDetailsAsync(int id, CancellationToken cancellationToken = default)
         => Task.FromResult(Items.FirstOrDefault(f => f.Id == id));
+
+    public Task<IReadOnlyList<(string FlightNumber, DateTime DepartureAt)>> GetDepartureKeysAsync(DateTime fromUtc, DateTime toUtc, CancellationToken cancellationToken = default)
+        => Task.FromResult<IReadOnlyList<(string FlightNumber, DateTime DepartureAt)>>(Items
+            .Where(f => f.DepartureAt >= fromUtc && f.DepartureAt < toUtc)
+            .Select(f => (f.FlightNumber, f.DepartureAt))
+            .ToList());
+
+    public Task<IReadOnlyList<DateOnly>> GetScheduledDatesAsync(int scheduleId, DateOnly from, DateOnly to, CancellationToken cancellationToken = default)
+        => Task.FromResult<IReadOnlyList<DateOnly>>(Items
+            .Where(f => f.FlightScheduleId == scheduleId && f.ScheduledDate >= from && f.ScheduledDate <= to)
+            .Select(f => f.ScheduledDate!.Value)
+            .ToList());
+
+    /// <summary>Runs just before a TryAddAsync insert, e.g. to let "another run" store the same flight first.</summary>
+    public Action<Flight>? BeforeInsert { get; set; }
+
+    /// <summary>Acts like the unique indexes on (flight number, departure) and (schedule, scheduled date).</summary>
+    public async Task<bool> TryAddAsync(Flight flight, CancellationToken cancellationToken = default)
+    {
+        BeforeInsert?.Invoke(flight);
+        var duplicate = Items.Any(f =>
+            (f.FlightNumber == flight.FlightNumber && f.DepartureAt == flight.DepartureAt)
+            || (flight.FlightScheduleId is not null && flight.ScheduledDate is not null
+                && f.FlightScheduleId == flight.FlightScheduleId && f.ScheduledDate == flight.ScheduledDate));
+        if (duplicate)
+        {
+            return false;
+        }
+
+        await AddAsync(flight, cancellationToken);
+        return true;
+    }
+
+    public int ClearTrackingCalls { get; private set; }
+
+    public void ClearTracking() => ClearTrackingCalls++;
 
     public Task<IReadOnlyList<Flight>> GetAllWithDetailsAsync(CancellationToken cancellationToken = default)
         => Task.FromResult<IReadOnlyList<Flight>>(Items.OrderBy(f => f.DepartureAt).ToList());

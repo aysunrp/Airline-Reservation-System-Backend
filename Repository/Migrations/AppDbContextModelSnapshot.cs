@@ -503,6 +503,9 @@ namespace Repository.Migrations
                     b.Property<int>("RouteId")
                         .HasColumnType("int");
 
+                    b.Property<DateOnly?>("ScheduledDate")
+                        .HasColumnType("date");
+
                     b.Property<string>("Status")
                         .IsRequired()
                         .HasMaxLength(20)
@@ -515,10 +518,12 @@ namespace Repository.Migrations
 
                     b.HasIndex("AircraftId");
 
-                    b.HasIndex("FlightScheduleId");
-
                     b.HasIndex("FlightNumber", "DepartureAt")
                         .IsUnique();
+
+                    b.HasIndex("FlightScheduleId", "ScheduledDate")
+                        .IsUnique()
+                        .HasFilter("[FlightScheduleId] IS NOT NULL AND [ScheduledDate] IS NOT NULL");
 
                     b.HasIndex("RouteId", "DepartureAt");
 

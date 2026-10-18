@@ -78,7 +78,7 @@ public class AdminFlightService : IAdminFlightService
 
         var route = await GetActiveRouteAsync(request, cancellationToken);
         var aircraft = await GetUsableAircraftAsync(request.AircraftId, cancellationToken);
-        CheckFaresMatchAircraft(request.Fares, aircraft);
+        CheckFaresMatchAircraft(request.Fares.Keys, aircraft);
         await CheckScheduleAsync(request.FlightScheduleId, cancellationToken);
 
         var flight = new Flight
@@ -129,7 +129,7 @@ public class AdminFlightService : IAdminFlightService
         var aircraft = aircraftChanged
             ? await GetUsableAircraftAsync(request.AircraftId, cancellationToken)
             : await _aircraftRepository.GetWithSeatsAsync(flight.AircraftId, cancellationToken) ?? throw new NotFoundException("Aircraft not found.");
-        CheckFaresMatchAircraft(request.Fares, aircraft);
+        CheckFaresMatchAircraft(request.Fares.Keys, aircraft);
 
         if (hasBookings && flight.Fares.Any(f => !request.Fares.ContainsKey(f.CabinClass)))
         {
@@ -296,7 +296,7 @@ public class AdminFlightService : IAdminFlightService
         }
     }
 
-    private static void AddSeatInventory(Flight flight, Aircraft aircraft)
+    internal static void AddSeatInventory(Flight flight, Aircraft aircraft)
     {
         foreach (var seat in aircraft.Seats)
         {
@@ -325,9 +325,9 @@ public class AdminFlightService : IAdminFlightService
         }
     }
 
-    private static void CheckFaresMatchAircraft(IReadOnlyDictionary<CabinClass, decimal> fares, Aircraft aircraft)
+    internal static void CheckFaresMatchAircraft(IEnumerable<CabinClass> cabins, Aircraft aircraft)
     {
-        var missing = fares.Keys.Where(cabin => aircraft.Seats.All(s => s.CabinClass != cabin)).ToList();
+        var missing = cabins.Where(cabin => aircraft.Seats.All(s => s.CabinClass != cabin)).ToList();
         if (missing.Count > 0)
         {
             throw new BusinessRuleException($"Aircraft {aircraft.Name} has no {string.Join(", ", missing)} seats.");
