@@ -217,4 +217,55 @@ public class FlightGenerationServiceTests
         await Assert.ThrowsAsync<ValidationException>(() => service.GenerateAsync(from: new DateOnly(2026, 1, 1), to: new DateOnly(2027, 6, 1)));
         await Assert.ThrowsAsync<NotFoundException>(() => service.GenerateAsync(scheduleId: 99));
     }
+
+    [Fact]
+    public async Task GeneratedFlights_RememberTheirScheduleAndDay()
+    {
+        var schedule = AddSchedule();
+
+        var result = await CreateService().GenerateAsync(from: new DateOnly(2026, 11, 1), to: new DateOnly(2026, 11, 14));
+
+        var flights = await _flights.GetAllWithDetailsAsync();
+        Assert.All(flights, f => Assert.Equal(schedule.Id, f.FlightScheduleId));
+        Assert.Equal(result.Created.Select(c => (DateOnly?)c.ScheduledDate), flights.Select(f => f.ScheduledDate));
+    }
+
+    [Fact]
+    public async Task ChangedScheduleTimes_DoNotAddASecondFlightForTheSameDay()
+    {
+        var schedule = AddSchedule();
+        var service = CreateService();
+        await service.GenerateAsync(from: new DateOnly(2026, 11, 2), to: new DateOnly(2026, 11, 2));
+
+        schedule.DepartureTime = new TimeOnly(10, 30);
+        schedule.ArrivalTime = new TimeOnly(14, 10);
+        var again = await service.GenerateAsync(from: new DateOnly(2026, 11, 2), to: new DateOnly(2026, 11, 2));
+
+        Assert.Empty(again.Created);
+        Assert.Equal(1, again.AlreadyExisting);
+        Assert.Single(await _flights.GetAllWithDetailsAsync());
+    }
+
+    [Fact]
+    public async Task LosingARaceForOneDay_IsAConflict_AndTheOtherDaysStillGenerate()
+    {
+        AddSchedule();
+
+        // Another run stores the 6 Nov flight between this run's check and its insert (the fake adds synchronously).
+        _flights.BeforeInsert = flight =>
+        {
+            if (flight.ScheduledDate == new DateOnly(2026, 11, 6))
+            {
+                _flights.AddAsync(new Flight { FlightNumber = flight.FlightNumber, DepartureAt = flight.DepartureAt, FlightScheduleId = flight.FlightScheduleId, ScheduledDate = flight.ScheduledDate });
+                _flights.BeforeInsert = null;
+            }
+        };
+
+        var result = await CreateService().GenerateAsync(from: new DateOnly(2026, 11, 1), to: new DateOnly(2026, 11, 14));
+
+        var conflict = Assert.Single(result.Conflicts);
+        Assert.Equal(new DateOnly(2026, 11, 6), conflict.ScheduledDate);
+        Assert.Equal(new[] { 2, 9, 13 }, result.Created.Select(c => c.ScheduledDate.Day));
+        Assert.Equal(4, (await _flights.GetAllWithDetailsAsync()).Count);
+    }
 }

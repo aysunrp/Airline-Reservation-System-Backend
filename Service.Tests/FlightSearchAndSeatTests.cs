@@ -146,4 +146,30 @@ public class FlightSearchAndSeatTests
 
         await Assert.ThrowsAsync<NotFoundException>(() => service.GetSeatMapAsync(99));
     }
+
+    private async Task<int> CountAsync(string from, string to, DateOnly date)
+        => (await CreateSearch().SearchAsync(new FlightSearchRequestDto { Legs = { new FlightSearchLegDto { OriginCode = from, DestinationCode = to, Date = date } } }))[0].Flights.Count;
+
+    [Theory]
+    [InlineData(9, 20, 30, 10)]   // 00:30 on 10 Nov in Baku (UTC+4), still 9 Nov in UTC
+    [InlineData(10, 19, 59, 10)]  // 23:59 on 10 Nov in Baku
+    [InlineData(10, 20, 0, 11)]   // 00:00 on 11 Nov in Baku, still 10 Nov in UTC
+    public async Task SearchDate_IsTheDepartureDayAtTheOriginAirport(int utcDay, int utcHour, int utcMinute, int bakuDay)
+    {
+        _data.Outbound.DepartureAt = new DateTime(2026, 11, utcDay, utcHour, utcMinute, 0, DateTimeKind.Utc);
+
+        Assert.Equal(1, await CountAsync("GYD", "LHR", new DateOnly(2026, 11, bakuDay)));
+        Assert.Equal(0, await CountAsync("GYD", "LHR", new DateOnly(2026, 11, bakuDay == 10 ? 11 : 10)));
+        Assert.Equal(0, await CountAsync("GYD", "LHR", new DateOnly(2026, 11, bakuDay == 10 ? 9 : 12)));
+    }
+
+    [Fact]
+    public async Task SearchDate_FollowsSummerTimeAtTheOrigin()
+    {
+        // 23:30 UTC on 16 Jul 2027 is 00:30 on 17 Jul in London (UTC+1 in summer).
+        _data.Return.DepartureAt = new DateTime(2027, 7, 16, 23, 30, 0, DateTimeKind.Utc);
+
+        Assert.Equal(1, await CountAsync("LHR", "GYD", new DateOnly(2027, 7, 17)));
+        Assert.Equal(0, await CountAsync("LHR", "GYD", new DateOnly(2027, 7, 16)));
+    }
 }
