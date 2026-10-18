@@ -15,6 +15,8 @@ namespace Service.Services;
 /// <summary>
 /// Creates dated flights from active schedules: UTC times from the airports' time zones, one segment per leg,
 /// the schedule's cabin fares and a seat inventory from the aircraft's layout. Flights that already exist are left alone.
+/// The checks before inserting keep repeated runs cheap; the unique indexes on (flight number, departure) and
+/// (schedule, scheduled date) are what make concurrent runs safe.
 /// </summary>
 public class FlightGenerationService : IFlightGenerationService
 {
@@ -56,7 +58,7 @@ public class FlightGenerationService : IFlightGenerationService
             _flightRepository.ClearTracking();
         }
 
-        return new FlightGenerationResultDto(run.Created, run.AlreadyExisting, run.Skipped, run.Adjustments);
+        return new FlightGenerationResultDto(run.Created, run.AlreadyExisting, run.Skipped, run.Conflicts, run.Adjustments);
     }
 
     private async Task GenerateForScheduleAsync(FlightSchedule schedule, DateOnly? from, DateOnly? to, Run run, CancellationToken cancellationToken)
@@ -89,6 +91,7 @@ public class FlightGenerationService : IFlightGenerationService
                 lastDate.AddDays(2).ToDateTime(TimeOnly.MinValue, DateTimeKind.Utc),
                 cancellationToken))
             .ToHashSet();
+        var generatedDays = (await _flightRepository.GetScheduledDatesAsync(schedule.Id, firstDate, lastDate, cancellationToken)).ToHashSet();
 
         var savedInBatch = 0;
         for (var date = firstDate; date <= lastDate; date = date.AddDays(1))
@@ -115,16 +118,22 @@ public class FlightGenerationService : IFlightGenerationService
                 continue;
             }
 
-            if (!existing.Add((schedule.FlightNumber, times.DepartureAt)))
+            // The day already has its flight (even if the schedule's times changed since), or another flight
+            // uses this number at this time.
+            if (generatedDays.Contains(date) || !existing.Add((schedule.FlightNumber, times.DepartureAt)))
             {
                 run.AlreadyExisting++;
                 continue;
             }
 
-            // Each flight is saved on its own together with its segments, fares and seats, so it is never stored half-built.
+            // Each flight is saved on its own together with its segments, fares and seats, so it is never stored
+            // half-built, and losing a race for one day does not stop the others.
             var flight = BuildFlight(schedule, aircraft, times);
-            await _flightRepository.AddAsync(flight, cancellationToken);
-            await _flightRepository.SaveChangesAsync(cancellationToken);
+            if (!await _flightRepository.TryAddAsync(flight, cancellationToken))
+            {
+                run.Conflicts.Add(new FlightGenerationConflictDto(schedule.Id, schedule.FlightNumber, date, times.DepartureAt));
+                continue;
+            }
 
             run.Created.Add(new GeneratedFlightDto(flight.Id, schedule.Id, flight.FlightNumber, date, flight.DepartureAt, flight.ArrivalAt));
             run.Adjustments.AddRange(times.Adjustments.Select(a => $"{schedule.FlightNumber}: {a}"));
@@ -190,6 +199,7 @@ public class FlightGenerationService : IFlightGenerationService
         {
             FlightNumber = schedule.FlightNumber,
             FlightScheduleId = schedule.Id,
+            ScheduledDate = times.ScheduledDate,
             RouteId = schedule.RouteId,
             AircraftId = aircraft.Id,
             DepartureAt = times.DepartureAt,
@@ -248,6 +258,7 @@ public class FlightGenerationService : IFlightGenerationService
         public List<GeneratedFlightDto> Created { get; } = new();
         public int AlreadyExisting { get; set; }
         public List<FlightGenerationSkipDto> Skipped { get; } = new();
+        public List<FlightGenerationConflictDto> Conflicts { get; } = new();
         public List<string> Adjustments { get; } = new();
     }
 }

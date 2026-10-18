@@ -4,8 +4,8 @@ namespace Repository.Repositories.Interfaces;
 
 public interface IFlightRepository : IBaseRepository<Flight>
 {
-    /// <summary>Non-cancelled flights on the given route and UTC day, with fares and segments, ordered by departure.</summary>
-    Task<IReadOnlyList<Flight>> SearchAsync(int originAirportId, int destinationAirportId, DateOnly date, CancellationToken cancellationToken = default);
+    /// <summary>Non-cancelled flights on the given route departing in [fromUtc, toUtc), with fares and segments, ordered by departure.</summary>
+    Task<IReadOnlyList<Flight>> SearchAsync(int originAirportId, int destinationAirportId, DateTime fromUtc, DateTime toUtc, CancellationToken cancellationToken = default);
 
     /// <summary>Returns a flight with route, aircraft, segments and fares (no tracking).</summary>
     Task<Flight?> GetDetailsAsync(int id, CancellationToken cancellationToken = default);
@@ -23,6 +23,16 @@ public interface IFlightRepository : IBaseRepository<Flight>
 
     /// <summary>Flight number and departure of every flight departing in [fromUtc, toUtc).</summary>
     Task<IReadOnlyList<(string FlightNumber, DateTime DepartureAt)>> GetDepartureKeysAsync(DateTime fromUtc, DateTime toUtc, CancellationToken cancellationToken = default);
+
+    /// <summary>Operating days that already have a flight generated from the schedule, in [from, to].</summary>
+    Task<IReadOnlyList<DateOnly>> GetScheduledDatesAsync(int scheduleId, DateOnly from, DateOnly to, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Inserts the flight with everything attached to it in one save. Returns false, and stores nothing, when a
+    /// unique index rejects it (the same flight number and departure, or the same schedule and day, already exist);
+    /// any other database error is thrown.
+    /// </summary>
+    Task<bool> TryAddAsync(Flight flight, CancellationToken cancellationToken = default);
 
     /// <summary>Forgets every loaded entity, so long batch jobs do not keep thousands of saved rows in memory.</summary>
     void ClearTracking();
