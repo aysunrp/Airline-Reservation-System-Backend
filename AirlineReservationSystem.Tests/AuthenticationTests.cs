@@ -101,6 +101,20 @@ public class AuthenticationTests : IClassFixture<ApiFactory>
     }
 
     [Fact]
+    public async Task Swagger_LocksOnlyEndpointsThatNeedAToken()
+    {
+        using var document = JsonDocument.Parse(await _factory.CreateClient().GetStringAsync("/swagger/v1/swagger.json"));
+        var paths = document.RootElement.GetProperty("paths");
+
+        bool IsLocked(string path, string method) => paths.GetProperty(path).GetProperty(method).TryGetProperty("security", out _);
+
+        Assert.False(IsLocked("/api/auth/register", "post"));
+        Assert.False(IsLocked("/api/auth/login", "post"));
+        Assert.True(IsLocked("/api/profile", "get"));
+        Assert.True(IsLocked("/api/profile/saved-passengers/{id}", "delete"));
+    }
+
+    [Fact]
     public async Task ApiDoesNotStart_WithoutAUsableSigningKey()
     {
         await using var factory = new ApiFactory { JwtSecret = "too-short" };
