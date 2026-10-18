@@ -1,6 +1,8 @@
 ### AEROVA API sample requests (Visual Studio / VS Code REST Client).
 ### Run the "http" launch profile first. Put the accessToken from login/register into @token
 ### and an admin account's token into @adminToken. Ids, PNRs and dates are examples.
+### Development admin: set Seed:CreateAdmin, Seed:AdminEmail and Seed:AdminPassword in user-secrets
+### (see Helpers/DemoSeedStartup.cs), start the API, then log in with those credentials.
 
 @host = http://localhost:5080
 @token = paste-a-client-token

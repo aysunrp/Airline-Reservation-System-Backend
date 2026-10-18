@@ -98,7 +98,7 @@ app.UseAuthorization();
 
 app.MapControllers();
 
-// Demo data only in Development and only when Seed:Enabled is true (see DemoSeedStartup).
+// Development admin account (Seed:CreateAdmin) and demo data (Seed:Enabled): Development only, off by default (see DemoSeedStartup).
 await app.SeedDemoDataIfEnabledAsync();
 
 app.Run();
