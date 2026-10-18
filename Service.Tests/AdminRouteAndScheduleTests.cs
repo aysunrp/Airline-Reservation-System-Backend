@@ -13,8 +13,9 @@ public class AdminRouteAndScheduleTests
     private readonly TestData _data = new();
     private readonly FakeRouteRepository _routes = new();
     private readonly FakeAircraftRepository _aircraft = new(
-        new Aircraft { Id = 1, Name = "AEROVA Horizon", Model = "A350-900", RegistrationNumber = "4K-AV08" },
-        new Aircraft { Id = 2, Name = "AEROVA Pearl", Model = "A321neo", RegistrationNumber = "4K-AV21", Status = AircraftStatus.Inactive });
+        new Aircraft { Id = 1, Name = "AEROVA Horizon", Model = "A350-900", RegistrationNumber = "4K-AV08", Seats = Seats(CabinClass.Business, CabinClass.Comfort, CabinClass.Economy) },
+        new Aircraft { Id = 2, Name = "AEROVA Pearl", Model = "A321neo", RegistrationNumber = "4K-AV21", Status = AircraftStatus.Inactive },
+        new Aircraft { Id = 3, Name = "AEROVA Silk", Model = "A320neo", RegistrationNumber = "4K-AV30", Seats = Seats(CabinClass.Economy) });
     private readonly FakeFlightScheduleRepository _schedules = new();
     private readonly Airport _vienna = new() { Id = 4, Code = "VIE", Name = "Vienna", City = "Vienna", CountryCode = "AT", TimeZoneId = "Europe/Vienna" };
 
@@ -249,5 +250,49 @@ public class AdminRouteAndScheduleTests
 
         request.Stops = new();
         Assert.Empty((await service.UpdateAsync(created.Id, request)).Stops);
+    }
+
+    private static List<AircraftSeat> Seats(params CabinClass[] cabins)
+        => cabins.Select((cabin, row) => new AircraftSeat { RowNumber = row + 1, Letter = "A", CabinClass = cabin }).ToList();
+
+    [Fact]
+    public async Task Fares_MustMatchTheCabinsOfTheDefaultAircraft()
+    {
+        var route = await CreateRouteAsync();
+        var service = CreateScheduleService();
+
+        var economyOnly = Schedule(route.Id);
+        economyOnly.DefaultAircraftId = 3;
+        economyOnly.Fares = new() { Fare(CabinClass.Economy, 210), Fare(CabinClass.Business, 480) };
+        var error = await Assert.ThrowsAsync<BusinessRuleException>(() => service.CreateAsync(economyOnly));
+        Assert.Contains("Business", error.Message);
+
+        economyOnly.Fares = new() { Fare(CabinClass.Economy, 210) };
+        var schedule = await service.CreateAsync(economyOnly);
+
+        // Moving the schedule to an aircraft without the priced cabins is rejected the same way.
+        var withBusiness = Schedule(route.Id);
+        withBusiness.Fares = new() { Fare(CabinClass.Economy, 210), Fare(CabinClass.Business, 480) };
+        var moved = await service.UpdateAsync(schedule.Id, withBusiness);
+        withBusiness.DefaultAircraftId = 3;
+        await Assert.ThrowsAsync<BusinessRuleException>(() => service.UpdateAsync(schedule.Id, withBusiness));
+
+        Assert.Equal("A350-900", moved.AircraftModel);
+        Assert.Equal(2, moved.Fares.Count);
+    }
+
+    [Fact]
+    public async Task EmptyFareOrStopEntries_AreValidationErrors()
+    {
+        var route = await CreateRouteAsync();
+        var service = CreateScheduleService();
+
+        var nullFare = Schedule(route.Id);
+        nullFare.Fares.Add(null!);
+        await Assert.ThrowsAsync<ValidationException>(() => service.CreateAsync(nullFare));
+
+        var nullStop = Schedule(route.Id);
+        nullStop.Stops = new() { null! };
+        await Assert.ThrowsAsync<ValidationException>(() => service.CreateAsync(nullStop));
     }
 }

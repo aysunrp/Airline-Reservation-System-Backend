@@ -182,6 +182,23 @@ public class AdminCatalogEndpointTests : IClassFixture<ApiFactory>
         Assert.Equal(HttpStatusCode.BadRequest, duplicateResponse.StatusCode);
         Assert.Contains("Each cabin can have only one price.", await duplicateResponse.Content.ReadAsStringAsync());
 
+        var emptyEntries = await admin.PostAsync("/api/admin/schedules", new StringContent(
+            $$"""{"flightNumber":"AV 226","routeId":{{routeId}},"departureTime":"15:30","arrivalTime":"20:40","daysOfWeek":"Everyday","validFrom":"2026-11-01","fares":[null],"stops":[null]}""",
+            System.Text.Encoding.UTF8, "application/json"));
+        Assert.Equal(HttpStatusCode.BadRequest, emptyEntries.StatusCode);
+
+        // The seeded aircraft has Business and Economy seats only, so a Comfort price cannot be set on it.
+        var seed = await _factory.GetSeedAsync();
+        var aircraftId = (await (await admin.GetAsync($"/api/flights/{seed.FlightId}")).ReadAsync<FlightResultDto>()).AircraftId;
+        var withAircraft = Request();
+        withAircraft.FlightNumber = "AV 227";
+        withAircraft.DefaultAircraftId = aircraftId;
+        Assert.Equal(HttpStatusCode.UnprocessableEntity, (await admin.PostAsJsonAsync("/api/admin/schedules", withAircraft, Json)).StatusCode);
+        withAircraft.Fares.RemoveAll(f => f.CabinClass == CabinClass.Comfort);
+        var onAircraft = await admin.PostAsJsonAsync("/api/admin/schedules", withAircraft, Json);
+        Assert.Equal(HttpStatusCode.Created, onAircraft.StatusCode);
+        Assert.Equal(aircraftId, (await onAircraft.ReadAsync<ScheduleDto>()).DefaultAircraftId);
+
         var originStop = Request(new ScheduleStopRequestDto { SequenceNo = 1, AirportCode = "GYD", ArrivalOffsetMinutes = 60 });
         Assert.Equal(HttpStatusCode.UnprocessableEntity, (await admin.PostAsJsonAsync("/api/admin/schedules", originStop, Json)).StatusCode);
         var unknownStop = Request(new ScheduleStopRequestDto { SequenceNo = 1, AirportCode = "JFK", ArrivalOffsetMinutes = 60 });

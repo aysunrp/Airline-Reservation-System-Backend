@@ -97,12 +97,15 @@ public class AdminScheduleService : IAdminScheduleService
         Aircraft? aircraft = null;
         if (request.DefaultAircraftId is int aircraftId)
         {
-            aircraft = await _aircraftRepository.GetByIdAsync(aircraftId, cancellationToken)
+            aircraft = await _aircraftRepository.GetWithSeatsAsync(aircraftId, cancellationToken)
                        ?? throw new NotFoundException("Aircraft not found.");
             if (aircraft.Status == AircraftStatus.Inactive)
             {
                 throw new BusinessRuleException($"Aircraft {aircraft.Name} is inactive.");
             }
+
+            // Same rule as for single flights: only cabins the aircraft has can be priced.
+            AdminFlightService.CheckFaresMatchAircraft(request.Fares.Select(f => f.CabinClass), aircraft);
         }
 
         schedule.FlightNumber = FlightNumber.Normalize(request.FlightNumber);
