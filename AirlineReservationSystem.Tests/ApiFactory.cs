@@ -29,6 +29,9 @@ public sealed class ApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
 
     public string ConnectionString { get; }
 
+    /// <summary>Signing key the API runs with; tests can set an invalid one to check the startup validation.</summary>
+    public string JwtSecret { get; init; } = TestJwtSecret;
+
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
         builder.UseEnvironment("Development");
@@ -39,7 +42,7 @@ public sealed class ApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
                 sql.MigrationsAssembly(typeof(AppDbContext).Assembly.FullName)));
 
             // Tests never depend on the developer's user-secrets.
-            services.PostConfigure<JwtSettings>(settings => settings.Secret = TestJwtSecret);
+            services.PostConfigure<JwtSettings>(settings => settings.Secret = JwtSecret);
         });
     }
 
