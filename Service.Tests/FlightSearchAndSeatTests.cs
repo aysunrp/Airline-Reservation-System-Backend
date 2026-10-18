@@ -13,7 +13,7 @@ public class FlightSearchAndSeatTests
     private readonly FixedTimeProvider _clock = new(TestData.Now);
 
     private FlightSearchService CreateSearch()
-        => new(_data.Airports(), _data.Flights(), new FlightSearchRequestValidator(_clock));
+        => new(_data.Airports(), _data.Flights(), _data.FlightSeats(), new FlightSearchRequestValidator(_clock), _clock);
 
     private static FlightSearchLegDto Leg(string from, string to, int day) => new()
     {
@@ -41,6 +41,49 @@ public class FlightSearchAndSeatTests
         var back = Assert.Single(result[1].Flights);
         Assert.Equal(0, back.Stops);
         Assert.Empty(back.Via);
+    }
+
+    [Fact]
+    public async Task Search_FiltersByCabinAndFreeSeats()
+    {
+        var service = CreateSearch();
+        FlightSearchRequestDto Request(CabinClass? cabin, int passengers) => new()
+        {
+            Legs = { Leg("GYD", "LHR", 10) },
+            CabinClass = cabin,
+            Passengers = passengers
+        };
+
+        // The outbound flight has 3 Economy and 2 Business seats and sells no Comfort.
+        Assert.Single((await service.SearchAsync(Request(CabinClass.Economy, 3)))[0].Flights);
+        Assert.Empty((await service.SearchAsync(Request(CabinClass.Economy, 4)))[0].Flights);
+        Assert.Empty((await service.SearchAsync(Request(CabinClass.Comfort, 1)))[0].Flights);
+        Assert.Single((await service.SearchAsync(Request(null, 5)))[0].Flights);
+
+        // A booked seat and a still-held seat no longer count; a seat whose hold ran out does.
+        _data.Seat(101).Status = SeatStatus.Booked;
+        Assert.Empty((await service.SearchAsync(Request(CabinClass.Business, 2)))[0].Flights);
+        _data.Seat(103).Status = SeatStatus.Held;
+        _data.Seat(103).HeldUntil = TestData.Now.AddMinutes(-1);
+        _data.Seat(104).Status = SeatStatus.Held;
+        _data.Seat(104).HeldUntil = TestData.Now.AddMinutes(5);
+        Assert.Single((await service.SearchAsync(Request(CabinClass.Economy, 2)))[0].Flights);
+        Assert.Empty((await service.SearchAsync(Request(CabinClass.Economy, 3)))[0].Flights);
+    }
+
+    [Fact]
+    public async Task Search_ReturnsAircraftIdForAdminForms()
+    {
+        var flight = await CreateSearch().GetFlightAsync(1);
+
+        Assert.Equal(1, flight.AircraftId);
+    }
+
+    [Fact]
+    public async Task Search_InvalidPassengerCount_ThrowsValidation()
+    {
+        await Assert.ThrowsAsync<ValidationException>(() =>
+            CreateSearch().SearchAsync(new FlightSearchRequestDto { Legs = { Leg("GYD", "LHR", 10) }, Passengers = 0 }));
     }
 
     [Fact]

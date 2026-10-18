@@ -43,7 +43,7 @@ public static class BookingMappings
                     cancellation.AmountPaid,
                     cancellation.FeeAmount,
                     cancellation.RefundAmount,
-                    cancellation.Refunds.OrderByDescending(r => r.CreatedAt).FirstOrDefault()?.Status));
+                    booking.LatestRefundStatus()));
     }
 
     /// <summary>Expects legs with route airports and passengers with tickets and seats to be loaded.</summary>
@@ -53,13 +53,7 @@ public static class BookingMappings
         var passengers = booking.Passengers.OrderBy(p => p.Id).ToList();
         var lead = passengers.FirstOrDefault(p => p.PassengerType == PassengerType.Adult) ?? passengers.First();
 
-        var seats = passengers
-            .SelectMany(p => p.Tickets)
-            // Compared by id: no-tracking queries do not link tickets to legs loaded through another include.
-            .Where(t => t.BookingFlightId == firstLeg.Id)
-            .Where(t => t.FlightSeat is not null)
-            .Select(t => $"{t.FlightSeat!.AircraftSeat.RowNumber}{t.FlightSeat.AircraftSeat.Letter}")
-            .ToList();
+        var seats = booking.SeatLabels(firstLeg);
 
         return new AdminBookingRowDto(
             booking.Id,
@@ -75,8 +69,10 @@ public static class BookingMappings
             booking.Status);
     }
 
+    /// <summary>Expects legs with route airports and aircraft, passengers with tickets and seats, and refunds to be loaded.</summary>
     public static BookingSummaryDto ToSummaryDto(this Booking booking)
-        => new(booking.Id, booking.Pnr, booking.Status, booking.TripType, booking.TotalAmount, booking.CreatedAt, booking.ToLegDtos());
+        => new(booking.Id, booking.Pnr, booking.Status, booking.TripType, booking.TotalAmount, booking.CreatedAt,
+            booking.Passengers.Count, booking.LatestRefundStatus(), booking.ToLegDtos());
 
     private static IReadOnlyList<BookingLegDto> ToLegDtos(this Booking booking)
         => booking.Flights
@@ -91,8 +87,22 @@ public static class BookingMappings
                 f.Flight.Route.Destination.City,
                 f.Flight.DepartureAt,
                 f.Flight.ArrivalAt,
-                f.CabinClass))
+                f.CabinClass,
+                f.Flight.Aircraft.Model,
+                booking.SeatLabels(f)))
             .ToList();
+
+    // Compared by id: no-tracking queries do not link tickets to legs loaded through another include.
+    private static IReadOnlyList<string> SeatLabels(this Booking booking, BookingFlight leg)
+        => booking.Passengers
+            .OrderBy(p => p.Id)
+            .SelectMany(p => p.Tickets)
+            .Where(t => t.BookingFlightId == leg.Id && t.FlightSeat is not null)
+            .Select(t => $"{t.FlightSeat!.AircraftSeat.RowNumber}{t.FlightSeat.AircraftSeat.Letter}")
+            .ToList();
+
+    private static RefundStatus? LatestRefundStatus(this Booking booking)
+        => booking.Cancellation?.Refunds.OrderByDescending(r => r.CreatedAt).FirstOrDefault()?.Status;
 
     private static BookingPassengerDto ToDto(this BookingPassenger passenger)
         => new(
@@ -114,8 +124,10 @@ public static class BookingMappings
                     t.Status,
                     t.FareAmount,
                     t.BaggageOptionId,
+                    t.BaggageOption?.Name,
                     t.BaggagePrice,
                     t.MealOptionId,
+                    t.MealOption?.Name,
                     t.MealPrice))
                 .ToList());
 

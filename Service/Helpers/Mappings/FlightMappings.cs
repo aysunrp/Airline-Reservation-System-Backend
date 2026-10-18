@@ -29,6 +29,7 @@ public static class FlightMappings
             (int)(flight.ArrivalAt - flight.DepartureAt).TotalMinutes,
             via.Count,
             via,
+            flight.AircraftId,
             flight.Aircraft.Model,
             flight.Status,
             flight.Fares.ToDictionary(f => f.CabinClass, f => f.BasePrice));

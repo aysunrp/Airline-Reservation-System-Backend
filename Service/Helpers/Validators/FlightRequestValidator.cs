@@ -5,7 +5,8 @@ namespace Service.Helpers.Validators;
 
 public class FlightRequestValidator : AbstractValidator<FlightRequestDto>
 {
-    public FlightRequestValidator(TimeProvider timeProvider)
+    // "Departure in the future" depends on create vs. update, so AdminFlightService checks it.
+    public FlightRequestValidator()
     {
         RuleFor(x => x.FlightNumber).NotEmpty().Must(FlightNumber.IsValid).WithMessage("Use a flight number like AV 101.");
         RuleFor(x => x.OriginCode).NotEmpty().Matches("^[A-Za-z]{3}$").WithMessage("Use a three-letter airport code.");
@@ -15,9 +16,6 @@ public class FlightRequestValidator : AbstractValidator<FlightRequestDto>
             .WithMessage("Origin and destination must be different.");
         RuleFor(x => x.AircraftId).GreaterThan(0);
         RuleFor(x => x.Status).IsInEnum();
-        RuleFor(x => x.DepartureAt)
-            .Must(d => d > timeProvider.GetUtcNow().UtcDateTime)
-            .WithMessage("The departure must be in the future.");
         RuleFor(x => x.ArrivalAt).GreaterThan(x => x.DepartureAt).WithMessage("Arrival must be after departure.");
         RuleFor(x => x).Must(x => x.ArrivalAt - x.DepartureAt <= TimeSpan.FromHours(24))
             .WithName("ArrivalAt").WithMessage("A flight cannot be longer than 24 hours.");

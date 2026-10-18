@@ -47,6 +47,11 @@ public class BookingServiceTests
 
         Assert.Equal(new[] { PassengerType.Adult, PassengerType.Adult, PassengerType.Infant }, result.Passengers.Select(p => p.PassengerType));
         Assert.Equal(new[] { "11A", "11B", null }, result.Passengers.Select(p => p.Tickets.Single().Seat));
+        Assert.Equal("A350-900", result.Legs.Single().AircraftModel);
+        Assert.Equal(new[] { "11A", "11B" }, result.Legs.Single().Seats);
+        Assert.Equal("+10 kg", result.Passengers[0].Tickets.Single().BaggageName);
+        Assert.Equal("Classic Dining", result.Passengers[1].Tickets.Single().MealName);
+        Assert.Null(result.Passengers[2].Tickets.Single().BaggageName);
         Assert.All(result.Passengers.SelectMany(p => p.Tickets), t => Assert.Equal(TicketStatus.Pending, t.Status));
         Assert.Equal("*****4565", result.Passengers[0].DocumentNumberMasked);
 
@@ -179,6 +184,52 @@ public class BookingServiceTests
     }
 
     [Fact]
+    public async Task Quote_MatchesTheBookingPrice_WithoutHoldingSeatsOrSaving()
+    {
+        var adult = Passenger("Aysun", 1990, (1, 103));
+        adult.BaggageOptionId = 2;
+        adult.MealOptionId = 2;
+        var request = OneWay(adult, Passenger("Nigar", 2025));
+        request.PromoCode = "AEROVA10";
+        var service = CreateService();
+
+        var quote = await service.QuoteAsync(request);
+
+        // 365 + 36.50 infant fare, +50 baggage, +35 meal, 10% tax on fares, 10% promo on the subtotal.
+        Assert.Equal(401.50m, quote.BaseFare);
+        Assert.Equal(40.15m, quote.Taxes);
+        Assert.Equal(526.65m, quote.Subtotal);
+        Assert.Equal(52.67m, quote.Discount);
+        Assert.Equal(473.98m, quote.Total);
+        Assert.Empty(await _bookings.GetAllAsync());
+        Assert.Equal(SeatStatus.Available, _data.Seat(103).Status);
+
+        var booking = await service.CreateBookingAsync(null, request);
+        Assert.Equal(quote, booking.Price);
+    }
+
+    [Fact]
+    public async Task Quote_AppliesTheSameRules()
+    {
+        var service = CreateService();
+        var invalidPromo = OneWay(Passenger("Aysun", 1990, (1, 103)));
+        invalidPromo.PromoCode = "NOPE";
+
+        await Assert.ThrowsAsync<BusinessRuleException>(() => service.QuoteAsync(invalidPromo));
+        await Assert.ThrowsAsync<BusinessRuleException>(() => service.QuoteAsync(OneWay(Passenger("Nigar", 2025))));
+        await Assert.ThrowsAsync<ValidationException>(() => service.QuoteAsync(new CreateBookingRequestDto()));
+    }
+
+    [Fact]
+    public async Task MissingDocumentExpiry_ThrowsValidation()
+    {
+        var passenger = Passenger("Aysun", 1990, (1, 103));
+        passenger.DocumentExpiryDate = null;
+
+        await Assert.ThrowsAsync<ValidationException>(() => CreateService().CreateBookingAsync(null, OneWay(passenger)));
+    }
+
+    [Fact]
     public async Task InvalidIdCardNumber_ThrowsValidation()
     {
         var passenger = Passenger("Aysun", 1990, (1, 103));
@@ -201,7 +252,11 @@ public class BookingServiceTests
         await Assert.ThrowsAsync<NotFoundException>(() => service.GetByPnrAsync(created.Pnr, "Aliyev"));
         await Assert.ThrowsAsync<NotFoundException>(() => service.GetByPnrAsync("ZZZZZZ", "Panahli"));
 
-        Assert.Single(await service.GetMyBookingsAsync(1));
+        var trip = Assert.Single(await service.GetMyBookingsAsync(1));
+        Assert.Equal(1, trip.PassengerCount);
+        Assert.Null(trip.RefundStatus);
+        Assert.Equal(new[] { "11A" }, trip.Legs.Single().Seats);
+        Assert.Equal("A350-900", trip.Legs.Single().AircraftModel);
         Assert.Empty(await service.GetMyBookingsAsync(2));
     }
 

@@ -58,7 +58,7 @@ public class AdminFlightServiceTests
         new FakeFlightScheduleRepository(),
         _context.Bookings,
         new NotificationService(_context.Notifications),
-        new FlightRequestValidator(_context.Clock),
+        new FlightRequestValidator(),
         _context.Clock);
 
     private static FlightRequestDto NewFlight(string number = "av318") => new()
@@ -171,6 +171,22 @@ public class AdminFlightServiceTests
         Assert.Equal(new FlightStopDto("IST", 80), result.Via.Single());
         Assert.Equal(545, result.DurationMinutes);
         Assert.Equal(later.DepartureAt, _context.Data.Outbound.Segments.OrderBy(s => s.SequenceNo).First().DepartureAt);
+    }
+
+    [Fact]
+    public async Task DepartedFlight_CanGetNewStatusButNotAPastDeparture()
+    {
+        _context.Clock = new FixedTimeProvider(TestData.OutboundDeparture.AddHours(10));
+        var service = CreateService();
+
+        var completed = Edit(_context.Data.Outbound);
+        completed.Status = FlightStatus.Completed;
+        Assert.Equal(FlightStatus.Completed, (await service.UpdateAsync(1, completed)).Status);
+
+        var movedIntoPast = Edit(_context.Data.Outbound);
+        movedIntoPast.DepartureAt = movedIntoPast.DepartureAt.AddHours(1);
+        movedIntoPast.ArrivalAt = movedIntoPast.ArrivalAt.AddHours(1);
+        await Assert.ThrowsAsync<ValidationException>(() => service.UpdateAsync(1, movedIntoPast));
     }
 
     [Fact]

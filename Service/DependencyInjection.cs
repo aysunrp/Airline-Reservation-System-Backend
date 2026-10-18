@@ -32,6 +32,7 @@ namespace Service
             services.AddScoped<IAirportService, AirportService>();
             services.AddScoped<IFlightSearchService, FlightSearchService>();
             services.AddScoped<ISeatService, SeatService>();
+            services.AddScoped<IExtraServiceOptionsService, ExtraServiceOptionsService>();
             services.AddScoped<IBookingExpiryService, BookingExpiryService>();
             services.AddScoped<IBookingService, BookingService>();
             services.AddScoped<IPaymentService, PaymentService>();

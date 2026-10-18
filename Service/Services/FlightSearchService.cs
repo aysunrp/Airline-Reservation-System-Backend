@@ -11,13 +11,22 @@ public class FlightSearchService : IFlightSearchService
 {
     private readonly IAirportRepository _airportRepository;
     private readonly IFlightRepository _flightRepository;
+    private readonly IFlightSeatRepository _flightSeatRepository;
     private readonly IValidator<FlightSearchRequestDto> _validator;
+    private readonly TimeProvider _timeProvider;
 
-    public FlightSearchService(IAirportRepository airportRepository, IFlightRepository flightRepository, IValidator<FlightSearchRequestDto> validator)
+    public FlightSearchService(
+        IAirportRepository airportRepository,
+        IFlightRepository flightRepository,
+        IFlightSeatRepository flightSeatRepository,
+        IValidator<FlightSearchRequestDto> validator,
+        TimeProvider timeProvider)
     {
         _airportRepository = airportRepository;
         _flightRepository = flightRepository;
+        _flightSeatRepository = flightSeatRepository;
         _validator = validator;
+        _timeProvider = timeProvider;
     }
 
     public async Task<IReadOnlyList<FlightSearchLegResultDto>> SearchAsync(FlightSearchRequestDto request, CancellationToken cancellationToken = default)
@@ -32,7 +41,8 @@ public class FlightSearchService : IFlightSearchService
             var destination = await GetAirportAsync(leg.DestinationCode, cancellationToken);
 
             var flights = await _flightRepository.SearchAsync(origin.Id, destination.Id, leg.Date, cancellationToken);
-            results.Add(new FlightSearchLegResultDto(i, origin.Code, destination.Code, leg.Date, flights.Select(f => f.ToResultDto()).ToList()));
+            var bookable = await FilterBookableAsync(flights, request.CabinClass, request.Passengers, cancellationToken);
+            results.Add(new FlightSearchLegResultDto(i, origin.Code, destination.Code, leg.Date, bookable.Select(f => f.ToResultDto()).ToList()));
         }
 
         return results;
@@ -43,6 +53,26 @@ public class FlightSearchService : IFlightSearchService
         var flight = await _flightRepository.GetDetailsAsync(flightId, cancellationToken)
                      ?? throw new NotFoundException("Flight not found.");
         return flight.ToResultDto();
+    }
+
+    /// <summary>Keeps flights that sell the requested cabin and still have a free seat for every traveller.</summary>
+    private async Task<IReadOnlyList<Domain.Entities.Flight>> FilterBookableAsync(
+        IReadOnlyList<Domain.Entities.Flight> flights, Domain.Enums.CabinClass? cabinClass, int passengers, CancellationToken cancellationToken)
+    {
+        var candidates = flights
+            .Where(f => cabinClass is null || f.Fares.Any(fare => fare.CabinClass == cabinClass))
+            .ToList();
+        if (candidates.Count == 0)
+        {
+            return candidates;
+        }
+
+        var freeSeats = await _flightSeatRepository.GetFreeSeatCountsAsync(
+            candidates.Select(f => f.Id).ToList(), cabinClass, _timeProvider.GetUtcNow().UtcDateTime, cancellationToken);
+
+        return candidates
+            .Where(f => freeSeats.TryGetValue(f.Id, out var free) && free >= passengers)
+            .ToList();
     }
 
     private async Task<Domain.Entities.Airport> GetAirportAsync(string code, CancellationToken cancellationToken)

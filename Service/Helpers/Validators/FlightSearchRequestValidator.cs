@@ -13,6 +13,9 @@ public class FlightSearchRequestValidator : AbstractValidator<FlightSearchReques
         RuleFor(x => x.Legs).NotEmpty().Must(l => l.Count <= MaxLegs)
             .WithMessage($"A search can contain at most {MaxLegs} flights.");
 
+        RuleFor(x => x.CabinClass).IsInEnum();
+        RuleFor(x => x.Passengers).InclusiveBetween(1, 9);
+
         RuleForEach(x => x.Legs).ChildRules(leg =>
         {
             leg.RuleFor(l => l.OriginCode).NotEmpty().Matches("^[A-Za-z]{3}$").WithMessage("Use a three-letter airport code.");

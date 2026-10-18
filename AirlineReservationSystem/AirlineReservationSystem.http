@@ -1,6 +1,196 @@
-@AirlineReservationSystem_HostAddress = http://localhost:5024
+### AEROVA API sample requests (Visual Studio / VS Code REST Client).
+### Run the "http" launch profile first. Put the accessToken from login/register into @token
+### and an admin account's token into @adminToken. Ids, PNRs and dates are examples.
 
-GET {{AirlineReservationSystem_HostAddress}}/weatherforecast/
-Accept: application/json
+@host = http://localhost:5080
+@token = paste-a-client-token
+@adminToken = paste-an-admin-token
+@pnr = AB12CD
+
+### Register
+POST {{host}}/api/auth/register
+Content-Type: application/json
+
+{
+  "firstName": "Aysun",
+  "lastName": "Panahli",
+  "email": "aysun@example.com",
+  "password": "secret1",
+  "confirmPassword": "secret1"
+}
+
+### Login
+POST {{host}}/api/auth/login
+Content-Type: application/json
+
+{
+  "email": "aysun@example.com",
+  "password": "secret1"
+}
+
+### Profile
+GET {{host}}/api/profile
+Authorization: Bearer {{token}}
+
+### Airports for the search form
+GET {{host}}/api/airports
+
+### Flight search (one leg per city pair; round trip = two legs)
+POST {{host}}/api/flights/search
+Content-Type: application/json
+
+{
+  "legs": [
+    { "originCode": "GYD", "destinationCode": "LHR", "date": "2026-11-10" }
+  ],
+  "cabinClass": "Economy",
+  "passengers": 1
+}
+
+### Seat map of a flight
+GET {{host}}/api/flights/1/seats?cabinClass=Economy
+
+### Baggage and meal choices
+GET {{host}}/api/booking-options/baggage
 
 ###
+GET {{host}}/api/booking-options/meals
+
+### Promo code check
+GET {{host}}/api/promo-codes/AEROVA10
+
+### Price summary (same body as the booking; nothing is held)
+POST {{host}}/api/bookings/quote
+Content-Type: application/json
+
+{
+  "tripType": "OneWay",
+  "legs": [ { "flightId": 1, "cabinClass": "Economy" } ],
+  "passengers": [
+    {
+      "firstName": "Aysun", "lastName": "Panahli", "dateOfBirth": "1990-03-01", "gender": "Female",
+      "nationalityCode": "AZ", "documentType": "Passport", "documentNumber": "C01234567",
+      "documentIssuingCountry": "AZ", "documentExpiryDate": "2032-01-01",
+      "baggageOptionId": 1, "mealOptionId": 1,
+      "seats": [ { "flightId": 1, "flightSeatId": 3 } ]
+    }
+  ],
+  "contactEmail": "aysun@example.com",
+  "contactPhone": "+994501234567",
+  "promoCode": "AEROVA10"
+}
+
+### Create the booking (send the token to link it to the account)
+POST {{host}}/api/bookings
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+{
+  "tripType": "OneWay",
+  "legs": [ { "flightId": 1, "cabinClass": "Economy" } ],
+  "passengers": [
+    {
+      "firstName": "Aysun", "lastName": "Panahli", "dateOfBirth": "1990-03-01", "gender": "Female",
+      "nationalityCode": "AZ", "documentType": "Passport", "documentNumber": "C01234567",
+      "documentIssuingCountry": "AZ", "documentExpiryDate": "2032-01-01",
+      "seats": [ { "flightId": 1, "flightSeatId": 3 } ]
+    }
+  ],
+  "contactEmail": "aysun@example.com",
+  "contactPhone": "+994501234567"
+}
+
+### Pay (mock provider; only the last four digits are stored)
+POST {{host}}/api/payments
+Content-Type: application/json
+
+{
+  "pnr": "{{pnr}}",
+  "method": "Card",
+  "cardholderName": "Aysun Panahli",
+  "cardNumber": "4111 1111 1111 1111",
+  "expiryMonth": 12,
+  "expiryYear": 2028,
+  "cvv": "123"
+}
+
+### Manage booking
+GET {{host}}/api/bookings/{{pnr}}?lastName=Panahli
+
+### My Trips
+GET {{host}}/api/bookings/my
+Authorization: Bearer {{token}}
+
+### Cancellation estimate
+GET {{host}}/api/bookings/{{pnr}}/cancellation-quote?lastName=Panahli
+
+### Cancel
+POST {{host}}/api/bookings/{{pnr}}/cancel
+Content-Type: application/json
+
+{ "lastName": "Panahli", "reason": "Plans changed" }
+
+### Notifications
+GET {{host}}/api/notifications
+Authorization: Bearer {{token}}
+
+###
+PATCH {{host}}/api/notifications/read-all
+Authorization: Bearer {{token}}
+
+### Admin dashboard
+GET {{host}}/api/admin/dashboard
+Authorization: Bearer {{adminToken}}
+
+### Admin: create an aircraft (seats are generated)
+POST {{host}}/api/admin/aircraft
+Content-Type: application/json
+Authorization: Bearer {{adminToken}}
+
+{
+  "name": "AEROVA Caspian",
+  "model": "A321neo",
+  "registrationNumber": "4K-AV14",
+  "status": "Active",
+  "businessSeats": 16,
+  "comfortSeats": 24,
+  "economySeats": 150
+}
+
+### Admin: create a flight on an existing route
+POST {{host}}/api/admin/flights
+Content-Type: application/json
+Authorization: Bearer {{adminToken}}
+
+{
+  "flightNumber": "AV 101",
+  "originCode": "GYD",
+  "destinationCode": "LHR",
+  "aircraftId": 1,
+  "departureAt": "2026-11-20T09:30:00Z",
+  "arrivalAt": "2026-11-20T15:10:00Z",
+  "status": "Scheduled",
+  "fares": { "Economy": 420, "Comfort": 560, "Business": 890 }
+}
+
+### Admin: block a seat
+PATCH {{host}}/api/admin/flights/1/seats/1
+Content-Type: application/json
+Authorization: Bearer {{adminToken}}
+
+{ "blocked": true }
+
+### Admin: bookings
+GET {{host}}/api/admin/bookings?status=Confirmed
+Authorization: Bearer {{adminToken}}
+
+### Admin: cancel a booking
+POST {{host}}/api/admin/bookings/{{pnr}}/cancel
+Content-Type: application/json
+Authorization: Bearer {{adminToken}}
+
+{ "reason": "Requested by phone" }
+
+### Admin: passengers
+GET {{host}}/api/admin/passengers?isActive=true
+Authorization: Bearer {{adminToken}}

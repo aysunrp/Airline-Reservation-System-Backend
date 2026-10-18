@@ -45,6 +45,8 @@ public class CreateBookingRequestValidator : AbstractValidator<CreateBookingRequ
             passenger.RuleFor(p => p.NationalityCode).Matches("^[A-Z]{2}$").WithMessage("Select your nationality.");
             passenger.RuleFor(p => p.DocumentType).IsInEnum();
             passenger.RuleFor(p => p.DocumentIssuingCountry).Matches("^[A-Z]{2}$").WithMessage("Select the issuing country.");
+            // Both document types on the passenger page require an expiry date.
+            passenger.RuleFor(p => p.DocumentExpiryDate).NotNull().WithMessage("Enter the document expiry date.");
             passenger.RuleFor(p => p.DocumentNumber).NotEmpty()
                 .Must((p, number) => IsValidDocumentNumber(p.DocumentType, number))
                 .WithMessage("Enter a valid document number.");
