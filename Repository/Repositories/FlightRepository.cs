@@ -55,6 +55,16 @@ public class FlightRepository : BaseRepository<Flight>, IFlightRepository
     public Task<bool> ExistsAsync(string flightNumber, DateTime departureAt, int? excludeId = null, CancellationToken cancellationToken = default)
         => Set.AnyAsync(f => f.FlightNumber == flightNumber && f.DepartureAt == departureAt && f.Id != excludeId, cancellationToken);
 
+    public async Task<IReadOnlyList<(string FlightNumber, DateTime DepartureAt)>> GetDepartureKeysAsync(DateTime fromUtc, DateTime toUtc, CancellationToken cancellationToken = default)
+        => (await Set.AsNoTracking()
+                .Where(f => f.DepartureAt >= fromUtc && f.DepartureAt < toUtc)
+                .Select(f => new { f.FlightNumber, f.DepartureAt })
+                .ToListAsync(cancellationToken))
+            .Select(f => (f.FlightNumber, f.DepartureAt))
+            .ToList();
+
+    public void ClearTracking() => Context.ChangeTracker.Clear();
+
     public Task<bool> HasBookingsAsync(int id, CancellationToken cancellationToken = default)
         => Context.Set<BookingFlight>().AnyAsync(bf => bf.FlightId == id, cancellationToken);
 

@@ -21,6 +21,12 @@ public interface IFlightRepository : IBaseRepository<Flight>
 
     Task<bool> ExistsAsync(string flightNumber, DateTime departureAt, int? excludeId = null, CancellationToken cancellationToken = default);
 
+    /// <summary>Flight number and departure of every flight departing in [fromUtc, toUtc).</summary>
+    Task<IReadOnlyList<(string FlightNumber, DateTime DepartureAt)>> GetDepartureKeysAsync(DateTime fromUtc, DateTime toUtc, CancellationToken cancellationToken = default);
+
+    /// <summary>Forgets every loaded entity, so long batch jobs do not keep thousands of saved rows in memory.</summary>
+    void ClearTracking();
+
     /// <summary>True when any booking (in any status) contains the flight.</summary>
     Task<bool> HasBookingsAsync(int id, CancellationToken cancellationToken = default);
 }

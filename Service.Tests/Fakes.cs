@@ -165,6 +165,16 @@ internal sealed class FakeFlightRepository : FakeRepository<Flight>, IFlightRepo
     public Task<Flight?> GetDetailsAsync(int id, CancellationToken cancellationToken = default)
         => Task.FromResult(Items.FirstOrDefault(f => f.Id == id));
 
+    public Task<IReadOnlyList<(string FlightNumber, DateTime DepartureAt)>> GetDepartureKeysAsync(DateTime fromUtc, DateTime toUtc, CancellationToken cancellationToken = default)
+        => Task.FromResult<IReadOnlyList<(string FlightNumber, DateTime DepartureAt)>>(Items
+            .Where(f => f.DepartureAt >= fromUtc && f.DepartureAt < toUtc)
+            .Select(f => (f.FlightNumber, f.DepartureAt))
+            .ToList());
+
+    public int ClearTrackingCalls { get; private set; }
+
+    public void ClearTracking() => ClearTrackingCalls++;
+
     public Task<IReadOnlyList<Flight>> GetAllWithDetailsAsync(CancellationToken cancellationToken = default)
         => Task.FromResult<IReadOnlyList<Flight>>(Items.OrderBy(f => f.DepartureAt).ToList());
 
