@@ -15,17 +15,20 @@ public class AdminScheduleService : IAdminScheduleService
     private readonly IFlightScheduleRepository _scheduleRepository;
     private readonly IRouteRepository _routeRepository;
     private readonly IAircraftRepository _aircraftRepository;
+    private readonly IAirportRepository _airportRepository;
     private readonly IValidator<ScheduleRequestDto> _validator;
 
     public AdminScheduleService(
         IFlightScheduleRepository scheduleRepository,
         IRouteRepository routeRepository,
         IAircraftRepository aircraftRepository,
+        IAirportRepository airportRepository,
         IValidator<ScheduleRequestDto> validator)
     {
         _scheduleRepository = scheduleRepository;
         _routeRepository = routeRepository;
         _aircraftRepository = aircraftRepository;
+        _airportRepository = airportRepository;
         _validator = validator;
     }
 
@@ -114,6 +117,70 @@ public class AdminScheduleService : IAdminScheduleService
         schedule.ValidFrom = request.ValidFrom;
         schedule.ValidTo = request.ValidTo;
         schedule.IsActive = request.IsActive;
+
+        ApplyFares(request.Fares, schedule);
+        await ApplyStopsAsync(request.Stops, route, schedule, cancellationToken);
+    }
+
+    // Existing rows are updated in place so the unique (schedule, cabin) and (schedule, stop number)
+    // indexes never see a removed row and its replacement at the same time.
+    private static void ApplyFares(List<ScheduleFareRequestDto> fares, FlightSchedule schedule)
+    {
+        foreach (var removed in schedule.Fares.Where(f => fares.All(r => r.CabinClass != f.CabinClass)).ToList())
+        {
+            schedule.Fares.Remove(removed);
+        }
+
+        foreach (var fare in fares)
+        {
+            var existing = schedule.Fares.FirstOrDefault(f => f.CabinClass == fare.CabinClass);
+            if (existing is null)
+            {
+                schedule.Fares.Add(new FlightScheduleFare { CabinClass = fare.CabinClass, BasePrice = fare.BasePrice });
+            }
+            else
+            {
+                existing.BasePrice = fare.BasePrice;
+            }
+        }
+    }
+
+    private async Task ApplyStopsAsync(List<ScheduleStopRequestDto> stops, Route route, FlightSchedule schedule, CancellationToken cancellationToken)
+    {
+        var airports = new Dictionary<int, Airport>();
+        foreach (var stop in stops)
+        {
+            var code = stop.AirportCode.Trim().ToUpperInvariant();
+            var airport = await _airportRepository.GetByCodeAsync(code, cancellationToken)
+                          ?? throw new NotFoundException($"Airport '{code}' was not found.");
+            if (airport.Id == route.OriginAirportId || airport.Id == route.DestinationAirportId)
+            {
+                throw new BusinessRuleException($"{airport.Code} is the origin or destination of the route, so it cannot be a stop.");
+            }
+
+            airports[stop.SequenceNo] = airport;
+        }
+
+        foreach (var removed in schedule.Stops.Where(s => stops.All(r => r.SequenceNo != s.SequenceNo)).ToList())
+        {
+            schedule.Stops.Remove(removed);
+        }
+
+        foreach (var stop in stops.OrderBy(s => s.SequenceNo))
+        {
+            var existing = schedule.Stops.FirstOrDefault(s => s.SequenceNo == stop.SequenceNo);
+            if (existing is null)
+            {
+                existing = new FlightScheduleStop { SequenceNo = stop.SequenceNo };
+                schedule.Stops.Add(existing);
+            }
+
+            var airport = airports[stop.SequenceNo];
+            existing.AirportId = airport.Id;
+            existing.Airport = airport;
+            existing.ArrivalOffsetMinutes = stop.ArrivalOffsetMinutes;
+            existing.LayoverMinutes = stop.LayoverMinutes;
+        }
     }
 
     private async Task<FlightSchedule> GetScheduleAsync(int id, CancellationToken cancellationToken)

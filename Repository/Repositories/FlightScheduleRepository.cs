@@ -23,5 +23,8 @@ public class FlightScheduleRepository : BaseRepository<FlightSchedule>, IFlightS
         => query
             .Include(s => s.Route).ThenInclude(r => r.Origin)
             .Include(s => s.Route).ThenInclude(r => r.Destination)
-            .Include(s => s.DefaultAircraft);
+            .Include(s => s.DefaultAircraft)
+            .Include(s => s.Fares)
+            .Include(s => s.Stops).ThenInclude(stop => stop.Airport)
+            .AsSplitQuery();
 }
