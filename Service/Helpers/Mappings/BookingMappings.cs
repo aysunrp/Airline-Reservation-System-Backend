@@ -58,7 +58,7 @@ public static class BookingMappings
         return new AdminBookingRowDto(
             booking.Id,
             booking.Pnr,
-            $"{lead.FirstName} {lead.LastName}",
+            lead.FullName(),
             passengers.Count,
             firstLeg.Flight.FlightNumber,
             $"{firstLeg.Flight.Route.Origin.City} → {firstLeg.Flight.Route.Destination.City}",
@@ -101,6 +101,10 @@ public static class BookingMappings
             .Select(t => $"{t.FlightSeat!.AircraftSeat.RowNumber}{t.FlightSeat.AircraftSeat.Letter}")
             .ToList();
 
+    /// <summary>First, middle (when given) and last name, as admins search and read it.</summary>
+    public static string FullName(this BookingPassenger passenger)
+        => string.Join(" ", new[] { passenger.FirstName, passenger.MiddleName, passenger.LastName }.Where(part => !string.IsNullOrWhiteSpace(part)));
+
     private static RefundStatus? LatestRefundStatus(this Booking booking)
         => booking.Cancellation?.Refunds.OrderByDescending(r => r.CreatedAt).FirstOrDefault()?.Status;
 
@@ -108,7 +112,9 @@ public static class BookingMappings
         => new(
             passenger.Id,
             passenger.PassengerType,
+            passenger.Title,
             passenger.FirstName,
+            passenger.MiddleName,
             passenger.LastName,
             passenger.DateOfBirth,
             passenger.Gender,

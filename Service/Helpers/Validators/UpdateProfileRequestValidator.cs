@@ -1,3 +1,4 @@
+using Domain.Constants;
 using FluentValidation;
 using Service.Helpers.DTOs.Account;
 
@@ -5,14 +6,11 @@ namespace Service.Helpers.Validators;
 
 public class UpdateProfileRequestValidator : AbstractValidator<UpdateProfileRequestDto>
 {
-    // Titles offered by the profile page.
-    private static readonly string[] Titles = { "Mr", "Ms", "Mrs" };
-
     public UpdateProfileRequestValidator(TimeProvider timeProvider)
     {
         RuleFor(x => x.Title)
-            .Must(t => t is null || Titles.Contains(t))
-            .WithMessage("Title must be Mr, Ms or Mrs.");
+            .Must(t => t is null || PersonTitles.IsValid(t))
+            .WithMessage($"Title must be {PersonTitles.Description}.");
         RuleFor(x => x.FirstName).NotEmpty().MaximumLength(100);
         RuleFor(x => x.LastName).NotEmpty().MaximumLength(100);
         RuleFor(x => x.DateOfBirth)

@@ -28,7 +28,7 @@ public class BookingEndpointTests : IClassFixture<ApiFactory>
         {
             new BookingPassengerRequestDto
             {
-                FirstName = "Aysun", LastName = lastName, DateOfBirth = new DateOnly(birthYear, 3, 1), Gender = Gender.Female,
+                Title = "Ms", FirstName = "Aysun", LastName = lastName, DateOfBirth = new DateOnly(birthYear, 3, 1), Gender = Gender.Female,
                 NationalityCode = "AZ", DocumentType = DocumentType.Passport, DocumentNumber = "C01234567",
                 DocumentIssuingCountry = "AZ", DocumentExpiryDate = new DateOnly(2032, 1, 1),
                 BaggageOptionId = seed.BaggageOptionId,

@@ -43,6 +43,7 @@ internal sealed class BookingTestContext
         new PricingService(Options.Create(new PricingSettings())),
         new PromoCodeService(PromoCodes, Clock),
         CreateExpiryService(),
+        new TravelDocumentPolicy(Options.Create(TestData.FrontendDocumentRules())),
         new CreateBookingRequestValidator(Clock),
         Options.Create(new BookingSettings { SeatHoldMinutes = 15 }),
         Clock);
@@ -84,6 +85,7 @@ internal sealed class BookingTestContext
 
     public static BookingPassengerRequestDto Passenger(string firstName, int birthYear, params (int FlightId, int SeatId)[] seats) => new()
     {
+        Title = "Ms",
         FirstName = firstName,
         LastName = "Panahli",
         DateOfBirth = new DateOnly(birthYear, 3, 1),

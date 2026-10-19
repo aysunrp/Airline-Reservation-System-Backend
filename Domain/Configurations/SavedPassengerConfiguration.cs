@@ -11,7 +11,7 @@ public class SavedPassengerConfiguration : IEntityTypeConfiguration<SavedPasseng
         builder.Property(x => x.FirstName).IsRequired().HasMaxLength(100);
         builder.Property(x => x.LastName).IsRequired().HasMaxLength(100);
         builder.Property(x => x.Relationship).HasMaxLength(30);
-        builder.Property(x => x.Gender).HasConversion<string>().HasMaxLength(10);
+        builder.Property(x => x.Gender).HasConversion<string>().HasMaxLength(20);
         builder.Property(x => x.NationalityCode).HasMaxLength(2);
         builder.Property(x => x.DocumentType).HasConversion<string>().HasMaxLength(20);
         builder.Property(x => x.DocumentNumber).HasMaxLength(30);

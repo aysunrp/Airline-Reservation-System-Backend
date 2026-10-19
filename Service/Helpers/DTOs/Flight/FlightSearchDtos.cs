@@ -30,6 +30,9 @@ public record FlightSearchLegResultDto(
 
 public record FlightStopDto(string AirportCode, int LayoverMinutes);
 
+/// <summary>One flown leg of a flight, in UTC; a non-stop flight has one, a flight with stops has one per hop.</summary>
+public record FlightSegmentDto(int SequenceNo, string OriginCode, string DestinationCode, DateTime DepartureAt, DateTime ArrivalAt);
+
 public record FlightResultDto(
     int Id,
     string FlightNumber,
@@ -45,4 +48,5 @@ public record FlightResultDto(
     int AircraftId,
     string AircraftModel,
     FlightStatus Status,
-    IReadOnlyDictionary<CabinClass, decimal> Fares);
+    IReadOnlyDictionary<CabinClass, decimal> Fares,
+    IReadOnlyList<FlightSegmentDto> Segments);

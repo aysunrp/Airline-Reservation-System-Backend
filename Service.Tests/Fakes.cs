@@ -54,6 +54,14 @@ internal sealed class FakePromoCodeRepository : FakeRepository<PromoCode>, IProm
 
     public Task<PromoCode?> GetByCodeAsync(string code, CancellationToken cancellationToken = default)
         => Task.FromResult(Items.FirstOrDefault(p => p.Code == code));
+
+    public HashSet<int> InUse { get; } = new();
+
+    public Task<bool> CodeExistsAsync(string code, int? excludeId = null, CancellationToken cancellationToken = default)
+        => Task.FromResult(Items.Any(p => p.Code == code && p.Id != excludeId));
+
+    public Task<bool> IsInUseAsync(int id, CancellationToken cancellationToken = default)
+        => Task.FromResult(InUse.Contains(id));
 }
 
 internal sealed class FakeUserRepository : FakeRepository<User>, IUserRepository
@@ -97,6 +105,9 @@ internal sealed class FakeNotificationRepository : FakeRepository<Notification>,
 
 internal sealed class FakeCancellationRuleRepository : FakeRepository<CancellationRule>, ICancellationRuleRepository
 {
+    public Task<bool> ExistsAsync(CabinClass cabinClass, int minDaysBeforeDeparture, int? excludeId = null, CancellationToken cancellationToken = default)
+        => Task.FromResult(Items.Any(r => r.CabinClass == cabinClass && r.MinDaysBeforeDeparture == minDaysBeforeDeparture && r.Id != excludeId));
+
     public FakeCancellationRuleRepository(params CancellationRule[] items) : base(items)
     {
     }
@@ -116,6 +127,14 @@ internal sealed class FakeAirportRepository : FakeRepository<Airport>, IAirportR
 
     public Task<IReadOnlyList<Airport>> GetActiveAsync(CancellationToken cancellationToken = default)
         => Task.FromResult<IReadOnlyList<Airport>>(Items.Where(a => a.IsActive).ToList());
+
+    public HashSet<int> InUse { get; } = new();
+
+    public Task<bool> CodeExistsAsync(string code, int? excludeId = null, CancellationToken cancellationToken = default)
+        => Task.FromResult(Items.Any(a => a.Code == code && a.Id != excludeId));
+
+    public Task<bool> IsInUseAsync(int id, CancellationToken cancellationToken = default)
+        => Task.FromResult(InUse.Contains(id));
 }
 
 internal sealed class FakeFlightRepository : FakeRepository<Flight>, IFlightRepository
@@ -198,6 +217,11 @@ internal sealed class FakeFlightRepository : FakeRepository<Flight>, IFlightRepo
     }
 
     public int ClearTrackingCalls { get; private set; }
+
+    public Task<IReadOnlyList<Flight>> GetLandedOpenAsync(DateTime now, CancellationToken cancellationToken = default)
+        => Task.FromResult<IReadOnlyList<Flight>>(Items
+            .Where(f => f.ArrivalAt <= now && f.Status is not (FlightStatus.Cancelled or FlightStatus.Completed))
+            .ToList());
 
     public void ClearTracking() => ClearTrackingCalls++;
 
@@ -344,6 +368,16 @@ internal sealed class FakeBookingRepository : FakeRepository<Booking>, IBookingR
 
     public Task<IReadOnlyList<Booking>> GetExpiredPendingAsync(DateTime now, CancellationToken cancellationToken = default)
         => Task.FromResult<IReadOnlyList<Booking>>(Items.Where(b => b.Status == BookingStatus.Pending && b.ExpiresAt <= now).ToList());
+
+    public Task<IReadOnlyList<Booking>> GetWithOpenRefundsAsync(CancellationToken cancellationToken = default)
+        => Task.FromResult<IReadOnlyList<Booking>>(Items
+            .Where(b => b.Cancellation?.Refunds.Any(r => r.Status is RefundStatus.Pending or RefundStatus.Processing) == true)
+            .ToList());
+
+    public Task<IReadOnlyList<Booking>> GetConfirmedWithLandedFlightsAsync(DateTime now, CancellationToken cancellationToken = default)
+        => Task.FromResult<IReadOnlyList<Booking>>(Items
+            .Where(b => b.Status == BookingStatus.Confirmed && b.Flights.Any(f => f.Flight.ArrivalAt <= now))
+            .ToList());
 }
 
 internal sealed class FakeAircraftRepository : FakeRepository<Aircraft>, IAircraftRepository

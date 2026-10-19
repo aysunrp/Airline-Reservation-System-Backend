@@ -32,6 +32,7 @@ public static class FlightMappings
             flight.AircraftId,
             flight.Aircraft.Model,
             flight.Status,
-            flight.Fares.ToDictionary(f => f.CabinClass, f => f.BasePrice));
+            flight.Fares.ToDictionary(f => f.CabinClass, f => f.BasePrice),
+            segments.Select(s => new FlightSegmentDto(s.SequenceNo, s.Origin.Code, s.Destination.Code, s.DepartureAt, s.ArrivalAt)).ToList());
     }
 }

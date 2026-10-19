@@ -35,12 +35,17 @@ public class FlightSearchAndSeatTests
         Assert.Equal(535, outbound.DurationMinutes);
         Assert.Equal(1, outbound.Stops);
         Assert.Equal(new FlightStopDto("IST", 80), Assert.Single(outbound.Via));
+        Assert.Collection(outbound.Segments,
+            s => Assert.Equal(("GYD", "IST", TestData.OutboundDeparture, TestData.OutboundDeparture.AddMinutes(170)), (s.OriginCode, s.DestinationCode, s.DepartureAt, s.ArrivalAt)),
+            s => Assert.Equal((2, "IST", "LHR"), (s.SequenceNo, s.OriginCode, s.DestinationCode)));
         Assert.Equal(365m, outbound.Fares[CabinClass.Economy]);
         Assert.Equal("A350-900", outbound.AircraftModel);
 
         var back = Assert.Single(result[1].Flights);
         Assert.Equal(0, back.Stops);
         Assert.Empty(back.Via);
+        var directLeg = Assert.Single(back.Segments);
+        Assert.Equal((back.DepartureAt, back.ArrivalAt), (directLeg.DepartureAt, directLeg.ArrivalAt));
     }
 
     [Fact]

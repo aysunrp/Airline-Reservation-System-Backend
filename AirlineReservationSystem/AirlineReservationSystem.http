@@ -144,6 +144,38 @@ Authorization: Bearer {{token}}
 GET {{host}}/api/admin/dashboard
 Authorization: Bearer {{adminToken}}
 
+### Admin: create an airport (IANA time zone)
+POST {{host}}/api/admin/airports
+Content-Type: application/json
+Authorization: Bearer {{adminToken}}
+
+{
+  "code": "TBS",
+  "name": "Tbilisi International Airport",
+  "city": "Tbilisi",
+  "countryCode": "GE",
+  "timeZoneId": "Asia/Tbilisi",
+  "isActive": true
+}
+
+### Admin: create a promo code
+POST {{host}}/api/admin/promo-codes
+Content-Type: application/json
+Authorization: Bearer {{adminToken}}
+
+{ "code": "SPRING25", "discountPercent": 25, "validTo": "2026-12-31T23:59:59Z", "maxUses": 100, "isActive": true }
+
+### Admin: add a baggage option
+POST {{host}}/api/admin/booking-options/baggage
+Content-Type: application/json
+Authorization: Bearer {{adminToken}}
+
+{ "code": "bag30", "name": "+30 kg", "weightKg": 30, "price": 75, "isActive": true }
+
+### Admin: cancellation fare rules of a cabin
+GET {{host}}/api/admin/cancellation-rules?cabinClass=Economy
+Authorization: Bearer {{adminToken}}
+
 ### Admin: create an aircraft (seats are generated)
 POST {{host}}/api/admin/aircraft
 Content-Type: application/json

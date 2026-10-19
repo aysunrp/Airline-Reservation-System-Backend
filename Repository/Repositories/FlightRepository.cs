@@ -87,6 +87,11 @@ public class FlightRepository : BaseRepository<Flight>, IFlightRepository
 
     public void ClearTracking() => Context.ChangeTracker.Clear();
 
+    public async Task<IReadOnlyList<Flight>> GetLandedOpenAsync(DateTime now, CancellationToken cancellationToken = default)
+        => await Set
+            .Where(f => f.ArrivalAt <= now && f.Status != FlightStatus.Cancelled && f.Status != FlightStatus.Completed)
+            .ToListAsync(cancellationToken);
+
     public Task<bool> HasBookingsAsync(int id, CancellationToken cancellationToken = default)
         => Context.Set<BookingFlight>().AnyAsync(bf => bf.FlightId == id, cancellationToken);
 

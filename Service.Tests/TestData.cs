@@ -1,5 +1,6 @@
 using Domain.Entities;
 using Domain.Enums;
+using Service.Helpers.Settings;
 
 namespace Service.Tests;
 
@@ -83,6 +84,29 @@ internal sealed class TestData
     ];
 
     public FakeAirportRepository Airports() => new(Baku, London, Istanbul);
+
+    /// <summary>The passenger form's document rules (also in appsettings.json).</summary>
+    public static TravelDocumentSettings FrontendDocumentRules() => new()
+    {
+        Domestic =
+        {
+            ["AZ"] = new CountryDocumentRule
+            {
+                Documents = { DocumentType.Passport },
+                ByNationality = { ["AZ"] = new() { DocumentType.NationalIdCard, DocumentType.Passport } }
+            }
+        },
+        International =
+        {
+            ["TR"] = new CountryDocumentRule
+            {
+                Documents = { DocumentType.Passport },
+                ByNationality = { ["AZ"] = new() { DocumentType.Passport, DocumentType.NationalIdCard } }
+            },
+            ["AE"] = new CountryDocumentRule { Documents = { DocumentType.Passport }, MinValidityDays = 180 }
+        },
+        InternationalDefault = new CountryDocumentRule { Documents = { DocumentType.Passport } }
+    };
 
     public FakeFlightRepository Flights() => new(Outbound, Return);
 

@@ -6,5 +6,6 @@ public enum NotificationType
     BookingCancelled,
     PaymentSuccessful,
     FlightUpdate,
-    CheckInReminder
+    CheckInReminder,
+    RefundCompleted
 }

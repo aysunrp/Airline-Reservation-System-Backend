@@ -19,4 +19,12 @@ public class AirportRepository : BaseRepository<Airport>, IAirportRepository
             .Where(a => a.IsActive)
             .OrderBy(a => a.City)
             .ToListAsync(cancellationToken);
+
+    public Task<bool> CodeExistsAsync(string code, int? excludeId = null, CancellationToken cancellationToken = default)
+        => Set.AnyAsync(a => a.Code == code && a.Id != excludeId, cancellationToken);
+
+    public async Task<bool> IsInUseAsync(int id, CancellationToken cancellationToken = default)
+        => await Context.Set<Route>().AnyAsync(r => r.OriginAirportId == id || r.DestinationAirportId == id, cancellationToken)
+           || await Context.Set<FlightScheduleStop>().AnyAsync(s => s.AirportId == id, cancellationToken)
+           || await Context.Set<FlightSegment>().AnyAsync(s => s.OriginAirportId == id || s.DestinationAirportId == id, cancellationToken);
 }
