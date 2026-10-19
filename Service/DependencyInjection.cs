@@ -43,6 +43,7 @@ namespace Service
             services.AddScoped<IAdminAirportService, AdminAirportService>();
             services.AddScoped<IAdminPromoCodeService, AdminPromoCodeService>();
             services.AddScoped<IAdminBookingOptionService, AdminBookingOptionService>();
+            services.AddScoped<IAdminCancellationRuleService, AdminCancellationRuleService>();
             services.AddScoped<IAdminAircraftService, AdminAircraftService>();
             services.AddScoped<IAdminRouteService, AdminRouteService>();
             services.AddScoped<IAdminScheduleService, AdminScheduleService>();

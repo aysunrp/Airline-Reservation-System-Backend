@@ -105,6 +105,9 @@ internal sealed class FakeNotificationRepository : FakeRepository<Notification>,
 
 internal sealed class FakeCancellationRuleRepository : FakeRepository<CancellationRule>, ICancellationRuleRepository
 {
+    public Task<bool> ExistsAsync(CabinClass cabinClass, int minDaysBeforeDeparture, int? excludeId = null, CancellationToken cancellationToken = default)
+        => Task.FromResult(Items.Any(r => r.CabinClass == cabinClass && r.MinDaysBeforeDeparture == minDaysBeforeDeparture && r.Id != excludeId));
+
     public FakeCancellationRuleRepository(params CancellationRule[] items) : base(items)
     {
     }

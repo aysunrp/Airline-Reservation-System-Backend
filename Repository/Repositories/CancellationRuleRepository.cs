@@ -17,4 +17,7 @@ public class CancellationRuleRepository : BaseRepository<CancellationRule>, ICan
             .Where(r => r.CabinClass == cabinClass)
             .OrderByDescending(r => r.MinDaysBeforeDeparture)
             .ToListAsync(cancellationToken);
+
+    public Task<bool> ExistsAsync(CabinClass cabinClass, int minDaysBeforeDeparture, int? excludeId = null, CancellationToken cancellationToken = default)
+        => Set.AnyAsync(r => r.CabinClass == cabinClass && r.MinDaysBeforeDeparture == minDaysBeforeDeparture && r.Id != excludeId, cancellationToken);
 }
