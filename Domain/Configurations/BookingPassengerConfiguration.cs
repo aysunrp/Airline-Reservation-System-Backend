@@ -10,7 +10,7 @@ public class BookingPassengerConfiguration : IEntityTypeConfiguration<BookingPas
     {
         builder.Property(x => x.FirstName).IsRequired().HasMaxLength(100);
         builder.Property(x => x.LastName).IsRequired().HasMaxLength(100);
-        builder.Property(x => x.Gender).HasConversion<string>().HasMaxLength(10);
+        builder.Property(x => x.Gender).HasConversion<string>().HasMaxLength(20);
         builder.Property(x => x.NationalityCode).IsRequired().HasMaxLength(2);
         builder.Property(x => x.DocumentType).HasConversion<string>().HasMaxLength(20);
         builder.Property(x => x.DocumentNumber).IsRequired().HasMaxLength(30);
