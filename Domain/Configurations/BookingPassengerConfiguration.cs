@@ -8,7 +8,9 @@ public class BookingPassengerConfiguration : IEntityTypeConfiguration<BookingPas
 {
     public void Configure(EntityTypeBuilder<BookingPassenger> builder)
     {
+        builder.Property(x => x.Title).IsRequired().HasMaxLength(10);
         builder.Property(x => x.FirstName).IsRequired().HasMaxLength(100);
+        builder.Property(x => x.MiddleName).HasMaxLength(100);
         builder.Property(x => x.LastName).IsRequired().HasMaxLength(100);
         builder.Property(x => x.Gender).HasConversion<string>().HasMaxLength(20);
         builder.Property(x => x.NationalityCode).IsRequired().HasMaxLength(2);
