@@ -95,6 +95,12 @@ public class FlightGenerationIntegrationTests : IClassFixture<ApiFactory>
         var details = await (await admin.GetAsync($"/api/flights/{flightId}")).ReadAsync<FlightResultDto>();
         Assert.Equal("IST", Assert.Single(details.Via).AirportCode);
         Assert.Equal(80, details.Via[0].LayoverMinutes);
+        Assert.Equal(new[] { ("GYD", "IST"), ("IST", "LHR") }, details.Segments.OrderBy(s => s.SequenceNo).Select(s => (s.OriginCode, s.DestinationCode)));
+        var firstLeg = details.Segments.OrderBy(s => s.SequenceNo).First();
+        var secondLeg = details.Segments.OrderBy(s => s.SequenceNo).Last();
+        Assert.Equal(details.DepartureAt, firstLeg.DepartureAt);
+        Assert.Equal(details.ArrivalAt, secondLeg.ArrivalAt);
+        Assert.Equal(80, (int)(secondLeg.DepartureAt - firstLeg.ArrivalAt).TotalMinutes);
         Assert.Equal(365m, details.Fares[CabinClass.Economy]);
         Assert.Equal(HttpStatusCode.OK, (await admin.GetAsync($"/api/flights/{flightId}/seats?cabinClass=Economy")).StatusCode);
     }
