@@ -13,4 +13,10 @@ public class PromoCodeRepository : BaseRepository<PromoCode>, IPromoCodeReposito
 
     public Task<PromoCode?> GetByCodeAsync(string code, CancellationToken cancellationToken = default)
         => Set.FirstOrDefaultAsync(p => p.Code == code, cancellationToken);
+
+    public Task<bool> CodeExistsAsync(string code, int? excludeId = null, CancellationToken cancellationToken = default)
+        => Set.AnyAsync(p => p.Code == code && p.Id != excludeId, cancellationToken);
+
+    public Task<bool> IsInUseAsync(int id, CancellationToken cancellationToken = default)
+        => Context.Set<Booking>().AnyAsync(b => b.PromoCodeId == id, cancellationToken);
 }
