@@ -30,6 +30,7 @@ public class BookingService : IBookingService
     private readonly IPricingService _pricingService;
     private readonly IPromoCodeService _promoCodeService;
     private readonly IBookingExpiryService _expiryService;
+    private readonly ITravelDocumentPolicy _documentPolicy;
     private readonly IValidator<CreateBookingRequestDto> _validator;
     private readonly BookingSettings _settings;
     private readonly TimeProvider _timeProvider;
@@ -44,6 +45,7 @@ public class BookingService : IBookingService
         IPricingService pricingService,
         IPromoCodeService promoCodeService,
         IBookingExpiryService expiryService,
+        ITravelDocumentPolicy documentPolicy,
         IValidator<CreateBookingRequestDto> validator,
         IOptions<BookingSettings> settings,
         TimeProvider timeProvider)
@@ -57,6 +59,7 @@ public class BookingService : IBookingService
         _pricingService = pricingService;
         _promoCodeService = promoCodeService;
         _expiryService = expiryService;
+        _documentPolicy = documentPolicy;
         _validator = validator;
         _settings = settings.Value;
         _timeProvider = timeProvider;
@@ -293,11 +296,8 @@ public class BookingService : IBookingService
             throw new BusinessRuleException("Each infant must travel on the lap of an adult, so there cannot be more infants than adults.");
         }
 
-        var expired = request.Passengers.FirstOrDefault(p => p.DocumentExpiryDate is DateOnly expiry && expiry < lastTravelDate);
-        if (expired is not null)
-        {
-            throw new BusinessRuleException($"The travel document of {expired.FirstName} {expired.LastName} expires before the trip ends.");
-        }
+        // Accepted document types and minimum validity depend on the countries of every flight.
+        _documentPolicy.Check(legs.Select(l => l.Flight).ToList(), request.Passengers, lastTravelDate);
 
         return types;
     }

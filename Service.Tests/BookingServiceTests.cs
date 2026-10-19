@@ -238,8 +238,10 @@ public class BookingServiceTests
 
         await Assert.ThrowsAsync<ValidationException>(() => CreateService().CreateBookingAsync(null, OneWay(passenger)));
 
+        // A well-formed ID card number passes validation, but the route to London only accepts a passport.
         passenger.DocumentNumber = "aa1234567";
-        Assert.Equal(6, (await CreateService().CreateBookingAsync(null, OneWay(passenger))).Pnr.Length);
+        var error = await Assert.ThrowsAsync<BusinessRuleException>(() => CreateService().CreateBookingAsync(null, OneWay(passenger)));
+        Assert.Contains("national ID card is not accepted", error.Message);
     }
 
     [Fact]

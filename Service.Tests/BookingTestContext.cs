@@ -43,6 +43,7 @@ internal sealed class BookingTestContext
         new PricingService(Options.Create(new PricingSettings())),
         new PromoCodeService(PromoCodes, Clock),
         CreateExpiryService(),
+        new TravelDocumentPolicy(Options.Create(TestData.FrontendDocumentRules())),
         new CreateBookingRequestValidator(Clock),
         Options.Create(new BookingSettings { SeatHoldMinutes = 15 }),
         Clock);

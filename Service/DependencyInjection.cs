@@ -17,6 +17,7 @@ namespace Service
             services.Configure<BookingSettings>(configuration.GetSection(BookingSettings.SectionName));
             services.Configure<SeatLayoutSettings>(configuration.GetSection(SeatLayoutSettings.SectionName));
             services.Configure<FlightGenerationSettings>(configuration.GetSection(FlightGenerationSettings.SectionName));
+            services.Configure<TravelDocumentSettings>(configuration.GetSection(TravelDocumentSettings.SectionName));
             services.Configure<SeedSettings>(configuration.GetSection(SeedSettings.SectionName));
 
             services.TryAddSingleton(TimeProvider.System);
@@ -36,6 +37,7 @@ namespace Service
             services.AddScoped<ISeatService, SeatService>();
             services.AddScoped<IExtraServiceOptionsService, ExtraServiceOptionsService>();
             services.AddScoped<IBookingExpiryService, BookingExpiryService>();
+            services.AddSingleton<ITravelDocumentPolicy, TravelDocumentPolicy>();
             services.AddScoped<IBookingService, BookingService>();
             services.AddScoped<IPaymentService, PaymentService>();
             services.AddScoped<ICancellationService, CancellationService>();
