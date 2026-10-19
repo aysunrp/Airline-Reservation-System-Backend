@@ -40,6 +40,7 @@ namespace Service
             services.AddScoped<IPaymentService, PaymentService>();
             services.AddScoped<ICancellationService, CancellationService>();
 
+            services.AddScoped<IAdminAirportService, AdminAirportService>();
             services.AddScoped<IAdminAircraftService, AdminAircraftService>();
             services.AddScoped<IAdminRouteService, AdminRouteService>();
             services.AddScoped<IAdminScheduleService, AdminScheduleService>();

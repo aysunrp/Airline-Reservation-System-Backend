@@ -116,6 +116,14 @@ internal sealed class FakeAirportRepository : FakeRepository<Airport>, IAirportR
 
     public Task<IReadOnlyList<Airport>> GetActiveAsync(CancellationToken cancellationToken = default)
         => Task.FromResult<IReadOnlyList<Airport>>(Items.Where(a => a.IsActive).ToList());
+
+    public HashSet<int> InUse { get; } = new();
+
+    public Task<bool> CodeExistsAsync(string code, int? excludeId = null, CancellationToken cancellationToken = default)
+        => Task.FromResult(Items.Any(a => a.Code == code && a.Id != excludeId));
+
+    public Task<bool> IsInUseAsync(int id, CancellationToken cancellationToken = default)
+        => Task.FromResult(InUse.Contains(id));
 }
 
 internal sealed class FakeFlightRepository : FakeRepository<Flight>, IFlightRepository
