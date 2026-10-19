@@ -1,8 +1,11 @@
 using System.Net;
 using System.Net.Http.Json;
 using Domain.Enums;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Options;
 using Service.Helpers.DTOs.Passenger;
 using Service.Helpers.DTOs.Reservation;
+using Service.Helpers.Settings;
 using static AirlineReservationSystem.Tests.ApiTestHelpers;
 
 namespace AirlineReservationSystem.Tests;
@@ -68,5 +71,24 @@ public class PassengerDetailsEndpointTests : IClassFixture<ApiFactory>
 
         Assert.Equal(HttpStatusCode.Created, response.StatusCode);
         Assert.Contains("\"gender\":\"Other\"", await response.Content.ReadAsStringAsync());
+    }
+
+    [Fact]
+    public async Task DocumentRules_FromAppSettings_AreApplied()
+    {
+        var rules = _factory.Services.GetRequiredService<IOptions<TravelDocumentSettings>>().Value;
+        Assert.Equal(new[] { DocumentType.NationalIdCard, DocumentType.Passport }, rules.Domestic["AZ"].ByNationality["AZ"]);
+        Assert.Equal(180, rules.International["AE"].MinValidityDays);
+
+        // The seeded flight goes from Baku to London, where an ID card is not accepted.
+        var seed = await _factory.GetSeedAsync();
+        var request = BookingEndpointTests.Request(seed, "11C");
+        request.Passengers[0].DocumentType = DocumentType.NationalIdCard;
+        request.Passengers[0].DocumentNumber = "AA1234567";
+
+        var response = await _factory.CreateClient().PostAsJsonAsync("/api/bookings", request, Json);
+
+        Assert.Equal(HttpStatusCode.UnprocessableEntity, response.StatusCode);
+        Assert.Contains("national ID card is not accepted", await response.Content.ReadAsStringAsync());
     }
 }
