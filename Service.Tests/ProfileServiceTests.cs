@@ -62,6 +62,15 @@ public class ProfileServiceTests
     }
 
     [Fact]
+    public async Task UpdateProfile_AcceptsMx()
+    {
+        var request = ProfileRequest();
+        request.Title = "Mx";
+
+        Assert.Equal("Mx", (await CreateService().UpdateProfileAsync(1, request)).Title);
+    }
+
+    [Fact]
     public async Task UnknownUser_ThrowsNotFound()
     {
         await Assert.ThrowsAsync<NotFoundException>(() => CreateService().GetProfileAsync(99));
