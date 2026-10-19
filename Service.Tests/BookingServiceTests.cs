@@ -314,4 +314,33 @@ public class BookingServiceTests
         blankMiddleName.MiddleName = "   ";
         Assert.Null((await CreateService().CreateBookingAsync(1, OneWay(blankMiddleName))).Passengers.Single().MiddleName);
     }
+
+    [Fact]
+    public async Task MultiCity_BooksEveryLegWithASeatAndTicketEach()
+    {
+        // Two separate flights on different days, no return-route rule as for round trips.
+        var passenger = Passenger("Aysun", 1990, (1, 103), (2, 203));
+        var request = OneWay(passenger);
+        request.TripType = TripType.MultiCity;
+        request.Legs.Add(new BookingLegRequestDto { FlightId = 2, CabinClass = CabinClass.Economy });
+
+        var result = await CreateService().CreateBookingAsync(1, request);
+
+        Assert.Equal(TripType.MultiCity, result.TripType);
+        Assert.Equal(new[] { 1, 2 }, result.Legs.Select(l => l.LegOrder));
+        Assert.Equal(new[] { "11A", "11A" }, result.Passengers.Single().Tickets.Select(t => t.Seat));
+        Assert.Equal(365m + 420m, result.Price.BaseFare);
+
+        // A single flight is not a multi-city trip, and the legs must follow each other.
+        var oneLeg = OneWay(Passenger("Aysun", 1990, (1, 104)));
+        oneLeg.TripType = TripType.MultiCity;
+        await Assert.ThrowsAsync<ValidationException>(() => CreateService().CreateBookingAsync(1, oneLeg));
+
+        var backwards = OneWay(Passenger("Aysun", 1990, (2, 204), (1, 105)));
+        backwards.TripType = TripType.MultiCity;
+        backwards.Legs.Clear();
+        backwards.Legs.Add(new BookingLegRequestDto { FlightId = 2, CabinClass = CabinClass.Economy });
+        backwards.Legs.Add(new BookingLegRequestDto { FlightId = 1, CabinClass = CabinClass.Economy });
+        await Assert.ThrowsAsync<BusinessRuleException>(() => CreateService().CreateBookingAsync(1, backwards));
+    }
 }
