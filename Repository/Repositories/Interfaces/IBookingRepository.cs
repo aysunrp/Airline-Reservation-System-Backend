@@ -26,5 +26,11 @@ public interface IBookingRepository : IBaseRepository<Booking>
     Task<IReadOnlyList<int>> GetUserIdsWithActiveBookingsOnFlightAsync(int flightId, CancellationToken cancellationToken = default);
 
     /// <summary>Unpaid bookings whose seat hold has run out, tracked with their tickets so they can be expired.</summary>
+    /// <summary>Tracked bookings whose cancellation still has a Pending or Processing refund, with payments.</summary>
+    Task<IReadOnlyList<Booking>> GetWithOpenRefundsAsync(CancellationToken cancellationToken = default);
+
+    /// <summary>Tracked confirmed bookings with at least one flight that has landed by <paramref name="now"/>, with legs and tickets.</summary>
+    Task<IReadOnlyList<Booking>> GetConfirmedWithLandedFlightsAsync(DateTime now, CancellationToken cancellationToken = default);
+
     Task<IReadOnlyList<Booking>> GetExpiredPendingAsync(DateTime now, CancellationToken cancellationToken = default);
 }

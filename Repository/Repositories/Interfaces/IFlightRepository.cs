@@ -34,6 +34,9 @@ public interface IFlightRepository : IBaseRepository<Flight>
     /// </summary>
     Task<bool> TryAddAsync(Flight flight, CancellationToken cancellationToken = default);
 
+    /// <summary>Tracked flights that have landed by <paramref name="now"/> and are not Cancelled or Completed yet.</summary>
+    Task<IReadOnlyList<Flight>> GetLandedOpenAsync(DateTime now, CancellationToken cancellationToken = default);
+
     /// <summary>Forgets every loaded entity, so long batch jobs do not keep thousands of saved rows in memory.</summary>
     void ClearTracking();
 

@@ -218,6 +218,11 @@ internal sealed class FakeFlightRepository : FakeRepository<Flight>, IFlightRepo
 
     public int ClearTrackingCalls { get; private set; }
 
+    public Task<IReadOnlyList<Flight>> GetLandedOpenAsync(DateTime now, CancellationToken cancellationToken = default)
+        => Task.FromResult<IReadOnlyList<Flight>>(Items
+            .Where(f => f.ArrivalAt <= now && f.Status is not (FlightStatus.Cancelled or FlightStatus.Completed))
+            .ToList());
+
     public void ClearTracking() => ClearTrackingCalls++;
 
     public Task<IReadOnlyList<Flight>> GetAllWithDetailsAsync(CancellationToken cancellationToken = default)
@@ -363,6 +368,16 @@ internal sealed class FakeBookingRepository : FakeRepository<Booking>, IBookingR
 
     public Task<IReadOnlyList<Booking>> GetExpiredPendingAsync(DateTime now, CancellationToken cancellationToken = default)
         => Task.FromResult<IReadOnlyList<Booking>>(Items.Where(b => b.Status == BookingStatus.Pending && b.ExpiresAt <= now).ToList());
+
+    public Task<IReadOnlyList<Booking>> GetWithOpenRefundsAsync(CancellationToken cancellationToken = default)
+        => Task.FromResult<IReadOnlyList<Booking>>(Items
+            .Where(b => b.Cancellation?.Refunds.Any(r => r.Status is RefundStatus.Pending or RefundStatus.Processing) == true)
+            .ToList());
+
+    public Task<IReadOnlyList<Booking>> GetConfirmedWithLandedFlightsAsync(DateTime now, CancellationToken cancellationToken = default)
+        => Task.FromResult<IReadOnlyList<Booking>>(Items
+            .Where(b => b.Status == BookingStatus.Confirmed && b.Flights.Any(f => f.Flight.ArrivalAt <= now))
+            .ToList());
 }
 
 internal sealed class FakeAircraftRepository : FakeRepository<Aircraft>, IAircraftRepository

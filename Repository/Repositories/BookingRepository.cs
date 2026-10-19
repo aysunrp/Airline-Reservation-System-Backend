@@ -83,6 +83,21 @@ public class BookingRepository : BaseRepository<Booking>, IBookingRepository
             .Distinct()
             .ToListAsync(cancellationToken);
 
+    public async Task<IReadOnlyList<Booking>> GetWithOpenRefundsAsync(CancellationToken cancellationToken = default)
+        => await Set.AsSplitQuery()
+            .Include(b => b.Payments)
+            .Include(b => b.Cancellation!).ThenInclude(c => c.Refunds)
+            .Where(b => b.Cancellation != null
+                        && b.Cancellation.Refunds.Any(r => r.Status == RefundStatus.Pending || r.Status == RefundStatus.Processing))
+            .ToListAsync(cancellationToken);
+
+    public async Task<IReadOnlyList<Booking>> GetConfirmedWithLandedFlightsAsync(DateTime now, CancellationToken cancellationToken = default)
+        => await Set.AsSplitQuery()
+            .Include(b => b.Flights).ThenInclude(f => f.Flight)
+            .Include(b => b.Passengers).ThenInclude(p => p.Tickets)
+            .Where(b => b.Status == BookingStatus.Confirmed && b.Flights.Any(f => f.Flight.ArrivalAt <= now))
+            .ToListAsync(cancellationToken);
+
     public async Task<IReadOnlyList<Booking>> GetExpiredPendingAsync(DateTime now, CancellationToken cancellationToken = default)
         => await Set.AsSplitQuery()
             .Include(b => b.Passengers).ThenInclude(p => p.Tickets)
