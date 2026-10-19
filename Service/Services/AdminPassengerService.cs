@@ -3,6 +3,7 @@ using Domain.Enums;
 using Repository.Repositories.Interfaces;
 using Service.Helpers.DTOs.Passenger;
 using Service.Helpers.Exceptions;
+using Service.Helpers.Mappings;
 using Service.Services.Interfaces;
 
 namespace Service.Services;
@@ -62,7 +63,7 @@ public class AdminPassengerService : IAdminPassengerService
                 var trips = bookings.Count(CountsAsTrip);
 
                 var passenger = new AdminPassengerDto(
-                    $"{latest.FirstName} {latest.LastName}",
+                    latest.FullName(),
                     latest.Booking.ContactEmail,
                     latest.Booking.ContactPhone,
                     latest.NationalityCode,

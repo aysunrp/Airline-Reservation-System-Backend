@@ -106,7 +106,9 @@ public class BookingService : IBookingService
             {
                 SavedPassengerId = passengerRequest.SavedPassengerId,
                 PassengerType = quote.PassengerTypes[p],
+                Title = passengerRequest.Title,
                 FirstName = passengerRequest.FirstName.Trim(),
+                MiddleName = string.IsNullOrWhiteSpace(passengerRequest.MiddleName) ? null : passengerRequest.MiddleName.Trim(),
                 LastName = passengerRequest.LastName.Trim(),
                 DateOfBirth = passengerRequest.DateOfBirth,
                 Gender = passengerRequest.Gender,

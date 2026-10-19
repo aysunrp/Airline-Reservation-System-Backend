@@ -32,7 +32,9 @@ public record TicketDto(
 public record BookingPassengerDto(
     int Id,
     PassengerType PassengerType,
+    string Title,
     string FirstName,
+    string? MiddleName,
     string LastName,
     DateOnly DateOfBirth,
     Gender Gender,

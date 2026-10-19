@@ -62,7 +62,7 @@ public class EndToEndTests : IClassFixture<ApiFactory>
             {
                 new BookingPassengerRequestDto
                 {
-                    FirstName = "Leyla", LastName = "Mammadova", DateOfBirth = new DateOnly(1995, 5, 12), Gender = Gender.Female,
+                    Title = "Ms", FirstName = "Leyla", LastName = "Mammadova", DateOfBirth = new DateOnly(1995, 5, 12), Gender = Gender.Female,
                     NationalityCode = "AZ", DocumentType = DocumentType.Passport, DocumentNumber = "C07654321",
                     DocumentIssuingCountry = "AZ", DocumentExpiryDate = new DateOnly(2031, 5, 1),
                     BaggageOptionId = baggage.Id, MealOptionId = meal.Id,

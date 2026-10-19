@@ -24,7 +24,14 @@ public class BookingLegRequestDto
 
 public class BookingPassengerRequestDto
 {
+    /// <summary>Mr, Ms, Mrs or Mx.</summary>
+    public string Title { get; set; } = string.Empty;
+
     public string FirstName { get; set; } = string.Empty;
+
+    /// <summary>Optional, as on the passenger form.</summary>
+    public string? MiddleName { get; set; }
+
     public string LastName { get; set; } = string.Empty;
     public DateOnly DateOfBirth { get; set; }
     public Gender Gender { get; set; }

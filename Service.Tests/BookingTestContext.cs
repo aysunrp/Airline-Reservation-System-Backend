@@ -84,6 +84,7 @@ internal sealed class BookingTestContext
 
     public static BookingPassengerRequestDto Passenger(string firstName, int birthYear, params (int FlightId, int SeatId)[] seats) => new()
     {
+        Title = "Ms",
         FirstName = firstName,
         LastName = "Panahli",
         DateOfBirth = new DateOnly(birthYear, 3, 1),
