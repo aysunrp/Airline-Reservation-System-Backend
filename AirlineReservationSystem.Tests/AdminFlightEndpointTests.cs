@@ -114,4 +114,23 @@ public class AdminFlightEndpointTests : IClassFixture<ApiFactory>
         Assert.Equal(HttpStatusCode.UnprocessableEntity, (await admin.PatchAsJsonAsync(seatUrl, new SeatBlockRequestDto { Blocked = false }, Json)).StatusCode);
         Assert.Equal(HttpStatusCode.NotFound, (await admin.PatchAsJsonAsync($"/api/admin/flights/{seed.FlightId}/seats/999999", new SeatBlockRequestDto { Blocked = true }, Json)).StatusCode);
     }
+
+    [Fact]
+    public async Task FlightList_SupportsPagingAndTheDayFilter()
+    {
+        var (admin, aircraftId) = await SetUpAsync();
+        var first = await (await admin.PostAsJsonAsync("/api/admin/flights", NewFlight(aircraftId, "AV 931", 31), Json)).ReadAsync<FlightResultDto>();
+        var second = await (await admin.PostAsJsonAsync("/api/admin/flights", NewFlight(aircraftId, "AV 932", 32), Json)).ReadAsync<FlightResultDto>();
+
+        var day = DateOnly.FromDateTime(DateTime.UtcNow.Date.AddDays(31)).ToString("yyyy-MM-dd");
+        var onDay = await (await admin.GetAsync($"/api/admin/flights?date={day}")).ReadAsync<List<FlightResultDto>>();
+        Assert.Equal(first.Id, onDay.Single().Id);
+
+        var pageOne = await (await admin.GetAsync("/api/admin/flights?search=AV 93&take=1")).ReadAsync<List<FlightResultDto>>();
+        var pageTwo = await (await admin.GetAsync("/api/admin/flights?search=AV 93&take=1&skip=1")).ReadAsync<List<FlightResultDto>>();
+        Assert.Equal(first.Id, pageOne.Single().Id);
+        Assert.Equal(second.Id, pageTwo.Single().Id);
+
+        Assert.Equal(HttpStatusCode.OK, (await admin.GetAsync("/api/admin/flights?take=100000")).StatusCode);
+    }
 }

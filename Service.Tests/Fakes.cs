@@ -237,6 +237,19 @@ internal sealed class FakeFlightRepository : FakeRepository<Flight>, IFlightRepo
     public Task<IReadOnlyList<Flight>> GetAllWithDetailsAsync(CancellationToken cancellationToken = default)
         => Task.FromResult<IReadOnlyList<Flight>>(Items.OrderBy(f => f.DepartureAt).ToList());
 
+    public Task<IReadOnlyList<Flight>> GetAdminPageAsync(string? search, FlightStatus? status, DateOnly? date, int skip, int take, CancellationToken cancellationToken = default)
+        => Task.FromResult<IReadOnlyList<Flight>>(Items
+            .Where(f => status is null || f.Status == status)
+            .Where(f => date is null || DateOnly.FromDateTime(f.DepartureAt) == date)
+            .Where(f => string.IsNullOrWhiteSpace(search)
+                        || f.FlightNumber.Contains(search.Trim(), StringComparison.OrdinalIgnoreCase)
+                        || f.Route.Origin.City.Contains(search.Trim(), StringComparison.OrdinalIgnoreCase)
+                        || f.Route.Destination.City.Contains(search.Trim(), StringComparison.OrdinalIgnoreCase)
+                        || f.Aircraft.Model.Contains(search.Trim(), StringComparison.OrdinalIgnoreCase))
+            .OrderBy(f => f.DepartureAt).ThenBy(f => f.Id)
+            .Skip(skip).Take(take)
+            .ToList());
+
     public Task<IReadOnlyList<Flight>> GetUpcomingAsync(DateTime from, int take, CancellationToken cancellationToken = default)
         => Task.FromResult<IReadOnlyList<Flight>>(Items
             .Where(f => f.DepartureAt >= from && f.Status != FlightStatus.Cancelled)

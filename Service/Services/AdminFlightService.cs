@@ -51,19 +51,12 @@ public class AdminFlightService : IAdminFlightService
     }
 
     public async Task<IReadOnlyList<FlightResultDto>> GetAllAsync(string? search = null, FlightStatus? status = null, CancellationToken cancellationToken = default)
-    {
-        var term = search?.Trim();
-        var flights = await _flightRepository.GetAllWithDetailsAsync(cancellationToken);
+        => await GetPageAsync(search, status, null, 0, 100, cancellationToken);
 
-        return flights
-            .Select(f => f.ToResultDto())
-            .Where(f => status is null || f.Status == status)
-            .Where(f => string.IsNullOrEmpty(term)
-                        || f.FlightNumber.Contains(term, StringComparison.OrdinalIgnoreCase)
-                        || f.OriginCity.Contains(term, StringComparison.OrdinalIgnoreCase)
-                        || f.DestinationCity.Contains(term, StringComparison.OrdinalIgnoreCase)
-                        || f.AircraftModel.Contains(term, StringComparison.OrdinalIgnoreCase))
-            .ToList();
+    public async Task<IReadOnlyList<FlightResultDto>> GetPageAsync(string? search, FlightStatus? status, DateOnly? date, int skip, int take, CancellationToken cancellationToken = default)
+    {
+        var flights = await _flightRepository.GetAdminPageAsync(search, status, date, Math.Max(0, skip), Math.Clamp(take, 1, 500), cancellationToken);
+        return flights.Select(f => f.ToResultDto()).ToList();
     }
 
     public async Task<FlightResultDto> CreateAsync(FlightRequestDto request, CancellationToken cancellationToken = default)

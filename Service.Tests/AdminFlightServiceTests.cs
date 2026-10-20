@@ -159,6 +159,25 @@ public class AdminFlightServiceTests
     }
 
     [Fact]
+    public async Task List_IsPaged_AndFilteredByDay_Status_AndSearch()
+    {
+        var service = CreateService();
+
+        var all = await service.GetPageAsync(null, null, null, 0, 100);
+        Assert.Equal(new[] { TestData.OutboundDeparture, TestData.ReturnDeparture }, all.Select(f => f.DepartureAt));
+
+        // take is limited, skip moves on, and the day is the UTC departure day.
+        Assert.Single(await service.GetPageAsync(null, null, null, 0, 1));
+        Assert.Equal(TestData.ReturnDeparture, Assert.Single(await service.GetPageAsync(null, null, null, 1, 1)).DepartureAt);
+        Assert.Empty(await service.GetPageAsync(null, null, null, 2, 10));
+        Assert.Equal(TestData.OutboundDeparture, Assert.Single(await service.GetPageAsync(null, null, DateOnly.FromDateTime(TestData.OutboundDeparture), 0, 10)).DepartureAt);
+        Assert.Empty(await service.GetPageAsync(null, FlightStatus.Cancelled, null, 0, 10));
+        Assert.Equal(2, (await service.GetPageAsync("london", null, null, 0, 10)).Count);
+        Assert.Empty(await service.GetPageAsync("paris", null, null, 0, 10));
+        Assert.Single(await service.GetPageAsync(null, null, null, -5, 0));
+    }
+
+    [Fact]
     public async Task TimeChange_ShiftsSegmentsAndKeepsStops()
     {
         var later = Edit(_context.Data.Outbound);

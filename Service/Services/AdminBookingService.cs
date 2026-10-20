@@ -18,9 +18,9 @@ public class AdminBookingService : IAdminBookingService
         _cancellationService = cancellationService;
     }
 
-    public async Task<IReadOnlyList<AdminBookingRowDto>> GetAllAsync(string? pnr = null, string? passengerName = null, BookingStatus? status = null, CancellationToken cancellationToken = default)
+    public async Task<IReadOnlyList<AdminBookingRowDto>> GetAllAsync(string? pnr = null, string? passengerName = null, BookingStatus? status = null, int take = 200, CancellationToken cancellationToken = default)
     {
-        var bookings = await _bookingRepository.GetForAdminAsync(pnr?.Trim().ToUpperInvariant(), passengerName, status, null, cancellationToken);
+        var bookings = await _bookingRepository.GetForAdminAsync(pnr?.Trim().ToUpperInvariant(), passengerName, status, Math.Clamp(take, 1, 500), cancellationToken);
         return bookings.Select(b => b.ToAdminRowDto()).ToList();
     }
 

@@ -30,6 +30,39 @@ public class FlightRepository : BaseRepository<Flight>, IFlightRepository
             .OrderBy(f => f.DepartureAt)
             .ToListAsync(cancellationToken);
 
+    public async Task<IReadOnlyList<Flight>> GetAdminPageAsync(string? search, FlightStatus? status, DateOnly? date, int skip, int take, CancellationToken cancellationToken = default)
+    {
+        var query = WithDetails();
+
+        if (status is not null)
+        {
+            query = query.Where(f => f.Status == status);
+        }
+
+        if (date is not null)
+        {
+            var from = date.Value.ToDateTime(TimeOnly.MinValue, DateTimeKind.Utc);
+            var to = from.AddDays(1);
+            query = query.Where(f => f.DepartureAt >= from && f.DepartureAt < to);
+        }
+
+        if (!string.IsNullOrWhiteSpace(search))
+        {
+            var term = search.Trim();
+            query = query.Where(f => f.FlightNumber.Contains(term)
+                                     || f.Route.Origin.City.Contains(term)
+                                     || f.Route.Destination.City.Contains(term)
+                                     || f.Aircraft.Model.Contains(term));
+        }
+
+        return await query
+            .OrderBy(f => f.DepartureAt)
+            .ThenBy(f => f.Id)
+            .Skip(skip)
+            .Take(take)
+            .ToListAsync(cancellationToken);
+    }
+
     public async Task<IReadOnlyList<Flight>> GetUpcomingAsync(DateTime from, int take, CancellationToken cancellationToken = default)
         => await WithDetails()
             .Where(f => f.DepartureAt >= from && f.Status != FlightStatus.Cancelled)
