@@ -38,6 +38,7 @@ public class SwaggerContractTests : IClassFixture<ApiFactory>
         { "put", "/api/profile/saved-passengers/{id}", true },
         { "delete", "/api/profile/saved-passengers/{id}", true },
         { "get", "/api/bookings/my", true },
+        { "get", "/api/bookings/my/{pnr}", true },
         { "get", "/api/notifications", true },
         { "get", "/api/notifications/unread-count", true },
         { "patch", "/api/notifications/{id}/read", true },

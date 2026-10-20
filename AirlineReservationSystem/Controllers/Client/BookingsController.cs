@@ -50,6 +50,14 @@ public class BookingsController : ControllerBase
     public async Task<ActionResult<IReadOnlyList<BookingSummaryDto>>> GetMine(CancellationToken cancellationToken)
         => Ok(await _bookingService.GetMyBookingsAsync(User.GetUserId(), cancellationToken));
 
+    /// <summary>My Trips details: one of the signed-in user's own bookings by reference.</summary>
+    [HttpGet("my/{pnr:length(6)}")]
+    [Authorize]
+    [ProducesResponseType<BookingDto>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<BookingDto>> GetMyBooking(string pnr, CancellationToken cancellationToken)
+        => Ok(await _bookingService.GetMyBookingAsync(User.GetUserId(), pnr, cancellationToken));
+
     /// <summary>Manage booking: the booking reference plus the last name of one of its passengers.</summary>
     [HttpGet("{pnr:length(6)}")]
     [ProducesResponseType<BookingDto>(StatusCodes.Status200OK)]

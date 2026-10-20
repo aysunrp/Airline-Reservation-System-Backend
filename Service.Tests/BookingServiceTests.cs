@@ -263,6 +263,19 @@ public class BookingServiceTests
     }
 
     [Fact]
+    public async Task GetMyBooking_ReturnsOwnBookingOnly()
+    {
+        var service = CreateService();
+        var created = await service.CreateBookingAsync(1, OneWay(Passenger("Aysun", 1990, (1, 103))));
+
+        Assert.Equal(created.Id, (await service.GetMyBookingAsync(1, created.Pnr.ToLowerInvariant())).Id);
+
+        // Another account, a guest booking and an unknown reference all look like "not found".
+        await Assert.ThrowsAsync<NotFoundException>(() => service.GetMyBookingAsync(2, created.Pnr));
+        await Assert.ThrowsAsync<NotFoundException>(() => service.GetMyBookingAsync(1, "ZZZZZZ"));
+    }
+
+    [Fact]
     public async Task ExpiredHold_ExpiresBookingAndReleasesSeats()
     {
         var service = CreateService();

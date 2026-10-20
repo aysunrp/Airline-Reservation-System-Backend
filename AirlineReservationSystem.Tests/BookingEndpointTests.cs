@@ -98,6 +98,23 @@ public class BookingEndpointTests : IClassFixture<ApiFactory>
     }
 
     [Fact]
+    public async Task MyTripsDetails_AreOnlyForTheOwner()
+    {
+        var seed = await _factory.GetSeedAsync();
+        var owner = _factory.CreateClient().WithToken((await _factory.CreateClient().RegisterAsync()).AccessToken);
+        var created = await (await owner.PostAsJsonAsync("/api/bookings", Request(seed, "1B"), Json)).ReadAsync<BookingDto>();
+
+        var details = await (await owner.GetAsync($"/api/bookings/my/{created.Pnr}")).ReadAsync<BookingDto>();
+        Assert.Equal(created.Pnr, details.Pnr);
+        Assert.Single(details.Passengers);
+
+        var stranger = _factory.CreateClient().WithToken((await _factory.CreateClient().RegisterAsync()).AccessToken);
+        Assert.Equal(HttpStatusCode.NotFound, (await stranger.GetAsync($"/api/bookings/my/{created.Pnr}")).StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, (await owner.GetAsync("/api/bookings/my/ZZZZZZ")).StatusCode);
+        Assert.Equal(HttpStatusCode.Unauthorized, (await _client.GetAsync($"/api/bookings/my/{created.Pnr}")).StatusCode);
+    }
+
+    [Fact]
     public async Task TakenSeat_Returns409()
     {
         var seed = await _factory.GetSeedAsync();
