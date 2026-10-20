@@ -159,6 +159,20 @@ public class AdminFlightServiceTests
     }
 
     [Fact]
+    public async Task Edit_WithoutAScheduleId_KeepsTheScheduleLinkOfAGeneratedFlight()
+    {
+        var flight = _context.Data.Return;
+        flight.FlightScheduleId = 7;
+        var edit = Edit(flight);
+        edit.Status = FlightStatus.Delayed;
+
+        await CreateService().UpdateAsync(flight.Id, edit);
+
+        Assert.Equal(7, flight.FlightScheduleId);
+        Assert.Equal(FlightStatus.Delayed, flight.Status);
+    }
+
+    [Fact]
     public async Task List_IsPaged_AndFilteredByDay_Status_AndSearch()
     {
         var service = CreateService();

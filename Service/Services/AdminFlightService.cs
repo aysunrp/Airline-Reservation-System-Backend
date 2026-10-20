@@ -160,7 +160,9 @@ public class AdminFlightService : IAdminFlightService
         UpdateFares(flight, request.Fares);
 
         flight.FlightNumber = flightNumber;
-        flight.FlightScheduleId = request.FlightScheduleId;
+        // The schedule link only changes when one is sent: an edit that does not mention it must not detach a generated flight,
+        // because the generator would then create the same day's flight again.
+        flight.FlightScheduleId = request.FlightScheduleId ?? flight.FlightScheduleId;
         flight.RouteId = route.Id;
         flight.AircraftId = aircraft.Id;
         flight.DepartureAt = departureAt;
