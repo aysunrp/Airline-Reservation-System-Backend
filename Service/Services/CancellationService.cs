@@ -93,11 +93,10 @@ public class CancellationService : ICancellationService
 
         await _seatService.ReleaseSeatsAsync(tickets.Select(t => t.FlightSeatId).OfType<int>().ToList(), cancellationToken);
 
-        if (booking.UserId is int userId)
+        // A hold that was never paid is not a trip: releasing it (for example when the traveller changes seats) is not news.
+        if (booking.UserId is int userId && payment is not null)
         {
-            var refundText = payment is null
-                ? string.Empty
-                : quote.RefundAmount > 0 ? $" An estimated refund of {quote.RefundAmount:0.00} has been requested." : " Under the fare rules no refund is due.";
+            var refundText = quote.RefundAmount > 0 ? $" An estimated refund of {quote.RefundAmount:0.00} has been requested." : " Under the fare rules no refund is due.";
             await _notificationService.QueueAsync(userId, booking.Id, NotificationType.BookingCancelled,
                 "Booking Cancelled", $"Your booking {booking.Pnr} has been cancelled.{refundText}", cancellationToken);
         }
