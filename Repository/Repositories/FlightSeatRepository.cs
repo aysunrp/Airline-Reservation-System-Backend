@@ -26,6 +26,10 @@ public class FlightSeatRepository : BaseRepository<FlightSeat>, IFlightSeatRepos
             .Where(s => s.FlightId == flightId && seatIds.Contains(s.Id))
             .ToListAsync(cancellationToken);
 
+    public Task<int> CountAvailableOnUpcomingFlightsAsync(DateTime now, CancellationToken cancellationToken = default)
+        => Set.CountAsync(s => s.Flight.DepartureAt > now && s.Flight.Status != FlightStatus.Cancelled
+                               && (s.Status == SeatStatus.Available || (s.Status == SeatStatus.Held && s.HeldUntil <= now)), cancellationToken);
+
     public async Task<IReadOnlyDictionary<int, int>> GetFreeSeatCountsAsync(IReadOnlyCollection<int> flightIds, CabinClass? cabinClass, DateTime now, CancellationToken cancellationToken = default)
         => await Set.AsNoTracking()
             .Where(s => flightIds.Contains(s.FlightId)

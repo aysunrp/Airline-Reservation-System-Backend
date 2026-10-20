@@ -7,6 +7,8 @@ public interface IRouteRepository : IBaseRepository<Route>
     /// <summary>All routes with their airports, ordered by origin and destination code (no tracking).</summary>
     Task<IReadOnlyList<Route>> GetAllWithAirportsAsync(CancellationToken cancellationToken = default);
 
+    Task<int> CountActiveAsync(CancellationToken cancellationToken = default);
+
     /// <summary>One route with its airports, tracked so it can be edited.</summary>
     Task<Route?> GetWithAirportsAsync(int id, CancellationToken cancellationToken = default);
 

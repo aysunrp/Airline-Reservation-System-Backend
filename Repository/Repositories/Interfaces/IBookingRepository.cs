@@ -32,6 +32,9 @@ public interface IBookingRepository : IBaseRepository<Booking>
     /// <summary>Tracked confirmed bookings with at least one flight that has landed by <paramref name="now"/>, with legs and tickets.</summary>
     Task<IReadOnlyList<Booking>> GetConfirmedWithLandedFlightsAsync(DateTime now, CancellationToken cancellationToken = default);
 
+    /// <summary>Bookings that were paid for and are still valid: Confirmed or Completed.</summary>
+    Task<int> CountPaidAsync(CancellationToken cancellationToken = default);
+
     /// <summary>Confirmed bookings of signed-in users with a flight departing after <paramref name="from"/> and no later than <paramref name="to"/> (no tracking).</summary>
     Task<IReadOnlyList<Booking>> GetConfirmedDepartingBetweenAsync(DateTime from, DateTime to, CancellationToken cancellationToken = default);
 

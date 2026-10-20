@@ -1,3 +1,4 @@
+using Domain.Entities;
 using Domain.Enums;
 using Service.Helpers.DTOs.Reservation;
 using Service.Helpers.Exceptions;
@@ -93,11 +94,20 @@ public class AdminBookingAndPassengerTests
     public async Task Dashboard_ShowsRecentBookingsAndUpcomingFlights()
     {
         await BookAsync("Aysun", 103, pay: true);
-        var service = new AdminDashboardService(_context.Bookings, _context.Data.Flights(), _context.Clock);
+        var flights = _context.Data.Flights();
+        var service = new AdminDashboardService(
+            _context.Bookings, flights, new FakeRouteRepository(), new FakeAircraftRepository(new Aircraft { Id = 1 }), _context.FlightSeats(),
+            CreatePassengerService(), _context.Clock);
 
         var dashboard = await service.GetAsync();
 
         Assert.Single(dashboard.RecentBookings);
         Assert.Equal(new[] { "AV 205", "AV 102" }, dashboard.UpcomingFlights.Select(f => f.FlightNumber));
+        Assert.Equal(2, dashboard.Stats.TotalFlights);
+        Assert.Equal(0, dashboard.Stats.ActiveRoutes);
+        Assert.Equal(1, dashboard.Stats.Aircraft);
+        Assert.Equal(1, dashboard.Stats.TotalBookings);
+        Assert.Equal(1, dashboard.Stats.Passengers);
+        Assert.True(dashboard.Stats.AvailableSeats > 0);
     }
 }

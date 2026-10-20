@@ -11,6 +11,8 @@ internal sealed class FakeRouteRepository : FakeRepository<Route>, IRouteReposit
 
     public HashSet<int> InUse { get; } = new();
 
+    public Task<int> CountActiveAsync(CancellationToken cancellationToken = default) => Task.FromResult(Items.Count(r => r.IsActive));
+
     public Task<IReadOnlyList<Route>> GetAllWithAirportsAsync(CancellationToken cancellationToken = default)
         => Task.FromResult<IReadOnlyList<Route>>(Items.OrderBy(r => r.Origin.Code).ThenBy(r => r.Destination.Code).ToList());
 

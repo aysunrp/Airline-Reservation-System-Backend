@@ -17,6 +17,14 @@ public record AdminBookingRowDto(
     decimal TotalAmount,
     BookingStatus Status);
 
+/// <summary>
+/// The numbers above the dashboard tables. Flights, routes and aircraft are all of them; ActiveRoutes only counts routes that are on;
+/// TotalBookings counts paid bookings (Confirmed or Completed); AvailableSeats are the seats still for sale on flights that have not
+/// departed; Passengers are the distinct travellers (grouped by travel document) as on the passengers page.
+/// </summary>
+public record AdminDashboardStatsDto(int TotalFlights, int ActiveRoutes, int Aircraft, int TotalBookings, int AvailableSeats, int Passengers);
+
 public record AdminDashboardDto(
     IReadOnlyList<AdminBookingRowDto> RecentBookings,
-    IReadOnlyList<FlightResultDto> UpcomingFlights);
+    IReadOnlyList<FlightResultDto> UpcomingFlights,
+    AdminDashboardStatsDto Stats);

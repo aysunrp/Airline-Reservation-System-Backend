@@ -20,6 +20,8 @@ internal class FakeRepository<T> : IBaseRepository<T> where T : BaseEntity
 
     public FakeRepository(params T[] items) => Items.AddRange(items);
 
+    public Task<int> CountAsync(CancellationToken cancellationToken = default) => Task.FromResult(Items.Count);
+
     public Task<IReadOnlyList<T>> GetAllAsync(CancellationToken cancellationToken = default)
         => Task.FromResult<IReadOnlyList<T>>(Items.ToList());
 
@@ -283,6 +285,10 @@ internal sealed class FakeFlightSeatRepository : FakeRepository<FlightSeat>, IFl
     public Task<IReadOnlyList<FlightSeat>> GetTrackedByIdsAsync(IReadOnlyCollection<int> seatIds, CancellationToken cancellationToken = default)
         => Task.FromResult<IReadOnlyList<FlightSeat>>(Items.Where(s => seatIds.Contains(s.Id)).ToList());
 
+    public Task<int> CountAvailableOnUpcomingFlightsAsync(DateTime now, CancellationToken cancellationToken = default)
+        => Task.FromResult(Items.Count(s => s.Flight.DepartureAt > now && s.Flight.Status != FlightStatus.Cancelled
+                                            && (s.Status == SeatStatus.Available || (s.Status == SeatStatus.Held && s.HeldUntil <= now))));
+
     public Task<IReadOnlyDictionary<int, int>> GetFreeSeatCountsAsync(IReadOnlyCollection<int> flightIds, CabinClass? cabinClass, DateTime now, CancellationToken cancellationToken = default)
         => Task.FromResult<IReadOnlyDictionary<int, int>>(Items
             .Where(s => flightIds.Contains(s.FlightId)
@@ -400,6 +406,9 @@ internal sealed class FakeBookingRepository : FakeRepository<Booking>, IBookingR
         => Task.FromResult<IReadOnlyList<Booking>>(Items
             .Where(b => b.Status == BookingStatus.Confirmed && b.Flights.Any(f => f.Flight.ArrivalAt <= now))
             .ToList());
+
+    public Task<int> CountPaidAsync(CancellationToken cancellationToken = default)
+        => Task.FromResult(Items.Count(b => b.Status is BookingStatus.Confirmed or BookingStatus.Completed));
 
     public Task<IReadOnlyList<Booking>> GetConfirmedDepartingBetweenAsync(DateTime from, DateTime to, CancellationToken cancellationToken = default)
         => Task.FromResult<IReadOnlyList<Booking>>(Items

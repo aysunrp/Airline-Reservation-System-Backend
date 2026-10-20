@@ -11,6 +11,9 @@ public class RouteRepository : BaseRepository<Route>, IRouteRepository
     {
     }
 
+    public Task<int> CountActiveAsync(CancellationToken cancellationToken = default)
+        => Set.CountAsync(r => r.IsActive, cancellationToken);
+
     public async Task<IReadOnlyList<Route>> GetAllWithAirportsAsync(CancellationToken cancellationToken = default)
         => await Set.AsNoTracking()
             .Include(r => r.Origin)
