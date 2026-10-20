@@ -32,14 +32,27 @@ public class BookingLifecycleWorkerTests
         }
     }
 
+    private sealed class CountingReminders : ICheckInReminderService
+    {
+        public int Calls;
+
+        public Task<CheckInReminderResult> QueueDueAsync(CancellationToken cancellationToken = default)
+        {
+            Calls++;
+            return Task.FromResult(new CheckInReminderResult(1));
+        }
+    }
+
     private readonly CountingRefunds _refunds = new();
     private readonly CountingCompletion _completion = new();
+    private readonly CountingReminders _reminders = new();
 
     private BookingLifecycleWorker CreateWorker(BookingLifecycleSettings? settings = null)
     {
         var services = new ServiceCollection();
         services.AddSingleton<IRefundProcessingService>(_refunds);
         services.AddSingleton<ITripCompletionService>(_completion);
+        services.AddSingleton<ICheckInReminderService>(_reminders);
         return new BookingLifecycleWorker(
             services.BuildServiceProvider().GetRequiredService<IServiceScopeFactory>(),
             Options.Create(settings ?? new BookingLifecycleSettings()),
@@ -52,6 +65,7 @@ public class BookingLifecycleWorkerTests
         var settings = new BookingLifecycleSettings();
 
         Assert.Equal((true, 60, 5, 30), (settings.WorkerEnabled, settings.CheckIntervalSeconds, settings.RefundProcessingAfterMinutes, settings.RefundCompletedAfterMinutes));
+        Assert.Equal(24, settings.CheckInReminderHours);
     }
 
     [Fact]
@@ -59,7 +73,7 @@ public class BookingLifecycleWorkerTests
     {
         await CreateWorker().RunOnceAsync(CancellationToken.None);
 
-        Assert.Equal((1, 1), (_refunds.Calls, _completion.Calls));
+        Assert.Equal((1, 1, 1), (_refunds.Calls, _completion.Calls, _reminders.Calls));
     }
 
     [Fact]

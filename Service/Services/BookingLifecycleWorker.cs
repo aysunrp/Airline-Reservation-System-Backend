@@ -7,7 +7,7 @@ using Service.Services.Interfaces;
 
 namespace Service.Services;
 
-/// <summary>Periodically processes mock refunds and completes trips that have flown.</summary>
+/// <summary>Periodically processes mock refunds, completes trips that have flown and sends check-in reminders.</summary>
 public class BookingLifecycleWorker : BackgroundService
 {
     private readonly IServiceScopeFactory _scopeFactory;
@@ -29,12 +29,13 @@ public class BookingLifecycleWorker : BackgroundService
             using var scope = _scopeFactory.CreateScope();
             var refunds = await scope.ServiceProvider.GetRequiredService<IRefundProcessingService>().ProcessDueAsync(cancellationToken);
             var trips = await scope.ServiceProvider.GetRequiredService<ITripCompletionService>().CompleteFinishedAsync(cancellationToken);
+            var reminders = await scope.ServiceProvider.GetRequiredService<ICheckInReminderService>().QueueDueAsync(cancellationToken);
 
-            if (refunds.Processing + refunds.Completed + trips.Flights + trips.Tickets + trips.Bookings > 0)
+            if (refunds.Processing + refunds.Completed + trips.Flights + trips.Tickets + trips.Bookings + reminders.Reminders > 0)
             {
                 _logger.LogInformation(
-                    "Refunds: {Processing} processing, {Completed} completed. Completed {Flights} flights, {Tickets} tickets and {Bookings} bookings.",
-                    refunds.Processing, refunds.Completed, trips.Flights, trips.Tickets, trips.Bookings);
+                    "Refunds: {Processing} processing, {Completed} completed. Completed {Flights} flights, {Tickets} tickets and {Bookings} bookings. Sent {Reminders} check-in reminders.",
+                    refunds.Processing, refunds.Completed, trips.Flights, trips.Tickets, trips.Bookings, reminders.Reminders);
             }
         }
         catch (Exception ex) when (ex is not OperationCanceledException || !cancellationToken.IsCancellationRequested)
