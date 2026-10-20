@@ -92,4 +92,27 @@ public class PaymentAndNotificationEndpointTests : IClassFixture<ApiFactory>
         Assert.Equal(HttpStatusCode.NotFound, (await stranger.PatchAsync($"/api/notifications/{notifications[0].Id}/read", null)).StatusCode);
         Assert.Equal(HttpStatusCode.Unauthorized, (await _factory.CreateClient().GetAsync("/api/notifications")).StatusCode);
     }
+
+    [Fact]
+    public async Task Notifications_CanBeDeletedOneByOne_AndCleared()
+    {
+        var client = _factory.CreateClient().WithToken((await _factory.CreateClient().RegisterAsync()).AccessToken);
+        var booking = await BookAsync(client, "1B");
+        Assert.Equal(HttpStatusCode.OK, (await client.PostAsJsonAsync("/api/payments", Card(booking.Pnr), Json)).StatusCode);
+        var notifications = await (await client.GetAsync("/api/notifications")).ReadAsync<List<NotificationDto>>();
+        Assert.Equal(2, notifications.Count);
+
+        // Someone else cannot delete it; the owner can, and a second delete finds nothing.
+        var stranger = _factory.CreateClient().WithToken((await _factory.CreateClient().RegisterAsync()).AccessToken);
+        Assert.Equal(HttpStatusCode.NotFound, (await stranger.DeleteAsync($"/api/notifications/{notifications[0].Id}")).StatusCode);
+        Assert.Equal(HttpStatusCode.NoContent, (await client.DeleteAsync($"/api/notifications/{notifications[0].Id}")).StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, (await client.DeleteAsync($"/api/notifications/{notifications[0].Id}")).StatusCode);
+        Assert.Single(await (await client.GetAsync("/api/notifications")).ReadAsync<List<NotificationDto>>());
+
+        // Clear removes the rest, and clearing an empty list is fine.
+        Assert.Equal(HttpStatusCode.NoContent, (await client.DeleteAsync("/api/notifications")).StatusCode);
+        Assert.Empty(await (await client.GetAsync("/api/notifications")).ReadAsync<List<NotificationDto>>());
+        Assert.Equal(HttpStatusCode.NoContent, (await client.DeleteAsync("/api/notifications")).StatusCode);
+        Assert.Equal(HttpStatusCode.Unauthorized, (await _factory.CreateClient().DeleteAsync("/api/notifications")).StatusCode);
+    }
 }

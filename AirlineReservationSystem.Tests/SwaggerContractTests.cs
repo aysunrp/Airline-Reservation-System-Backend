@@ -42,6 +42,8 @@ public class SwaggerContractTests : IClassFixture<ApiFactory>
         { "get", "/api/notifications/unread-count", true },
         { "patch", "/api/notifications/{id}/read", true },
         { "patch", "/api/notifications/read-all", true },
+        { "delete", "/api/notifications/{id}", true },
+        { "delete", "/api/notifications", true },
         // Admin
         { "get", "/api/admin/dashboard", true },
         { "get", "/api/admin/airports", true },

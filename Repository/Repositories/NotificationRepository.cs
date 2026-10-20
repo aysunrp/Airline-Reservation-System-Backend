@@ -1,4 +1,5 @@
 using Domain.Entities;
+using Domain.Enums;
 using Microsoft.EntityFrameworkCore;
 using Repository.Data;
 using Repository.Repositories.Interfaces;
@@ -24,4 +25,17 @@ public class NotificationRepository : BaseRepository<Notification>, INotificatio
         => await Set
             .Where(n => n.UserId == userId && !n.IsRead)
             .ToListAsync(cancellationToken);
+
+    public async Task<IReadOnlyList<Notification>> GetByUserIdTrackedAsync(int userId, CancellationToken cancellationToken = default)
+        => await Set
+            .Where(n => n.UserId == userId)
+            .ToListAsync(cancellationToken);
+
+    public async Task<IReadOnlySet<int>> GetBookingIdsWithTypeAsync(NotificationType type, IReadOnlyCollection<int> bookingIds, CancellationToken cancellationToken = default)
+        => (await Set.AsNoTracking()
+            .Where(n => n.Type == type && n.BookingId != null && bookingIds.Contains(n.BookingId.Value))
+            .Select(n => n.BookingId!.Value)
+            .Distinct()
+            .ToListAsync(cancellationToken))
+            .ToHashSet();
 }
