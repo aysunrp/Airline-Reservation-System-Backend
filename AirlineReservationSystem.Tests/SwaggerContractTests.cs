@@ -19,6 +19,7 @@ public class SwaggerContractTests : IClassFixture<ApiFactory>
         { "post", "/api/auth/login", false },
         { "get", "/api/airports", false },
         { "post", "/api/flights/search", false },
+        { "get", "/api/flights/lowest-fares", false },
         { "get", "/api/flights/{id}", false },
         { "get", "/api/flights/{id}/seats", false },
         { "get", "/api/booking-options/baggage", false },
