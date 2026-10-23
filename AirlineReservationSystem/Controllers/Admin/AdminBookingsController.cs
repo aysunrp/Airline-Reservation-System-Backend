@@ -21,12 +21,12 @@ public class AdminBookingsController : ControllerBase
         _bookingService = bookingService;
     }
 
-    /// <summary>Filtered by PNR fragment, passenger name fragment and status; newest first.</summary>
+    /// <summary>Filtered by PNR fragment, passenger name fragment and status; newest first. <c>take</c> is 1-500 (200 by default).</summary>
     [HttpGet]
     [ProducesResponseType<IReadOnlyList<AdminBookingRowDto>>(StatusCodes.Status200OK)]
     public async Task<ActionResult<IReadOnlyList<AdminBookingRowDto>>> GetAll(
-        [FromQuery] string? pnr, [FromQuery] string? passenger, [FromQuery] BookingStatus? status, CancellationToken cancellationToken)
-        => Ok(await _bookingService.GetAllAsync(pnr, passenger, status, cancellationToken));
+        [FromQuery] string? pnr, [FromQuery] string? passenger, [FromQuery] BookingStatus? status, [FromQuery] int take = 200, CancellationToken cancellationToken = default)
+        => Ok(await _bookingService.GetAllAsync(pnr, passenger, status, take, cancellationToken));
 
     [HttpGet("{pnr:length(6)}")]
     [ProducesResponseType<BookingDto>(StatusCodes.Status200OK)]

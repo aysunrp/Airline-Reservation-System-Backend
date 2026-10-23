@@ -1,4 +1,5 @@
 using Domain.Entities;
+using Domain.Enums;
 
 namespace Repository.Repositories.Interfaces;
 
@@ -12,6 +13,12 @@ public interface IFlightRepository : IBaseRepository<Flight>
 
     /// <summary>All flights with their details for the admin flights table, ordered by departure (no tracking).</summary>
     Task<IReadOnlyList<Flight>> GetAllWithDetailsAsync(CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// One page of flights for the admin list, oldest departure first. <paramref name="date"/> is the UTC departure day;
+    /// the search matches the flight number, the cities and the aircraft model.
+    /// </summary>
+    Task<IReadOnlyList<Flight>> GetAdminPageAsync(string? search, FlightStatus? status, DateOnly? date, int skip, int take, CancellationToken cancellationToken = default);
 
     /// <summary>Next non-cancelled departures from the given time (no tracking).</summary>
     Task<IReadOnlyList<Flight>> GetUpcomingAsync(DateTime from, int take, CancellationToken cancellationToken = default);

@@ -21,4 +21,7 @@ public interface IBookingService
 
     /// <summary>My Trips: the signed-in user's bookings, newest first.</summary>
     Task<IReadOnlyList<BookingSummaryDto>> GetMyBookingsAsync(int userId, CancellationToken cancellationToken = default);
+
+    /// <summary>One of the signed-in user's own bookings by reference (My Trips details); 404 when it belongs to someone else.</summary>
+    Task<BookingDto> GetMyBookingAsync(int userId, string pnr, CancellationToken cancellationToken = default);
 }

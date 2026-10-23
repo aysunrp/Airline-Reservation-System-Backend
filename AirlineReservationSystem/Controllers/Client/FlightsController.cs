@@ -29,6 +29,17 @@ public class FlightsController : ControllerBase
     public async Task<ActionResult<IReadOnlyList<FlightSearchLegResultDto>>> Search(FlightSearchRequestDto request, CancellationToken cancellationToken)
         => Ok(await _flightSearchService.SearchAsync(request, cancellationToken));
 
+    /// <summary>
+    /// Price calendar: the cheapest bookable fare for each departure day (airport time) of one route, for at most 62 days.
+    /// Days without a bookable flight are not listed.
+    /// </summary>
+    [HttpGet("lowest-fares")]
+    [ProducesResponseType<IReadOnlyList<DayFareDto>>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ValidationProblemDetails>(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<IReadOnlyList<DayFareDto>>> GetLowestFares([FromQuery] LowestFaresRequestDto request, CancellationToken cancellationToken)
+        => Ok(await _flightSearchService.GetLowestFaresAsync(request, cancellationToken));
+
     [HttpGet("{id:int}")]
     [ProducesResponseType<FlightResultDto>(StatusCodes.Status200OK)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]

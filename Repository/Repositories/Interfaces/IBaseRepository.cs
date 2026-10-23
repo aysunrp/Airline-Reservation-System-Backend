@@ -21,5 +21,8 @@ public interface IBaseRepository<T> where T : BaseEntity
 
     void Delete(T entity);
 
+    /// <summary>The number of rows.</summary>
+    Task<int> CountAsync(CancellationToken cancellationToken = default);
+
     Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
 }

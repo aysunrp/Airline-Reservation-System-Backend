@@ -16,4 +16,7 @@ public class BookingLifecycleSettings
 
     /// <summary>Minutes after the cancellation at which the mock provider completes a refund.</summary>
     public int RefundCompletedAfterMinutes { get; set; } = 30;
+
+    /// <summary>Hours before the first departure at which the check-in reminder is sent.</summary>
+    public int CheckInReminderHours { get; set; } = 24;
 }

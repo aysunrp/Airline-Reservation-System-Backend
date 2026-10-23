@@ -20,6 +20,8 @@ internal class FakeRepository<T> : IBaseRepository<T> where T : BaseEntity
 
     public FakeRepository(params T[] items) => Items.AddRange(items);
 
+    public Task<int> CountAsync(CancellationToken cancellationToken = default) => Task.FromResult(Items.Count);
+
     public Task<IReadOnlyList<T>> GetAllAsync(CancellationToken cancellationToken = default)
         => Task.FromResult<IReadOnlyList<T>>(Items.ToList());
 
@@ -101,6 +103,15 @@ internal sealed class FakeNotificationRepository : FakeRepository<Notification>,
 
     public Task<IReadOnlyList<Notification>> GetUnreadTrackedAsync(int userId, CancellationToken cancellationToken = default)
         => Task.FromResult<IReadOnlyList<Notification>>(Items.Where(n => n.UserId == userId && !n.IsRead).ToList());
+
+    public Task<IReadOnlyList<Notification>> GetByUserIdTrackedAsync(int userId, CancellationToken cancellationToken = default)
+        => Task.FromResult<IReadOnlyList<Notification>>(Items.Where(n => n.UserId == userId).ToList());
+
+    public Task<IReadOnlySet<int>> GetBookingIdsWithTypeAsync(NotificationType type, IReadOnlyCollection<int> bookingIds, CancellationToken cancellationToken = default)
+        => Task.FromResult<IReadOnlySet<int>>(Items
+            .Where(n => n.Type == type && n.BookingId != null && bookingIds.Contains(n.BookingId.Value))
+            .Select(n => n.BookingId!.Value)
+            .ToHashSet());
 }
 
 internal sealed class FakeCancellationRuleRepository : FakeRepository<CancellationRule>, ICancellationRuleRepository
@@ -228,6 +239,19 @@ internal sealed class FakeFlightRepository : FakeRepository<Flight>, IFlightRepo
     public Task<IReadOnlyList<Flight>> GetAllWithDetailsAsync(CancellationToken cancellationToken = default)
         => Task.FromResult<IReadOnlyList<Flight>>(Items.OrderBy(f => f.DepartureAt).ToList());
 
+    public Task<IReadOnlyList<Flight>> GetAdminPageAsync(string? search, FlightStatus? status, DateOnly? date, int skip, int take, CancellationToken cancellationToken = default)
+        => Task.FromResult<IReadOnlyList<Flight>>(Items
+            .Where(f => status is null || f.Status == status)
+            .Where(f => date is null || DateOnly.FromDateTime(f.DepartureAt) == date)
+            .Where(f => string.IsNullOrWhiteSpace(search)
+                        || f.FlightNumber.Contains(search.Trim(), StringComparison.OrdinalIgnoreCase)
+                        || f.Route.Origin.City.Contains(search.Trim(), StringComparison.OrdinalIgnoreCase)
+                        || f.Route.Destination.City.Contains(search.Trim(), StringComparison.OrdinalIgnoreCase)
+                        || f.Aircraft.Model.Contains(search.Trim(), StringComparison.OrdinalIgnoreCase))
+            .OrderBy(f => f.DepartureAt).ThenBy(f => f.Id)
+            .Skip(skip).Take(take)
+            .ToList());
+
     public Task<IReadOnlyList<Flight>> GetUpcomingAsync(DateTime from, int take, CancellationToken cancellationToken = default)
         => Task.FromResult<IReadOnlyList<Flight>>(Items
             .Where(f => f.DepartureAt >= from && f.Status != FlightStatus.Cancelled)
@@ -260,6 +284,10 @@ internal sealed class FakeFlightSeatRepository : FakeRepository<FlightSeat>, IFl
 
     public Task<IReadOnlyList<FlightSeat>> GetTrackedByIdsAsync(IReadOnlyCollection<int> seatIds, CancellationToken cancellationToken = default)
         => Task.FromResult<IReadOnlyList<FlightSeat>>(Items.Where(s => seatIds.Contains(s.Id)).ToList());
+
+    public Task<int> CountAvailableOnUpcomingFlightsAsync(DateTime now, CancellationToken cancellationToken = default)
+        => Task.FromResult(Items.Count(s => s.Flight.DepartureAt > now && s.Flight.Status != FlightStatus.Cancelled
+                                            && (s.Status == SeatStatus.Available || (s.Status == SeatStatus.Held && s.HeldUntil <= now))));
 
     public Task<IReadOnlyDictionary<int, int>> GetFreeSeatCountsAsync(IReadOnlyCollection<int> flightIds, CabinClass? cabinClass, DateTime now, CancellationToken cancellationToken = default)
         => Task.FromResult<IReadOnlyDictionary<int, int>>(Items
@@ -377,6 +405,14 @@ internal sealed class FakeBookingRepository : FakeRepository<Booking>, IBookingR
     public Task<IReadOnlyList<Booking>> GetConfirmedWithLandedFlightsAsync(DateTime now, CancellationToken cancellationToken = default)
         => Task.FromResult<IReadOnlyList<Booking>>(Items
             .Where(b => b.Status == BookingStatus.Confirmed && b.Flights.Any(f => f.Flight.ArrivalAt <= now))
+            .ToList());
+
+    public Task<int> CountPaidAsync(CancellationToken cancellationToken = default)
+        => Task.FromResult(Items.Count(b => b.Status is BookingStatus.Confirmed or BookingStatus.Completed));
+
+    public Task<IReadOnlyList<Booking>> GetConfirmedDepartingBetweenAsync(DateTime from, DateTime to, CancellationToken cancellationToken = default)
+        => Task.FromResult<IReadOnlyList<Booking>>(Items
+            .Where(b => b.Status == BookingStatus.Confirmed && b.UserId != null && b.Flights.Any(f => f.Flight.DepartureAt > from && f.Flight.DepartureAt <= to))
             .ToList());
 }
 

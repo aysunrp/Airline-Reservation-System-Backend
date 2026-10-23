@@ -40,6 +40,9 @@ public class AdminCatalogEndpointTests : IClassFixture<ApiFactory>
         var dashboard = await (await admin.GetAsync("/api/admin/dashboard")).ReadAsync<AdminDashboardDto>();
 
         Assert.Equal("AV 101", Assert.Single(dashboard.UpcomingFlights).FlightNumber);
+        Assert.True(dashboard.Stats.TotalFlights >= 1);
+        Assert.True(dashboard.Stats.Aircraft >= 1);
+        Assert.True(dashboard.Stats.AvailableSeats >= 1);
     }
 
     [Fact]

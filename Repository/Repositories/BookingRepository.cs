@@ -98,6 +98,17 @@ public class BookingRepository : BaseRepository<Booking>, IBookingRepository
             .Where(b => b.Status == BookingStatus.Confirmed && b.Flights.Any(f => f.Flight.ArrivalAt <= now))
             .ToListAsync(cancellationToken);
 
+    public async Task<IReadOnlyList<Booking>> GetConfirmedDepartingBetweenAsync(DateTime from, DateTime to, CancellationToken cancellationToken = default)
+        => await Set.AsNoTracking().AsSplitQuery()
+            .Include(b => b.Flights).ThenInclude(f => f.Flight).ThenInclude(f => f.Route).ThenInclude(r => r.Origin)
+            .Include(b => b.Flights).ThenInclude(f => f.Flight).ThenInclude(f => f.Route).ThenInclude(r => r.Destination)
+            .Where(b => b.Status == BookingStatus.Confirmed && b.UserId != null
+                        && b.Flights.Any(f => f.Flight.DepartureAt > from && f.Flight.DepartureAt <= to))
+            .ToListAsync(cancellationToken);
+
+    public Task<int> CountPaidAsync(CancellationToken cancellationToken = default)
+        => Set.CountAsync(b => b.Status == BookingStatus.Confirmed || b.Status == BookingStatus.Completed, cancellationToken);
+
     public async Task<IReadOnlyList<Booking>> GetExpiredPendingAsync(DateTime now, CancellationToken cancellationToken = default)
         => await Set.AsSplitQuery()
             .Include(b => b.Passengers).ThenInclude(p => p.Tickets)

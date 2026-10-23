@@ -61,6 +61,34 @@ public class NotificationService : INotificationService
         await _notificationRepository.SaveChangesAsync(cancellationToken);
     }
 
+    public async Task DeleteAsync(int userId, int notificationId, CancellationToken cancellationToken = default)
+    {
+        var notification = await _notificationRepository.GetByIdAsync(notificationId, cancellationToken);
+        if (notification is null || notification.UserId != userId)
+        {
+            throw new NotFoundException("Notification not found.");
+        }
+
+        _notificationRepository.Delete(notification);
+        await _notificationRepository.SaveChangesAsync(cancellationToken);
+    }
+
+    public async Task ClearAsync(int userId, CancellationToken cancellationToken = default)
+    {
+        var notifications = await _notificationRepository.GetByUserIdTrackedAsync(userId, cancellationToken);
+        if (notifications.Count == 0)
+        {
+            return;
+        }
+
+        foreach (var notification in notifications)
+        {
+            _notificationRepository.Delete(notification);
+        }
+
+        await _notificationRepository.SaveChangesAsync(cancellationToken);
+    }
+
     public Task QueueAsync(int userId, int? bookingId, NotificationType type, string title, string message, CancellationToken cancellationToken = default)
         => _notificationRepository.AddAsync(new Notification
         {

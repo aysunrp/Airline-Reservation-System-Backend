@@ -121,4 +121,25 @@ public class SearchAndOptionsEndpointTests : IClassFixture<ApiFactory>
 
         Assert.Equal(HttpStatusCode.UnprocessableEntity, (await _client.GetAsync("/api/promo-codes/NOPE")).StatusCode);
     }
+
+    [Fact]
+    public async Task LowestFares_AreOpenAndReturnOneFarePerDay()
+    {
+        var seed = await _factory.GetSeedAsync();
+        var day = DateOnly.FromDateTime(seed.Departure);
+        var url = $"/api/flights/lowest-fares?originCode=GYD&destinationCode=LHR&from={day.AddDays(-2):yyyy-MM-dd}&to={day.AddDays(5):yyyy-MM-dd}";
+
+        var response = await _client.GetAsync(url);
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var days = await response.ReadAsync<List<DayFareDto>>();
+        Assert.Equal(day, Assert.Single(days).Date);
+
+        var economy = await (await _client.GetAsync(url + "&cabinClass=Economy")).ReadAsync<List<DayFareDto>>();
+        Assert.Single(economy);
+        Assert.Empty(await (await _client.GetAsync(url + "&cabinClass=Comfort")).ReadAsync<List<DayFareDto>>());
+
+        Assert.Equal(HttpStatusCode.BadRequest, (await _client.GetAsync("/api/flights/lowest-fares?originCode=GYD&destinationCode=GYD&from=2026-11-01&to=2026-11-05")).StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest, (await _client.GetAsync("/api/flights/lowest-fares?originCode=GYD&destinationCode=LHR&from=2026-11-01&to=2027-03-01")).StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, (await _client.GetAsync("/api/flights/lowest-fares?originCode=GYD&destinationCode=JFK&from=2026-11-01&to=2026-11-05")).StatusCode);
+    }
 }

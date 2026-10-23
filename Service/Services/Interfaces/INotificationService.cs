@@ -14,6 +14,12 @@ public interface INotificationService
 
     Task MarkAllAsReadAsync(int userId, CancellationToken cancellationToken = default);
 
+    /// <summary>Removes one of the user's notifications; 404 when it is someone else's or does not exist.</summary>
+    Task DeleteAsync(int userId, int notificationId, CancellationToken cancellationToken = default);
+
+    /// <summary>Removes all of the user's notifications ("Clear" on the notifications page).</summary>
+    Task ClearAsync(int userId, CancellationToken cancellationToken = default);
+
     /// <summary>Adds a notification for the user. Does not save; it is committed with the caller's unit of work.</summary>
     Task QueueAsync(int userId, int? bookingId, NotificationType type, string title, string message, CancellationToken cancellationToken = default);
 }

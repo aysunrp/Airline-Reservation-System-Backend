@@ -48,6 +48,18 @@ public class CancellationServiceTests
     }
 
     [Fact]
+    public async Task UnpaidHold_IsReleased_WithoutABookingCancelledNotification()
+    {
+        var booking = await CreateBookingAsync(CabinClass.Economy, 103, pay: false);
+
+        var result = await _context.CreateCancellationService().CancelAsync(Cancel(booking.Pnr));
+
+        Assert.Equal(BookingStatus.Cancelled, result.Status);
+        Assert.Equal(SeatStatus.Available, _context.Data.Seat(103).Status);
+        Assert.DoesNotContain(await _context.Notifications.GetAllAsync(), n => n.Type == NotificationType.BookingCancelled);
+    }
+
+    [Fact]
     public async Task PaidBusiness_MoreThanSevenDaysAhead_RequestsFullRefund()
     {
         var booking = await CreateBookingAsync(CabinClass.Business, 101, pay: true);

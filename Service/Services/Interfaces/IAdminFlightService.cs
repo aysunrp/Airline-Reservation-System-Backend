@@ -10,6 +10,9 @@ public interface IAdminFlightService
     /// <summary>Optionally filtered by flight number, city or aircraft model, and by status.</summary>
     Task<IReadOnlyList<FlightResultDto>> GetAllAsync(string? search = null, FlightStatus? status = null, CancellationToken cancellationToken = default);
 
+    /// <summary>One page of flights, oldest departure first. take is limited to 1-500.</summary>
+    Task<IReadOnlyList<FlightResultDto>> GetPageAsync(string? search, FlightStatus? status, DateOnly? date, int skip, int take, CancellationToken cancellationToken = default);
+
     /// <summary>Creates the flight with its fares, a direct segment and a seat inventory built from the aircraft's seats.</summary>
     Task<FlightResultDto> CreateAsync(FlightRequestDto request, CancellationToken cancellationToken = default);
 

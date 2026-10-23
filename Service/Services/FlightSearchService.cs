@@ -14,6 +14,7 @@ public class FlightSearchService : IFlightSearchService
     private readonly IFlightRepository _flightRepository;
     private readonly IFlightSeatRepository _flightSeatRepository;
     private readonly IValidator<FlightSearchRequestDto> _validator;
+    private readonly IValidator<LowestFaresRequestDto> _lowestFaresValidator;
     private readonly TimeProvider _timeProvider;
 
     public FlightSearchService(
@@ -21,12 +22,14 @@ public class FlightSearchService : IFlightSearchService
         IFlightRepository flightRepository,
         IFlightSeatRepository flightSeatRepository,
         IValidator<FlightSearchRequestDto> validator,
+        IValidator<LowestFaresRequestDto> lowestFaresValidator,
         TimeProvider timeProvider)
     {
         _airportRepository = airportRepository;
         _flightRepository = flightRepository;
         _flightSeatRepository = flightSeatRepository;
         _validator = validator;
+        _lowestFaresValidator = lowestFaresValidator;
         _timeProvider = timeProvider;
     }
 
@@ -50,6 +53,31 @@ public class FlightSearchService : IFlightSearchService
         }
 
         return results;
+    }
+
+    public async Task<IReadOnlyList<DayFareDto>> GetLowestFaresAsync(LowestFaresRequestDto request, CancellationToken cancellationToken = default)
+    {
+        await _lowestFaresValidator.ValidateAndThrowAsync(request, cancellationToken);
+
+        var origin = await GetAirportAsync(request.OriginCode, cancellationToken);
+        var destination = await GetAirportAsync(request.DestinationCode, cancellationToken);
+
+        // The same rules as a search: days are departure days at the origin airport, and a flight counts only if it can still be booked.
+        var fromUtc = ScheduleTimeCalculator.ToUtc(request.From, TimeOnly.MinValue, origin);
+        var toUtc = ScheduleTimeCalculator.ToUtc(request.To.AddDays(1), TimeOnly.MinValue, origin);
+        var flights = await _flightRepository.SearchAsync(origin.Id, destination.Id, fromUtc, toUtc, cancellationToken);
+        var bookable = await FilterBookableAsync(flights, request.CabinClass, request.Passengers, cancellationToken);
+
+        return bookable
+            .Select(f => new
+            {
+                Date = ScheduleTimeCalculator.LocalDate(f.DepartureAt, origin),
+                Fare = f.Fares.Where(fare => request.CabinClass is null || fare.CabinClass == request.CabinClass).Min(fare => fare.BasePrice)
+            })
+            .GroupBy(x => x.Date)
+            .Select(g => new DayFareDto(g.Key, g.Min(x => x.Fare)))
+            .OrderBy(d => d.Date)
+            .ToList();
     }
 
     public async Task<FlightResultDto> GetFlightAsync(int flightId, CancellationToken cancellationToken = default)

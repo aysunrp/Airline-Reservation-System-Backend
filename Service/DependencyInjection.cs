@@ -44,6 +44,7 @@ namespace Service
             services.AddScoped<ICancellationService, CancellationService>();
             services.AddScoped<IRefundProcessingService, RefundProcessingService>();
             services.AddScoped<ITripCompletionService, TripCompletionService>();
+            services.AddScoped<ICheckInReminderService, CheckInReminderService>();
 
             services.AddScoped<IAdminAirportService, AdminAirportService>();
             services.AddScoped<IAdminPromoCodeService, AdminPromoCodeService>();

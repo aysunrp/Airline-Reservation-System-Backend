@@ -50,4 +50,35 @@ public class NotificationServiceTests
         Assert.Equal(0, await service.GetUnreadCountAsync(1));
         Assert.Equal(1, await service.GetUnreadCountAsync(2));
     }
+
+    [Fact]
+    public async Task Delete_RemovesOnlyThatNotification()
+    {
+        var service = CreateService();
+
+        await service.DeleteAsync(1, 2);
+
+        Assert.Equal(new[] { 3, 1 }, (await service.GetAsync(1)).Select(n => n.Id));
+        Assert.Equal(1, await service.GetUnreadCountAsync(1));
+    }
+
+    [Fact]
+    public async Task Delete_AnotherUsersNotification_IsNotFound_AndKeepsIt()
+    {
+        await Assert.ThrowsAsync<NotFoundException>(() => CreateService().DeleteAsync(1, 4));
+
+        Assert.NotNull(await _repository.GetByIdAsync(4));
+    }
+
+    [Fact]
+    public async Task Clear_RemovesEveryNotificationOfTheUser_AndNoOneElses()
+    {
+        var service = CreateService();
+
+        await service.ClearAsync(1);
+
+        Assert.Empty(await service.GetAsync(1));
+        Assert.Single(await service.GetAsync(2));
+        await service.ClearAsync(1);
+    }
 }

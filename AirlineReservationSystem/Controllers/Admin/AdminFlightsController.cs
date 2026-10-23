@@ -24,11 +24,16 @@ public class AdminFlightsController : ControllerBase
         _flightSearchService = flightSearchService;
     }
 
-    /// <summary>Filtered by flight number, city or aircraft model, and by status.</summary>
+    /// <summary>
+    /// A page of flights, oldest departure first. Filtered by flight number, city or aircraft model, by status and by the UTC
+    /// departure day. <c>take</c> is 1-500 (100 by default); use <c>skip</c> to read further.
+    /// </summary>
     [HttpGet]
     [ProducesResponseType<IReadOnlyList<FlightResultDto>>(StatusCodes.Status200OK)]
-    public async Task<ActionResult<IReadOnlyList<FlightResultDto>>> GetAll([FromQuery] string? search, [FromQuery] FlightStatus? status, CancellationToken cancellationToken)
-        => Ok(await _flightService.GetAllAsync(search, status, cancellationToken));
+    public async Task<ActionResult<IReadOnlyList<FlightResultDto>>> GetAll(
+        [FromQuery] string? search, [FromQuery] FlightStatus? status, [FromQuery] DateOnly? date,
+        [FromQuery] int skip = 0, [FromQuery] int take = 100, CancellationToken cancellationToken = default)
+        => Ok(await _flightService.GetPageAsync(search, status, date, skip, take, cancellationToken));
 
     [HttpGet("{id:int}")]
     [ProducesResponseType<FlightResultDto>(StatusCodes.Status200OK)]

@@ -15,6 +15,9 @@ public interface IFlightSeatRepository : IBaseRepository<FlightSeat>
     /// Free seats per flight (available, or held with an expired hold), optionally for one cabin.
     /// Flights without free seats are missing from the result.
     /// </summary>
+    /// <summary>Seats that can still be sold on flights that have not departed or been cancelled (an expired hold counts as free).</summary>
+    Task<int> CountAvailableOnUpcomingFlightsAsync(DateTime now, CancellationToken cancellationToken = default);
+
     Task<IReadOnlyDictionary<int, int>> GetFreeSeatCountsAsync(IReadOnlyCollection<int> flightIds, CabinClass? cabinClass, DateTime now, CancellationToken cancellationToken = default);
 
     /// <summary>Returns tracked seats by id across flights (used when releasing or confirming a whole booking).</summary>

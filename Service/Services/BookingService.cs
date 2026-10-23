@@ -202,6 +202,19 @@ public class BookingService : IBookingService
         return bookings.Select(b => b.ToSummaryDto()).ToList();
     }
 
+    public async Task<BookingDto> GetMyBookingAsync(int userId, string pnr, CancellationToken cancellationToken = default)
+    {
+        var booking = await _bookingRepository.GetByPnrAsync(NormalizePnr(pnr), cancellationToken);
+
+        // Someone else's booking is reported exactly like a missing one.
+        if (booking is null || booking.UserId != userId)
+        {
+            throw new NotFoundException("Booking not found.");
+        }
+
+        return booking.ToDto();
+    }
+
     internal static string NormalizePnr(string pnr) => (pnr ?? string.Empty).Trim().ToUpperInvariant();
 
     private async Task<BookingDto> GetByPnrInternalAsync(string pnr, CancellationToken cancellationToken)

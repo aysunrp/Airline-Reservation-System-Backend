@@ -13,7 +13,7 @@ public class FlightSearchAndSeatTests
     private readonly FixedTimeProvider _clock = new(TestData.Now);
 
     private FlightSearchService CreateSearch()
-        => new(_data.Airports(), _data.Flights(), _data.FlightSeats(), new FlightSearchRequestValidator(_clock), _clock);
+        => new(_data.Airports(), _data.Flights(), _data.FlightSeats(), new FlightSearchRequestValidator(_clock), new LowestFaresRequestValidator(), _clock);
 
     private static FlightSearchLegDto Leg(string from, string to, int day) => new()
     {
@@ -46,6 +46,60 @@ public class FlightSearchAndSeatTests
         Assert.Empty(back.Via);
         var directLeg = Assert.Single(back.Segments);
         Assert.Equal((back.DepartureAt, back.ArrivalAt), (directLeg.DepartureAt, directLeg.ArrivalAt));
+    }
+
+    private static LowestFaresRequestDto Calendar(string from, string to, DateOnly start, DateOnly end, CabinClass? cabin = null, int passengers = 1) => new()
+    {
+        OriginCode = from,
+        DestinationCode = to,
+        From = start,
+        To = end,
+        CabinClass = cabin,
+        Passengers = passengers
+    };
+
+    [Fact]
+    public async Task LowestFares_ListsTheCheapestFarePerDepartureDay_AndSkipsDaysWithoutFlights()
+    {
+        var service = CreateSearch();
+
+        var days = await service.GetLowestFaresAsync(Calendar("gyd", "LHR", new DateOnly(2026, 11, 1), new DateOnly(2026, 11, 30)));
+
+        // One Baku -> London flight, on the 10th, whose cheapest cabin is Economy.
+        var day = Assert.Single(days);
+        Assert.Equal((new DateOnly(2026, 11, 10), 365m), (day.Date, day.LowestFare));
+
+        // The other direction departs on the 17th, from London's own calendar day.
+        Assert.Equal(new DateOnly(2026, 11, 17), Assert.Single(await service.GetLowestFaresAsync(Calendar("LHR", "GYD", new DateOnly(2026, 11, 1), new DateOnly(2026, 11, 30)))).Date);
+        Assert.Empty(await service.GetLowestFaresAsync(Calendar("GYD", "LHR", new DateOnly(2026, 11, 11), new DateOnly(2026, 11, 30))));
+    }
+
+    [Fact]
+    public async Task LowestFares_FollowTheCabinAndTheFreeSeats()
+    {
+        var service = CreateSearch();
+        var month = (new DateOnly(2026, 11, 1), new DateOnly(2026, 11, 30));
+
+        Assert.Equal(820m, Assert.Single(await service.GetLowestFaresAsync(Calendar("GYD", "LHR", month.Item1, month.Item2, CabinClass.Business))).LowestFare);
+        Assert.Empty(await service.GetLowestFaresAsync(Calendar("GYD", "LHR", month.Item1, month.Item2, CabinClass.Comfort)));
+
+        // The flight has three Economy seats: four travellers do not fit.
+        Assert.Single(await service.GetLowestFaresAsync(Calendar("GYD", "LHR", month.Item1, month.Item2, CabinClass.Economy, 3)));
+        Assert.Empty(await service.GetLowestFaresAsync(Calendar("GYD", "LHR", month.Item1, month.Item2, CabinClass.Economy, 4)));
+    }
+
+    [Fact]
+    public async Task LowestFares_RejectsBadRequests()
+    {
+        var service = CreateSearch();
+        var from = new DateOnly(2026, 11, 1);
+
+        await Assert.ThrowsAsync<ValidationException>(() => service.GetLowestFaresAsync(Calendar("GYD", "GYD", from, from.AddDays(5))));
+        await Assert.ThrowsAsync<ValidationException>(() => service.GetLowestFaresAsync(Calendar("GYD", "LHR", from.AddDays(5), from)));
+        await Assert.ThrowsAsync<ValidationException>(() => service.GetLowestFaresAsync(Calendar("GYD", "LHR", from, from.AddDays(62))));
+        await Assert.ThrowsAsync<ValidationException>(() => service.GetLowestFaresAsync(Calendar("GYD", "LHR", from, from.AddDays(5), passengers: 10)));
+        await Assert.ThrowsAsync<NotFoundException>(() => service.GetLowestFaresAsync(Calendar("GYD", "JFK", from, from.AddDays(5))));
+        Assert.Single(await service.GetLowestFaresAsync(Calendar("GYD", "LHR", from, from.AddDays(61))));
     }
 
     [Fact]

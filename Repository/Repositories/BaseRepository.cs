@@ -36,6 +36,9 @@ public class BaseRepository<T> : IBaseRepository<T> where T : BaseEntity
         }
     }
 
+    public Task<int> CountAsync(CancellationToken cancellationToken = default)
+        => Set.CountAsync(cancellationToken);
+
     public void Delete(T entity) => Set.Remove(entity);
 
     public Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)

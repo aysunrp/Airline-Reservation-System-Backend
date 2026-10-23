@@ -39,6 +39,25 @@ public class NotificationsController : ControllerBase
         return NoContent();
     }
 
+    /// <summary>Removes one notification of the signed-in user.</summary>
+    [HttpDelete("{id:int}")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> Delete(int id, CancellationToken cancellationToken)
+    {
+        await _notificationService.DeleteAsync(User.GetUserId(), id, cancellationToken);
+        return NoContent();
+    }
+
+    /// <summary>"Clear" on the notifications page: removes every notification of the signed-in user.</summary>
+    [HttpDelete]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    public async Task<IActionResult> Clear(CancellationToken cancellationToken)
+    {
+        await _notificationService.ClearAsync(User.GetUserId(), cancellationToken);
+        return NoContent();
+    }
+
     [HttpPatch("read-all")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     public async Task<IActionResult> MarkAllAsRead(CancellationToken cancellationToken)

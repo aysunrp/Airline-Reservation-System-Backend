@@ -7,7 +7,7 @@ namespace Service.Services.Interfaces;
 public interface IAdminBookingService
 {
     /// <summary>Filters by PNR fragment, passenger name fragment and status; newest first.</summary>
-    Task<IReadOnlyList<AdminBookingRowDto>> GetAllAsync(string? pnr = null, string? passengerName = null, BookingStatus? status = null, CancellationToken cancellationToken = default);
+    Task<IReadOnlyList<AdminBookingRowDto>> GetAllAsync(string? pnr = null, string? passengerName = null, BookingStatus? status = null, int take = 200, CancellationToken cancellationToken = default);
 
     Task<BookingDto> GetDetailsAsync(string pnr, CancellationToken cancellationToken = default);
 
