@@ -3,6 +3,7 @@ using System.Security.Claims;
 using Domain.Entities;
 using Domain.Enums;
 using FluentValidation;
+using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Service.Helpers.DTOs.Account;
 using Service.Helpers.Exceptions;
@@ -27,7 +28,9 @@ public class AuthServiceTests
 
     private AuthService CreateService(FakeUserRepository users, JwtSettings? jwt = null)
         => new(users, _hasher, new TokenService(Options.Create(jwt ?? Jwt), new FixedTimeProvider(Now)),
-            new RegisterRequestValidator(), new LoginRequestValidator());
+            new RegisterRequestValidator(), new LoginRequestValidator(),
+            new LoginAttemptTracker(Options.Create(new AuthSettings()), new FixedTimeProvider(Now)),
+            Options.Create(new AuthSettings()), NullLogger<AuthService>.Instance);
 
     private static RegisterRequestDto ValidRegistration() => new()
     {

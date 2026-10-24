@@ -14,6 +14,7 @@ namespace Service
         {
             services.Configure<PricingSettings>(configuration.GetSection(PricingSettings.SectionName));
             services.Configure<JwtSettings>(configuration.GetSection(JwtSettings.SectionName));
+            services.Configure<AuthSettings>(configuration.GetSection(AuthSettings.SectionName));
             services.Configure<BookingSettings>(configuration.GetSection(BookingSettings.SectionName));
             services.Configure<SeatLayoutSettings>(configuration.GetSection(SeatLayoutSettings.SectionName));
             services.Configure<FlightGenerationSettings>(configuration.GetSection(FlightGenerationSettings.SectionName));
@@ -29,6 +30,7 @@ namespace Service
             services.AddScoped<ICancellationPolicyService, CancellationPolicyService>();
 
             services.AddSingleton<IPasswordHasher, PasswordHasher>();
+            services.AddSingleton<ILoginAttemptTracker, LoginAttemptTracker>();
             services.AddScoped<ITokenService, TokenService>();
             services.AddScoped<IAuthService, AuthService>();
             services.AddScoped<IProfileService, ProfileService>();

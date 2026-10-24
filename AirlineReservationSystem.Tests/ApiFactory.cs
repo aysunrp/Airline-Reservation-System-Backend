@@ -32,6 +32,9 @@ public sealed class ApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
     /// <summary>Signing key the API runs with; tests can set an invalid one to check the startup validation.</summary>
     public string JwtSecret { get; init; } = TestJwtSecret;
 
+    /// <summary>Sign-in and register requests per minute and IP address; high so the many sign-ins of the tests never hit it.</summary>
+    public int RateLimitPerMinute { get; init; } = 100_000;
+
     private Task<SeedData>? _seed;
 
     /// <summary>Writes the test flight network once per database and returns its ids (tests of a class run one after another).</summary>
@@ -48,6 +51,13 @@ public sealed class ApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
 
             // Tests never depend on the developer's user-secrets.
             services.PostConfigure<JwtSettings>(settings => settings.Secret = JwtSecret);
+
+            // Cheap password hashes and a generous request limit keep the test run fast; the tests of those two features set their own.
+            services.PostConfigure<AuthSettings>(settings =>
+            {
+                settings.PasswordHashIterations = 1_000;
+                settings.RateLimitPerMinute = RateLimitPerMinute;
+            });
 
             // Tests trigger generation themselves; a background run would change their flight counts.
             services.PostConfigure<FlightGenerationSettings>(settings => settings.WorkerEnabled = false);

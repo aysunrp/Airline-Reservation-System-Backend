@@ -7,7 +7,7 @@ namespace AirlineReservationSystem.Middlewares;
 
 /// <summary>
 /// Turns exceptions from the service layer into RFC 7807 problem responses:
-/// 400 validation, 401 unauthorized, 404 not found, 409 conflict, 422 business rule, 500 anything else.
+/// 400 validation, 401 unauthorized, 404 not found, 409 conflict, 422 business rule, 429 too many sign-in attempts, 500 anything else.
 /// </summary>
 public sealed class GlobalExceptionHandler : IExceptionHandler
 {
@@ -33,6 +33,7 @@ public sealed class GlobalExceptionHandler : IExceptionHandler
                 Title = "One or more validation errors occurred."
             },
             UnauthorizedException => Problem(StatusCodes.Status401Unauthorized, "Unauthorized", exception.Message),
+            TooManyAttemptsException => Problem(StatusCodes.Status429TooManyRequests, "Too many attempts", exception.Message),
             NotFoundException => Problem(StatusCodes.Status404NotFound, "Not found", exception.Message),
             ConflictException => Problem(StatusCodes.Status409Conflict, "Conflict", exception.Message),
             BusinessRuleException => Problem(StatusCodes.Status422UnprocessableEntity, "Business rule violation", exception.Message),
@@ -48,6 +49,11 @@ public sealed class GlobalExceptionHandler : IExceptionHandler
 
         problem.Instance = httpContext.Request.Path;
         problem.Extensions["traceId"] = httpContext.TraceIdentifier;
+
+        if (exception is TooManyAttemptsException tooMany)
+        {
+            httpContext.Response.Headers.RetryAfter = Math.Max(1, (int)Math.Ceiling(tooMany.RetryAfter.TotalSeconds)).ToString();
+        }
 
         httpContext.Response.StatusCode = problem.Status!.Value;
         await httpContext.Response.WriteAsJsonAsync(problem, problem.GetType(), options: null, contentType: "application/problem+json", cancellationToken);
