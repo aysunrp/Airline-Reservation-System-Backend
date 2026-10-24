@@ -49,7 +49,9 @@ public class DevelopmentAdminSeeder : IDevelopmentAdminSeeder
             PasswordHash = _passwordHasher.Hash(password!),
             FirstName = "Aerova",
             LastName = "Admin",
-            Role = UserRole.Admin
+            Role = UserRole.Admin,
+            // Created by the developer's own configuration, not through a sign-up that needs an e-mail link.
+            EmailVerifiedAt = DateTime.UtcNow
         }, cancellationToken);
         await _userRepository.SaveChangesAsync(cancellationToken);
 

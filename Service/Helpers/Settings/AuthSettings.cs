@@ -18,4 +18,22 @@ public class AuthSettings
 
     /// <summary>Sign-in and register requests one IP address may make per minute.</summary>
     public int RateLimitPerMinute { get; set; } = 10;
+
+    /// <summary>Address of the website. The links in e-mails open its verify-email.html and reset-password.html pages.</summary>
+    public string FrontendBaseUrl { get; set; } = "http://localhost:5500";
+
+    /// <summary>How long the link that confirms an e-mail address works.</summary>
+    public int VerifyEmailHours { get; set; } = 24;
+
+    /// <summary>How long the link that resets a password works.</summary>
+    public int ResetPasswordMinutes { get; set; } = 60;
+
+    /// <summary>Seconds before another e-mail of the same kind can be sent to the same account.</summary>
+    public int EmailCooldownSeconds { get; set; } = 60;
+
+    /// <summary>
+    /// A signed-in account needs a verified e-mail address to book. Only enforced while the API can send e-mail at all:
+    /// without SMTP nobody could ever verify, and that must not lock every customer out.
+    /// </summary>
+    public bool RequireVerifiedEmailForBooking { get; set; } = true;
 }

@@ -21,19 +21,23 @@ internal static class ApiTestHelpers
 
     public static string UniqueEmail(string name = "user") => $"{name}.{Guid.NewGuid():N}@example.com";
 
-    /// <summary>Registers a new client account and returns its token and user.</summary>
+    /// <summary>Registers a new client account, signs it in (registration itself does not) and returns its token and user.</summary>
     public static async Task<AuthResponseDto> RegisterAsync(this HttpClient client, string? email = null, string password = "secret1")
     {
+        email ??= UniqueEmail();
         var response = await client.PostAsJsonAsync("/api/auth/register", new RegisterRequestDto
         {
             FirstName = "Aysun",
             LastName = "Panahli",
-            Email = email ?? UniqueEmail(),
+            Email = email,
             Password = password,
             ConfirmPassword = password
         }, Json);
         response.EnsureSuccessStatusCode();
-        return (await response.Content.ReadFromJsonAsync<AuthResponseDto>(Json))!;
+
+        var login = await client.PostAsJsonAsync("/api/auth/login", new LoginRequestDto { Email = email, Password = password }, Json);
+        login.EnsureSuccessStatusCode();
+        return (await login.Content.ReadFromJsonAsync<AuthResponseDto>(Json))!;
     }
 
     /// <summary>

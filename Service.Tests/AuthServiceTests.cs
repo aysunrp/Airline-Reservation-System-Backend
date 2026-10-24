@@ -3,7 +3,6 @@ using System.Security.Claims;
 using Domain.Entities;
 using Domain.Enums;
 using FluentValidation;
-using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Service.Helpers.DTOs.Account;
 using Service.Helpers.Exceptions;
@@ -15,22 +14,12 @@ namespace Service.Tests;
 
 public class AuthServiceTests
 {
-    private static readonly DateTime Now = new(2026, 11, 1, 12, 0, 0, DateTimeKind.Utc);
-    private static readonly JwtSettings Jwt = new()
-    {
-        Issuer = "AEROVA",
-        Audience = "AEROVA.Client",
-        Secret = "test-secret-that-is-long-enough-for-hmac-sha256!!",
-        ExpiryMinutes = 60
-    };
+    private static readonly DateTime Now = AccountTestContext.Start;
 
     private readonly PasswordHasher _hasher = new();
 
-    private AuthService CreateService(FakeUserRepository users, JwtSettings? jwt = null)
-        => new(users, _hasher, new TokenService(Options.Create(jwt ?? Jwt), new FixedTimeProvider(Now)),
-            new RegisterRequestValidator(), new LoginRequestValidator(),
-            new LoginAttemptTracker(Options.Create(new AuthSettings()), new FixedTimeProvider(Now)),
-            Options.Create(new AuthSettings()), NullLogger<AuthService>.Instance);
+    private static AuthService CreateService(FakeUserRepository users, JwtSettings? jwt = null)
+        => new AccountTestContext(users).CreateAuth(jwt);
 
     private static RegisterRequestDto ValidRegistration() => new()
     {
@@ -42,7 +31,7 @@ public class AuthServiceTests
     };
 
     [Fact]
-    public async Task Register_CreatesClientWithHashedPasswordAndReturnsToken()
+    public async Task Register_CreatesAnUnverifiedClientWithAHashedPassword_AndDoesNotSignIn()
     {
         var users = new FakeUserRepository();
         var result = await CreateService(users).RegisterAsync(ValidRegistration());
@@ -51,17 +40,15 @@ public class AuthServiceTests
         Assert.Equal("aysun@example.com", user.Email);
         Assert.Equal("Aysun", user.FirstName);
         Assert.Equal(UserRole.Client, user.Role);
+        Assert.Null(user.EmailVerifiedAt);
         Assert.NotEqual("secret1", user.PasswordHash);
         Assert.True(_hasher.Verify("secret1", user.PasswordHash));
 
-        Assert.Equal(Now.AddMinutes(60), result.ExpiresAt);
         Assert.Equal("aysun@example.com", result.User.Email);
         Assert.Equal("Client", result.User.Role);
-
-        var token = new JwtSecurityTokenHandler().ReadJwtToken(result.AccessToken);
-        Assert.Equal("AEROVA", token.Issuer);
-        Assert.Equal(user.Id.ToString(), token.Subject);
-        Assert.Contains(token.Claims, c => c.Type == ClaimTypes.Role && c.Value == "Client");
+        Assert.False(result.User.EmailVerified);
+        // No token: the person signs in on the login page.
+        Assert.Null(typeof(RegisterResponseDto).GetProperty("AccessToken"));
     }
 
     [Fact]
@@ -93,6 +80,12 @@ public class AuthServiceTests
 
         Assert.Equal(5, result.User.Id);
         Assert.False(string.IsNullOrEmpty(result.AccessToken));
+        Assert.Equal(Now.AddMinutes(60), result.ExpiresAt);
+
+        var token = new JwtSecurityTokenHandler().ReadJwtToken(result.AccessToken);
+        Assert.Equal("AEROVA", token.Issuer);
+        Assert.Equal("5", token.Subject);
+        Assert.Contains(token.Claims, c => c.Type == ClaimTypes.Role && c.Value == "Client");
     }
 
     [Theory]
@@ -110,9 +103,10 @@ public class AuthServiceTests
     [Fact]
     public async Task MissingJwtSecret_FailsClearly()
     {
-        var service = CreateService(new FakeUserRepository(), new JwtSettings { Secret = "short" });
+        var users = new FakeUserRepository(new User { Id = 5, Email = "aysun@example.com", PasswordHash = _hasher.Hash("secret1"), FirstName = "Aysun", LastName = "Panahli" });
+        var service = CreateService(users, new JwtSettings { Secret = "short" });
 
-        await Assert.ThrowsAsync<InvalidOperationException>(() => service.RegisterAsync(ValidRegistration()));
+        await Assert.ThrowsAsync<InvalidOperationException>(() => service.LoginAsync(new LoginRequestDto { Email = "aysun@example.com", Password = "secret1" }));
     }
 }
 

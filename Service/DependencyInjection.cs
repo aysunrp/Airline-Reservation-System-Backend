@@ -15,6 +15,7 @@ namespace Service
             services.Configure<PricingSettings>(configuration.GetSection(PricingSettings.SectionName));
             services.Configure<JwtSettings>(configuration.GetSection(JwtSettings.SectionName));
             services.Configure<AuthSettings>(configuration.GetSection(AuthSettings.SectionName));
+            services.Configure<SmtpSettings>(configuration.GetSection(SmtpSettings.SectionName));
             services.Configure<BookingSettings>(configuration.GetSection(BookingSettings.SectionName));
             services.Configure<SeatLayoutSettings>(configuration.GetSection(SeatLayoutSettings.SectionName));
             services.Configure<FlightGenerationSettings>(configuration.GetSection(FlightGenerationSettings.SectionName));
@@ -32,6 +33,8 @@ namespace Service
             services.AddSingleton<IPasswordHasher, PasswordHasher>();
             services.AddSingleton<ILoginAttemptTracker, LoginAttemptTracker>();
             services.AddScoped<ITokenService, TokenService>();
+            services.AddSingleton<IEmailSender, SmtpEmailSender>();
+            services.AddScoped<IAccountEmailService, AccountEmailService>();
             services.AddScoped<IAuthService, AuthService>();
             services.AddScoped<IProfileService, ProfileService>();
             services.AddScoped<INotificationService, NotificationService>();

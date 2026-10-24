@@ -17,7 +17,7 @@ public class AuthAndProfileEndpointTests : IClassFixture<ApiFactory>
     }
 
     [Fact]
-    public async Task Register_Returns201WithToken_AndLoginWorks()
+    public async Task Register_Returns201WithoutAToken_AndLoginWorks()
     {
         var client = _factory.CreateClient();
         var email = UniqueEmail("aysun");
@@ -27,13 +27,15 @@ public class AuthAndProfileEndpointTests : IClassFixture<ApiFactory>
             FirstName = "Aysun", LastName = "Panahli", Email = email, Password = "secret1", ConfirmPassword = "secret1"
         }, Json);
         Assert.Equal(HttpStatusCode.Created, registerResponse.StatusCode);
-        var registered = await registerResponse.ReadAsync<AuthResponseDto>();
-        Assert.False(string.IsNullOrEmpty(registered.AccessToken));
-        Assert.Equal("Client", registered.User.Role);
+        var registered = await registerResponse.ReadJsonAsync();
+        Assert.Equal("Client", registered.GetProperty("user").GetProperty("role").GetString());
+        Assert.False(registered.GetProperty("user").GetProperty("emailVerified").GetBoolean());
+        // The person is not signed in by registering.
+        Assert.False(registered.TryGetProperty("accessToken", out _));
 
         var loginResponse = await client.PostAsJsonAsync("/api/auth/login", new LoginRequestDto { Email = email.ToUpperInvariant(), Password = "secret1" }, Json);
         Assert.Equal(HttpStatusCode.OK, loginResponse.StatusCode);
-        Assert.Equal(registered.User.Id, (await loginResponse.ReadAsync<AuthResponseDto>()).User.Id);
+        Assert.Equal(registered.GetProperty("user").GetProperty("id").GetInt32(), (await loginResponse.ReadAsync<AuthResponseDto>()).User.Id);
     }
 
     [Fact]

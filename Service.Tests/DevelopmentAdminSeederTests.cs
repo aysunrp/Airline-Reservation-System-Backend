@@ -24,6 +24,8 @@ public class DevelopmentAdminSeederTests
         Assert.Equal(DevelopmentAdminOutcome.Created, result.Outcome);
         var user = Assert.Single(await _users.GetAllAsync());
         Assert.Equal((_email, UserRole.Admin, true), (user.Email, user.Role, user.IsActive));
+        // The trusted seeder needs no e-mail link: the admin counts as verified.
+        Assert.NotNull(user.EmailVerifiedAt);
         Assert.NotEqual(_password, user.PasswordHash);
         Assert.DoesNotContain(_password, user.PasswordHash);
         Assert.True(_hasher.Verify(_password, user.PasswordHash));

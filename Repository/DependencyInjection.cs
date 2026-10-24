@@ -32,6 +32,7 @@ namespace Repository
             services.AddScoped<IBookingRepository, BookingRepository>();
             services.AddScoped<IBookingPassengerRepository, BookingPassengerRepository>();
             services.AddScoped<INotificationRepository, NotificationRepository>();
+            services.AddScoped<IEmailTokenRepository, EmailTokenRepository>();
 
             return services;
         }

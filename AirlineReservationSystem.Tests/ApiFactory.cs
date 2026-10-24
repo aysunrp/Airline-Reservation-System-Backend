@@ -6,6 +6,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Repository.Data;
 using Service.Helpers.Settings;
+using Service.Services.Interfaces;
 
 namespace AirlineReservationSystem.Tests;
 
@@ -35,6 +36,9 @@ public sealed class ApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
     /// <summary>Sign-in and register requests per minute and IP address; high so the many sign-ins of the tests never hit it.</summary>
     public int RateLimitPerMinute { get; init; } = 100_000;
 
+    /// <summary>The e-mails the API would have sent.</summary>
+    public TestEmailSender Emails => Services.GetRequiredService<TestEmailSender>();
+
     private Task<SeedData>? _seed;
 
     /// <summary>Writes the test flight network once per database and returns its ids (tests of a class run one after another).</summary>
@@ -53,11 +57,19 @@ public sealed class ApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
             services.PostConfigure<JwtSettings>(settings => settings.Secret = JwtSecret);
 
             // Cheap password hashes and a generous request limit keep the test run fast; the tests of those two features set their own.
+            // Booking does not wait for a confirmed e-mail here, so the many tests that register and book need no mailbox.
             services.PostConfigure<AuthSettings>(settings =>
             {
                 settings.PasswordHashIterations = 1_000;
                 settings.RateLimitPerMinute = RateLimitPerMinute;
+                settings.RequireVerifiedEmailForBooking = false;
+                settings.FrontendBaseUrl = "https://aerova.test";
             });
+
+            // No real SMTP in tests: the messages end up in a list the tests read.
+            services.RemoveAll<IEmailSender>();
+            services.AddSingleton<TestEmailSender>();
+            services.AddSingleton<IEmailSender>(provider => provider.GetRequiredService<TestEmailSender>());
 
             // Tests trigger generation themselves; a background run would change their flight counts.
             services.PostConfigure<FlightGenerationSettings>(settings => settings.WorkerEnabled = false);

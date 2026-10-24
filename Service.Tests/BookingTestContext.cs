@@ -27,6 +27,14 @@ internal sealed class BookingTestContext
     public FakeSavedPassengerRepository SavedPassengers { get; } = new(new SavedPassenger { Id = 7, UserId = 1, FirstName = "Orkhan", LastName = "Aliyev" });
     public FakeNotificationRepository Notifications { get; } = new();
 
+    /// <summary>The accounts bookings are made for; empty unless a test needs the e-mail check.</summary>
+    public FakeUserRepository Users { get; } = new();
+
+    public FakeEmailSender EmailSender { get; } = new();
+
+    /// <summary>Off here so the many booking tests need no verified account; the tests of that rule switch it on.</summary>
+    public AuthSettings AuthSettings { get; } = new() { RequireVerifiedEmailForBooking = false };
+
     public FakeFlightSeatRepository FlightSeats() => Data.FlightSeats();
 
     public SeatService CreateSeatService() => new(Data.Flights(), FlightSeats(), Clock);
@@ -46,7 +54,10 @@ internal sealed class BookingTestContext
         new TravelDocumentPolicy(Options.Create(TestData.FrontendDocumentRules())),
         new CreateBookingRequestValidator(Clock),
         Options.Create(new BookingSettings { SeatHoldMinutes = 15 }),
-        Clock);
+        Clock,
+        Users,
+        EmailSender,
+        Options.Create(AuthSettings));
 
     public PaymentService CreatePaymentService() => new(
         Bookings,

@@ -35,6 +35,7 @@ public class AppDbContext : DbContext
     public DbSet<Cancellation> Cancellations => Set<Cancellation>();
     public DbSet<Refund> Refunds => Set<Refund>();
     public DbSet<Notification> Notifications => Set<Notification>();
+    public DbSet<EmailToken> EmailTokens => Set<EmailToken>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

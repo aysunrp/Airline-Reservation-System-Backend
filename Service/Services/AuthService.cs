@@ -24,6 +24,7 @@ public class AuthService : IAuthService
     private readonly ILoginAttemptTracker _attempts;
     private readonly IOptions<AuthSettings> _settings;
     private readonly ILogger<AuthService> _logger;
+    private readonly IAccountEmailService _accountEmail;
 
     public AuthService(
         IUserRepository userRepository,
@@ -33,7 +34,8 @@ public class AuthService : IAuthService
         IValidator<LoginRequestDto> loginValidator,
         ILoginAttemptTracker attempts,
         IOptions<AuthSettings> settings,
-        ILogger<AuthService> logger)
+        ILogger<AuthService> logger,
+        IAccountEmailService accountEmail)
     {
         _userRepository = userRepository;
         _passwordHasher = passwordHasher;
@@ -43,9 +45,10 @@ public class AuthService : IAuthService
         _attempts = attempts;
         _settings = settings;
         _logger = logger;
+        _accountEmail = accountEmail;
     }
 
-    public async Task<AuthResponseDto> RegisterAsync(RegisterRequestDto request, CancellationToken cancellationToken = default)
+    public async Task<RegisterResponseDto> RegisterAsync(RegisterRequestDto request, CancellationToken cancellationToken = default)
     {
         await _registerValidator.ValidateAndThrowAsync(request, cancellationToken);
 
@@ -67,7 +70,11 @@ public class AuthService : IAuthService
         await _userRepository.AddAsync(user, cancellationToken);
         await _userRepository.SaveChangesAsync(cancellationToken);
 
-        return CreateResponse(user);
+        // The address stays unverified until its owner opens the link; a missing SMTP configuration or a failed delivery
+        // changes nothing about that (the account exists, the answer says no mail went out).
+        var sent = await _accountEmail.SendVerificationAsync(user, request.Language, cancellationToken);
+
+        return new RegisterResponseDto(user.ToUserDto(), sent);
     }
 
     public async Task<AuthResponseDto> LoginAsync(LoginRequestDto request, CancellationToken cancellationToken = default)

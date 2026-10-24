@@ -22,6 +22,9 @@ public class BookingService : IBookingService
     private const int TicketNumberLength = 13;
     private const string NotFoundMessage = "We could not find a reservation matching that reference and last name.";
 
+    private readonly IUserRepository _userRepository;
+    private readonly IEmailSender _emailSender;
+    private readonly AuthSettings _authSettings;
     private readonly IBookingRepository _bookingRepository;
     private readonly IFlightRepository _flightRepository;
     private readonly IFlightSeatRepository _flightSeatRepository;
@@ -49,8 +52,14 @@ public class BookingService : IBookingService
         ITravelDocumentPolicy documentPolicy,
         IValidator<CreateBookingRequestDto> validator,
         IOptions<BookingSettings> settings,
-        TimeProvider timeProvider)
+        TimeProvider timeProvider,
+        IUserRepository userRepository,
+        IEmailSender emailSender,
+        IOptions<AuthSettings> authSettings)
     {
+        _userRepository = userRepository;
+        _emailSender = emailSender;
+        _authSettings = authSettings.Value;
         _bookingRepository = bookingRepository;
         _flightRepository = flightRepository;
         _flightSeatRepository = flightSeatRepository;
@@ -69,6 +78,7 @@ public class BookingService : IBookingService
     public async Task<BookingDto> CreateBookingAsync(int? userId, CreateBookingRequestDto request, CancellationToken cancellationToken = default)
     {
         await _validator.ValidateAndThrowAsync(request, cancellationToken);
+        await RequireVerifiedEmailAsync(userId, cancellationToken);
 
         // Seats of unpaid bookings whose hold ran out become bookable again before we check availability.
         await _expiryService.ReleaseExpiredAsync(cancellationToken);
@@ -316,6 +326,24 @@ public class BookingService : IBookingService
         _documentPolicy.Check(legs.Select(l => l.Flight).ToList(), request.Passengers, lastTravelDate);
 
         return types;
+    }
+
+    /// <summary>
+    /// A signed-in customer needs a confirmed e-mail address to book. The rule only applies while e-mail can be sent at all: without
+    /// SMTP nobody could confirm an address, and the rule would lock every customer out. Guests and admins are not affected.
+    /// </summary>
+    private async Task RequireVerifiedEmailAsync(int? userId, CancellationToken cancellationToken)
+    {
+        if (userId is null || !_authSettings.RequireVerifiedEmailForBooking || !_emailSender.IsConfigured)
+        {
+            return;
+        }
+
+        var user = await _userRepository.GetByIdAsync(userId.Value, cancellationToken);
+        if (user is not null && user.Role == UserRole.Client && user.EmailVerifiedAt is null)
+        {
+            throw new BusinessRuleException("Please confirm your email address before booking. Open the link we sent you, or ask for a new one in your profile.");
+        }
     }
 
     private async Task CheckSavedPassengersAsync(int? userId, CreateBookingRequestDto request, CancellationToken cancellationToken)

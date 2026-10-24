@@ -29,12 +29,14 @@ public class AuthHardeningEndpointTests : IClassFixture<ApiFactory>
         var response = await client.PostAsync("/api/auth/register", new StringContent(body, Encoding.UTF8, "application/json"));
 
         Assert.Equal(HttpStatusCode.Created, response.StatusCode);
-        var registered = await response.ReadAsync<AuthResponseDto>();
+        var registered = await response.ReadAsync<RegisterResponseDto>();
         Assert.Equal("Client", registered.User.Role);
 
-        // The token is a Client token: the Admin area refuses it.
+        // Signing in gives a Client token: the Admin area refuses it.
+        var login = await client.PostAsJsonAsync("/api/auth/login", new LoginRequestDto { Email = email, Password = "secret1" }, Json);
+        var token = (await login.ReadAsync<AuthResponseDto>()).AccessToken;
         var admin = _factory.CreateClient();
-        admin.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", registered.AccessToken);
+        admin.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
         Assert.Equal(HttpStatusCode.Forbidden, (await admin.GetAsync("/api/admin/dashboard")).StatusCode);
     }
 

@@ -34,6 +34,7 @@ public sealed class GlobalExceptionHandler : IExceptionHandler
             },
             UnauthorizedException => Problem(StatusCodes.Status401Unauthorized, "Unauthorized", exception.Message),
             TooManyAttemptsException => Problem(StatusCodes.Status429TooManyRequests, "Too many attempts", exception.Message),
+            ServiceUnavailableException => Problem(StatusCodes.Status503ServiceUnavailable, "Service unavailable", exception.Message),
             NotFoundException => Problem(StatusCodes.Status404NotFound, "Not found", exception.Message),
             ConflictException => Problem(StatusCodes.Status409Conflict, "Conflict", exception.Message),
             BusinessRuleException => Problem(StatusCodes.Status422UnprocessableEntity, "Business rule violation", exception.Message),

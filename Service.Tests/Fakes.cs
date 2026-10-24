@@ -72,6 +72,8 @@ internal sealed class FakeUserRepository : FakeRepository<User>, IUserRepository
     {
     }
 
+    public User? Find(int id) => Items.FirstOrDefault(u => u.Id == id);
+
     public Task<User?> GetByEmailAsync(string email, CancellationToken cancellationToken = default)
         => Task.FromResult(Items.FirstOrDefault(u => u.Email == email));
 

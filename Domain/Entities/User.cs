@@ -16,6 +16,9 @@ public class User : BaseEntity
     public UserRole Role { get; set; } = UserRole.Client;
     public bool IsActive { get; set; } = true;
 
+    /// <summary>When the owner opened the link sent to this address; null until then. Never set without that link (or the trusted admin seeder).</summary>
+    public DateTime? EmailVerifiedAt { get; set; }
+
     public ICollection<Booking> Bookings { get; set; } = new List<Booking>();
     public ICollection<SavedPassenger> SavedPassengers { get; set; } = new List<SavedPassenger>();
     public ICollection<Notification> Notifications { get; set; } = new List<Notification>();
