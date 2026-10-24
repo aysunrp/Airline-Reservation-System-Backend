@@ -9,6 +9,7 @@ using Repository.Repositories.Interfaces;
 using Service.Helpers.DTOs.Reservation;
 using Service.Helpers.Exceptions;
 using Service.Helpers.Mappings;
+using Service.Helpers.Scheduling;
 using Service.Helpers.Settings;
 using Service.Services.Interfaces;
 
@@ -292,11 +293,13 @@ public class BookingService : IBookingService
 
     private List<PassengerType> ResolvePassengerTypes(CreateBookingRequestDto request, List<(BookingLegRequestDto Request, Flight Flight, decimal Fare)> legs)
     {
-        // Age is taken on the first travel day; the document must stay valid until the last one.
-        var firstTravelDate = DateOnly.FromDateTime(legs[0].Flight.DepartureAt);
-        var lastTravelDate = DateOnly.FromDateTime(legs[^1].Flight.DepartureAt);
+        // Age is taken on the day of the last flight of the trip, by the clock of its departure airport: a child who turns 12 (or an
+        // infant who turns 2) before the return flight is priced and seated as the older passenger on the whole booking.
+        // The document must stay valid until that same day.
+        var lastFlight = legs[^1].Flight;
+        var lastTravelDate = ScheduleTimeCalculator.LocalDate(lastFlight.DepartureAt, lastFlight.Route.Origin);
 
-        var types = request.Passengers.Select(p => _pricingService.GetPassengerType(p.DateOfBirth, firstTravelDate)).ToList();
+        var types = request.Passengers.Select(p => _pricingService.GetPassengerType(p.DateOfBirth, lastTravelDate)).ToList();
 
         var adults = types.Count(t => t == PassengerType.Adult);
         if (adults == 0)

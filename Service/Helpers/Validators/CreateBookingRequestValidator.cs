@@ -8,7 +8,8 @@ namespace Service.Helpers.Validators;
 
 public class CreateBookingRequestValidator : AbstractValidator<CreateBookingRequestDto>
 {
-    private const int MaxPassengers = 9;
+    /// <summary>Travellers on one booking, infants included.</summary>
+    public const int MaxPassengers = 9;
     private const int MaxMultiCityLegs = 6;
 
     // Document formats used by the passenger details page.
