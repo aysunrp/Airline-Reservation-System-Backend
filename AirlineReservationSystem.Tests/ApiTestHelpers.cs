@@ -45,21 +45,43 @@ internal static class ApiTestHelpers
     /// test database and signs in through the API like the admin panel would.
     /// </summary>
     public static async Task<HttpClient> CreateAdminClientAsync(this ApiFactory factory)
+        => (await factory.CreateAccountAsync(UserRole.Admin)).Client;
+
+    /// <summary>For the admin actions only a SuperAdmin may do: deleting, generating flights, changing the cancellation rules.</summary>
+    public static async Task<HttpClient> CreateSuperAdminClientAsync(this ApiFactory factory)
+        => (await factory.CreateAccountAsync(UserRole.SuperAdmin)).Client;
+
+    /// <summary>Writes an account with the given role straight into the test database and signs it in through the API.</summary>
+    public static async Task<TestAccount> CreateAccountAsync(this ApiFactory factory, UserRole role)
     {
-        var email = UniqueEmail("admin");
+        const string password = "admin-pass";
+        var email = UniqueEmail(role.ToString().ToLowerInvariant());
+        int id;
         using (var scope = factory.Services.CreateScope())
         {
             var hasher = scope.ServiceProvider.GetRequiredService<IPasswordHasher>();
             var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-            db.Users.Add(new User { Email = email, PasswordHash = hasher.Hash("admin-pass"), FirstName = "Aerova", LastName = "Admin", Role = UserRole.Admin });
+            var user = new User { Email = email, PasswordHash = hasher.Hash(password), FirstName = "Aerova", LastName = role.ToString(), Role = role };
+            db.Users.Add(user);
             await db.SaveChangesAsync();
+            id = user.Id;
         }
 
         var client = factory.CreateClient();
-        var response = await client.PostAsJsonAsync("/api/auth/login", new LoginRequestDto { Email = email, Password = "admin-pass" }, Json);
-        response.EnsureSuccessStatusCode();
-        return client.WithToken((await response.ReadAsync<AuthResponseDto>()).AccessToken);
+        var token = await client.SignInAsync(email, password);
+        return new TestAccount(client.WithToken(token), id, email, password, token);
     }
+
+    /// <summary>Signs in and returns the access token (the sign-in must succeed).</summary>
+    public static async Task<string> SignInAsync(this HttpClient client, string email, string password)
+    {
+        var response = await client.PostAsJsonAsync("/api/auth/login", new LoginRequestDto { Email = email, Password = password }, Json);
+        response.EnsureSuccessStatusCode();
+        return (await response.ReadAsync<AuthResponseDto>()).AccessToken;
+    }
+
+    /// <summary>A client that sends the given token.</summary>
+    public static HttpClient ClientWith(this ApiFactory factory, string token) => factory.CreateClient().WithToken(token);
 
     public static HttpClient WithToken(this HttpClient client, string token)
     {
@@ -73,3 +95,6 @@ internal static class ApiTestHelpers
     public static async Task<JsonElement> ReadJsonAsync(this HttpResponseMessage response)
         => (await JsonDocument.ParseAsync(await response.Content.ReadAsStreamAsync())).RootElement;
 }
+
+/// <summary>An account made for a test and the client that is signed in as it.</summary>
+internal sealed record TestAccount(HttpClient Client, int Id, string Email, string Password, string Token);

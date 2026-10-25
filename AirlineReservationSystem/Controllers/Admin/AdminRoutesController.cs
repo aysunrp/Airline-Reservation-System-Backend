@@ -52,6 +52,7 @@ public class AdminRoutesController : ControllerBase
     public async Task<ActionResult<RouteDto>> Update(int id, RouteRequestDto request, CancellationToken cancellationToken)
         => Ok(await _routeService.UpdateAsync(id, request, cancellationToken));
 
+    [Authorize(Policy = AuthorizationPolicies.SuperAdmin)]
     [HttpDelete("{id:int}")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]

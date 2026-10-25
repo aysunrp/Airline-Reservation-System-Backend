@@ -2,6 +2,7 @@ using AirlineReservationSystem.Helpers;
 using Domain.Enums;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Service.Helpers;
 using Service.Helpers.DTOs.Reservation;
 using Service.Services.Interfaces;
 
@@ -15,10 +16,12 @@ namespace AirlineReservationSystem.Controllers.Admin;
 public class AdminBookingsController : ControllerBase
 {
     private readonly IAdminBookingService _bookingService;
+    private readonly IAuditLogService _audit;
 
-    public AdminBookingsController(IAdminBookingService bookingService)
+    public AdminBookingsController(IAdminBookingService bookingService, IAuditLogService audit)
     {
         _bookingService = bookingService;
+        _audit = audit;
     }
 
     /// <summary>Filtered by PNR fragment, passenger name fragment and status; newest first. <c>take</c> is 1-500 (200 by default).</summary>
@@ -42,5 +45,9 @@ public class AdminBookingsController : ControllerBase
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status422UnprocessableEntity)]
     public async Task<ActionResult<BookingDto>> Cancel(string pnr, AdminCancelBookingRequestDto request, CancellationToken cancellationToken)
-        => Ok(await _bookingService.CancelAsync(pnr, request.Reason, cancellationToken));
+    {
+        var booking = await _bookingService.CancelAsync(pnr, request.Reason, cancellationToken);
+        await _audit.RecordAsync(User.ToAuditActor(), AuditActions.BookingCancelledByAdmin, "Booking", pnr.ToUpperInvariant(), cancellationToken: cancellationToken);
+        return Ok(booking);
+    }
 }

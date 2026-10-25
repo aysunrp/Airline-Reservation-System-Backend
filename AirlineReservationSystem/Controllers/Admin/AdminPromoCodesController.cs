@@ -54,6 +54,7 @@ public class AdminPromoCodesController : ControllerBase
         => Ok(await _promoCodeService.UpdateAsync(id, request, cancellationToken));
 
     /// <summary>Codes used by bookings cannot be deleted; set them inactive instead (422).</summary>
+    [Authorize(Policy = AuthorizationPolicies.SuperAdmin)]
     [HttpDelete("{id:int}")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]

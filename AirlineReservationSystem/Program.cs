@@ -5,6 +5,7 @@ using AirlineReservationSystem.Helpers;
 using AirlineReservationSystem.Middlewares;
 using Domain.Enums;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.Extensions.Options;
@@ -39,6 +40,13 @@ builder.Services.AddRateLimiter(options =>
         var limit = Math.Max(1, httpContext.RequestServices.GetRequiredService<IOptions<AuthSettings>>().Value.RateLimitPerMinute);
         return RateLimitPartition.GetFixedWindowLimiter(
             httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+            _ => new FixedWindowRateLimiterOptions { PermitLimit = limit, Window = TimeSpan.FromMinutes(1), QueueLimit = 0 });
+    });
+    options.AddPolicy(RateLimitPolicies.Lookup, httpContext =>
+    {
+        var limit = Math.Max(1, httpContext.RequestServices.GetRequiredService<IOptions<AuthSettings>>().Value.LookupRateLimitPerMinute);
+        return RateLimitPartition.GetFixedWindowLimiter(
+            "lookup:" + (httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown"),
             _ => new FixedWindowRateLimiterOptions { PermitLimit = limit, Window = TimeSpan.FromMinutes(1), QueueLimit = 0 });
     });
     options.OnRejected = async (context, cancellationToken) =>
@@ -83,10 +91,17 @@ builder.Services.AddOptions<JwtBearerOptions>(JwtBearerDefaults.AuthenticationSc
             ValidateLifetime = true,
             ClockSkew = TimeSpan.FromMinutes(1)
         };
+
+        // A valid signature is not enough: the account must still exist, be active and have the role the token says.
+        options.Events = new JwtBearerEvents { OnTokenValidated = TokenStateValidator.ValidateAsync };
     });
 
 builder.Services.AddAuthorization(options =>
-    options.AddPolicy(AuthorizationPolicies.Admin, policy => policy.RequireRole(nameof(UserRole.Admin))));
+{
+    options.AddPolicy(AuthorizationPolicies.Admin, policy => policy.RequireRole(RoleNames.Admin, RoleNames.SuperAdmin));
+    options.AddPolicy(AuthorizationPolicies.SuperAdmin, policy => policy.RequireRole(RoleNames.SuperAdmin));
+});
+builder.Services.AddSingleton<IAuthorizationMiddlewareResultHandler, AuditingAuthorizationResultHandler>();
 
 // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
 builder.Services.AddEndpointsApiExplorer();

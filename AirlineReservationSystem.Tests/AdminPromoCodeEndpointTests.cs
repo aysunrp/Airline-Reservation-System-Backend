@@ -20,7 +20,7 @@ public class AdminPromoCodeEndpointTests : IClassFixture<ApiFactory>
     public async Task PromoCodes_CrudCycle_AndTheCustomerCheckFollowsTheStatus()
     {
         await _factory.GetSeedAsync();
-        var admin = await _factory.CreateAdminClientAsync();
+        var admin = await _factory.CreateSuperAdminClientAsync();
         var customer = _factory.CreateClient();
 
         var created = await admin.PostAsJsonAsync("/api/admin/promo-codes", new PromoCodeRequestDto
@@ -46,7 +46,7 @@ public class AdminPromoCodeEndpointTests : IClassFixture<ApiFactory>
     public async Task PromoCodes_RulesAreEnforced()
     {
         var seed = await _factory.GetSeedAsync();
-        var admin = await _factory.CreateAdminClientAsync();
+        var admin = await _factory.CreateSuperAdminClientAsync();
 
         // The seed already has AEROVA10; codes are compared without case.
         Assert.Equal(HttpStatusCode.Conflict, (await admin.PostAsJsonAsync("/api/admin/promo-codes",

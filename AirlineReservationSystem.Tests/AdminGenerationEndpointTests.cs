@@ -25,7 +25,7 @@ public class AdminGenerationEndpointTests : IClassFixture<ApiFactory>
     private async Task<(HttpClient Admin, int RouteId, int AircraftId)> PrepareAsync()
     {
         var seed = await _factory.GetSeedAsync();
-        var admin = await _factory.CreateAdminClientAsync();
+        var admin = await _factory.CreateSuperAdminClientAsync();
         var routeId = (await (await admin.GetAsync("/api/admin/routes?search=GYD-LHR")).ReadAsync<List<RouteDto>>()).Single().Id;
         var aircraftId = (await (await admin.GetAsync($"/api/flights/{seed.FlightId}")).ReadAsync<FlightResultDto>()).AircraftId;
         return (admin, routeId, aircraftId);

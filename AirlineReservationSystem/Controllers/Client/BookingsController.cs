@@ -1,6 +1,7 @@
 using AirlineReservationSystem.Helpers;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using Service.Helpers.DTOs.Reservation;
 using Service.Services.Interfaces;
 
@@ -60,6 +61,7 @@ public class BookingsController : ControllerBase
 
     /// <summary>Manage booking: the booking reference plus the last name of one of its passengers.</summary>
     [HttpGet("{pnr:length(6)}")]
+    [EnableRateLimiting(RateLimitPolicies.Lookup)]
     [ProducesResponseType<BookingDto>(StatusCodes.Status200OK)]
     [ProducesResponseType<ValidationProblemDetails>(StatusCodes.Status400BadRequest)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
@@ -68,6 +70,7 @@ public class BookingsController : ControllerBase
 
     /// <summary>Cancel modal: amount paid, fee and estimated refund under the fare rules.</summary>
     [HttpGet("{pnr:length(6)}/cancellation-quote")]
+    [EnableRateLimiting(RateLimitPolicies.Lookup)]
     [ProducesResponseType<CancellationQuoteDto>(StatusCodes.Status200OK)]
     [ProducesResponseType<ValidationProblemDetails>(StatusCodes.Status400BadRequest)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
@@ -78,6 +81,7 @@ public class BookingsController : ControllerBase
 
     /// <summary>Cancels the booking for good, releases its seats and requests the refund the fare rules allow.</summary>
     [HttpPost("{pnr:length(6)}/cancel")]
+    [EnableRateLimiting(RateLimitPolicies.Lookup)]
     [ProducesResponseType<BookingDto>(StatusCodes.Status200OK)]
     [ProducesResponseType<ValidationProblemDetails>(StatusCodes.Status400BadRequest)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]

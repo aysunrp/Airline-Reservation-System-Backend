@@ -36,6 +36,9 @@ public sealed class ApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
     /// <summary>Sign-in and register requests per minute and IP address; high so the many sign-ins of the tests never hit it.</summary>
     public int RateLimitPerMinute { get; init; } = 100_000;
 
+    /// <summary>Anonymous look-ups (promo codes, booking reference and last name) per minute and IP address; high for the same reason.</summary>
+    public int LookupRateLimitPerMinute { get; init; } = 100_000;
+
     /// <summary>The e-mails the API would have sent.</summary>
     public TestEmailSender Emails => Services.GetRequiredService<TestEmailSender>();
 
@@ -62,6 +65,7 @@ public sealed class ApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
             {
                 settings.PasswordHashIterations = 1_000;
                 settings.RateLimitPerMinute = RateLimitPerMinute;
+                settings.LookupRateLimitPerMinute = LookupRateLimitPerMinute;
                 settings.RequireVerifiedEmailForBooking = false;
                 settings.FrontendBaseUrl = "https://aerova.test";
             });

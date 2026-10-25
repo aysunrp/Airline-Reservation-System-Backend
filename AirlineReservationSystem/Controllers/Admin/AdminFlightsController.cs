@@ -2,6 +2,7 @@ using AirlineReservationSystem.Helpers;
 using Domain.Enums;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Service.Helpers;
 using Service.Helpers.DTOs.Flight;
 using Service.Helpers.DTOs.Seat;
 using Service.Services.Interfaces;
@@ -17,11 +18,13 @@ public class AdminFlightsController : ControllerBase
 {
     private readonly IAdminFlightService _flightService;
     private readonly IFlightSearchService _flightSearchService;
+    private readonly IAuditLogService _audit;
 
-    public AdminFlightsController(IAdminFlightService flightService, IFlightSearchService flightSearchService)
+    public AdminFlightsController(IAdminFlightService flightService, IFlightSearchService flightSearchService, IAuditLogService audit)
     {
         _flightService = flightService;
         _flightSearchService = flightSearchService;
+        _audit = audit;
     }
 
     /// <summary>
@@ -51,6 +54,7 @@ public class AdminFlightsController : ControllerBase
     public async Task<ActionResult<FlightResultDto>> Create(FlightRequestDto request, CancellationToken cancellationToken)
     {
         var flight = await _flightService.CreateAsync(request, cancellationToken);
+        await _audit.RecordAsync(User.ToAuditActor(), AuditActions.FlightCreated, "Flight", flight.Id.ToString(), cancellationToken: cancellationToken);
         return CreatedAtAction(nameof(Get), new { id = flight.Id }, flight);
     }
 
@@ -62,9 +66,14 @@ public class AdminFlightsController : ControllerBase
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status422UnprocessableEntity)]
     public async Task<ActionResult<FlightResultDto>> Update(int id, FlightRequestDto request, CancellationToken cancellationToken)
-        => Ok(await _flightService.UpdateAsync(id, request, cancellationToken));
+    {
+        var flight = await _flightService.UpdateAsync(id, request, cancellationToken);
+        await _audit.RecordAsync(User.ToAuditActor(), AuditActions.FlightUpdated, "Flight", id.ToString(), cancellationToken: cancellationToken);
+        return Ok(flight);
+    }
 
     /// <summary>Only flights without bookings can be deleted; booked flights should be cancelled (422).</summary>
+    [Authorize(Policy = AuthorizationPolicies.SuperAdmin)]
     [HttpDelete("{id:int}")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
@@ -72,6 +81,7 @@ public class AdminFlightsController : ControllerBase
     public async Task<IActionResult> Delete(int id, CancellationToken cancellationToken)
     {
         await _flightService.DeleteAsync(id, cancellationToken);
+        await _audit.RecordAsync(User.ToAuditActor(), AuditActions.FlightDeleted, "Flight", id.ToString(), cancellationToken: cancellationToken);
         return NoContent();
     }
 
@@ -88,5 +98,9 @@ public class AdminFlightsController : ControllerBase
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status422UnprocessableEntity)]
     public async Task<ActionResult<InventorySeatDto>> SetSeatBlocked(int id, int seatId, SeatBlockRequestDto request, CancellationToken cancellationToken)
-        => Ok(await _flightService.SetSeatBlockedAsync(id, seatId, request.Blocked, cancellationToken));
+    {
+        var seat = await _flightService.SetSeatBlockedAsync(id, seatId, request.Blocked, cancellationToken);
+        await _audit.RecordAsync(User.ToAuditActor(), AuditActions.SeatChanged, "Flight", id.ToString(), $"Seat {seatId}: {(request.Blocked ? "blocked" : "opened")}", cancellationToken);
+        return Ok(seat);
+    }
 }

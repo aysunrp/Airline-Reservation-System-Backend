@@ -52,6 +52,7 @@ public class AdminAirportsController : ControllerBase
         => Ok(await _airportService.UpdateAsync(id, request, cancellationToken));
 
     /// <summary>Airports used by routes, schedules or flights cannot be deleted; set them inactive instead (422).</summary>
+    [Authorize(Policy = AuthorizationPolicies.SuperAdmin)]
     [HttpDelete("{id:int}")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]

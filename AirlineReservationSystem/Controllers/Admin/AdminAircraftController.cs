@@ -51,6 +51,7 @@ public class AdminAircraftController : ControllerBase
     public async Task<ActionResult<AircraftDetailsDto>> Update(int id, AircraftRequestDto request, CancellationToken cancellationToken)
         => Ok(await _aircraftService.UpdateAsync(id, request, cancellationToken));
 
+    [Authorize(Policy = AuthorizationPolicies.SuperAdmin)]
     [HttpDelete("{id:int}")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]

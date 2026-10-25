@@ -19,7 +19,7 @@ public class AdminCancellationRuleEndpointTests : IClassFixture<ApiFactory>
     public async Task Rules_CrudCycle_AndQuotesUseTheNewValues()
     {
         var seed = await _factory.GetSeedAsync();
-        var admin = await _factory.CreateAdminClientAsync();
+        var admin = await _factory.CreateSuperAdminClientAsync();
 
         var created = await admin.PostAsJsonAsync("/api/admin/cancellation-rules",
             new CancellationRuleRequestDto { CabinClass = CabinClass.Comfort, MinDaysBeforeDeparture = 30, FeePercent = 10 }, Json);
@@ -49,7 +49,7 @@ public class AdminCancellationRuleEndpointTests : IClassFixture<ApiFactory>
     public async Task Rules_RulesAreEnforced()
     {
         await _factory.GetSeedAsync();
-        var admin = await _factory.CreateAdminClientAsync();
+        var admin = await _factory.CreateSuperAdminClientAsync();
 
         // The seed already has Business from 1 day.
         Assert.Equal(HttpStatusCode.Conflict, (await admin.PostAsJsonAsync("/api/admin/cancellation-rules",

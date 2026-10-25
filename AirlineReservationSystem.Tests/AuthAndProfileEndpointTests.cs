@@ -28,7 +28,7 @@ public class AuthAndProfileEndpointTests : IClassFixture<ApiFactory>
         }, Json);
         Assert.Equal(HttpStatusCode.Created, registerResponse.StatusCode);
         var registered = await registerResponse.ReadJsonAsync();
-        Assert.Equal("Client", registered.GetProperty("user").GetProperty("role").GetString());
+        Assert.Equal("User", registered.GetProperty("user").GetProperty("role").GetString());
         Assert.False(registered.GetProperty("user").GetProperty("emailVerified").GetBoolean());
         // The person is not signed in by registering.
         Assert.False(registered.TryGetProperty("accessToken", out _));

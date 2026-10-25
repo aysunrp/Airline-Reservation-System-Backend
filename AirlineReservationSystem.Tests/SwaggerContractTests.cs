@@ -106,7 +106,14 @@ public class SwaggerContractTests : IClassFixture<ApiFactory>
         { "get", "/api/admin/bookings/{pnr}", true },
         { "post", "/api/admin/bookings/{pnr}/cancel", true },
         { "get", "/api/admin/passengers", true },
-        { "get", "/api/admin/passengers/{documentType}/{documentNumber}", true }
+        { "get", "/api/admin/passengers/{documentType}/{documentNumber}", true },
+        { "get", "/api/admin/users", true },
+        { "post", "/api/admin/users", true },
+        { "get", "/api/admin/users/{id}", true },
+        { "put", "/api/admin/users/{id}/role", true },
+        { "put", "/api/admin/users/{id}/active", true },
+        { "delete", "/api/admin/users/{id}", true },
+        { "get", "/api/admin/audit-logs", true }
     };
 
     [Theory]

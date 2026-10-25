@@ -23,7 +23,7 @@ public class AdminAirportEndpointTests : IClassFixture<ApiFactory>
     public async Task Airports_CrudCycle()
     {
         await _factory.GetSeedAsync();
-        var admin = await _factory.CreateAdminClientAsync();
+        var admin = await _factory.CreateSuperAdminClientAsync();
 
         var created = await admin.PostAsJsonAsync("/api/admin/airports", Tbilisi(), Json);
         Assert.Equal(HttpStatusCode.Created, created.StatusCode);
@@ -50,7 +50,7 @@ public class AdminAirportEndpointTests : IClassFixture<ApiFactory>
     public async Task Airports_RulesAreEnforced()
     {
         await _factory.GetSeedAsync();
-        var admin = await _factory.CreateAdminClientAsync();
+        var admin = await _factory.CreateSuperAdminClientAsync();
         var baku = (await (await admin.GetAsync("/api/admin/airports?search=GYD")).ReadAsync<List<AirportDto>>()).Single();
 
         var duplicate = Tbilisi();

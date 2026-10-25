@@ -35,7 +35,7 @@ public class AdminCatalogEndpointTests : IClassFixture<ApiFactory>
     public async Task Dashboard_ReturnsBothTables()
     {
         await _factory.GetSeedAsync();
-        var admin = await _factory.CreateAdminClientAsync();
+        var admin = await _factory.CreateSuperAdminClientAsync();
 
         var dashboard = await (await admin.GetAsync("/api/admin/dashboard")).ReadAsync<AdminDashboardDto>();
 
@@ -48,7 +48,7 @@ public class AdminCatalogEndpointTests : IClassFixture<ApiFactory>
     [Fact]
     public async Task Aircraft_CrudCycle()
     {
-        var admin = await _factory.CreateAdminClientAsync();
+        var admin = await _factory.CreateSuperAdminClientAsync();
         var request = new AircraftRequestDto
         {
             Name = "AEROVA Caspian", Model = "A321neo", RegistrationNumber = "4k-av14",
@@ -81,7 +81,7 @@ public class AdminCatalogEndpointTests : IClassFixture<ApiFactory>
     public async Task Routes_CreateUpdateAndInUseRules()
     {
         await _factory.GetSeedAsync();
-        var admin = await _factory.CreateAdminClientAsync();
+        var admin = await _factory.CreateSuperAdminClientAsync();
 
         var created = await admin.PostAsJsonAsync("/api/admin/routes", new RouteRequestDto
         {
@@ -113,7 +113,7 @@ public class AdminCatalogEndpointTests : IClassFixture<ApiFactory>
     public async Task Schedules_CreateFilterAndDelete()
     {
         await _factory.GetSeedAsync();
-        var admin = await _factory.CreateAdminClientAsync();
+        var admin = await _factory.CreateSuperAdminClientAsync();
         var routeId = (await (await admin.GetAsync("/api/admin/routes?search=GYD-LHR")).ReadAsync<List<RouteDto>>()).Single().Id;
 
         var created = await admin.PostAsJsonAsync("/api/admin/schedules", new ScheduleRequestDto
@@ -137,7 +137,7 @@ public class AdminCatalogEndpointTests : IClassFixture<ApiFactory>
     public async Task Schedules_StoreFaresAndStops_AndRejectBadOnes()
     {
         await _factory.GetSeedAsync();
-        var admin = await _factory.CreateAdminClientAsync();
+        var admin = await _factory.CreateSuperAdminClientAsync();
         var routeId = (await (await admin.GetAsync("/api/admin/routes?search=GYD-LHR")).ReadAsync<List<RouteDto>>()).Single().Id;
         using (var scope = _factory.Services.CreateScope())
         {

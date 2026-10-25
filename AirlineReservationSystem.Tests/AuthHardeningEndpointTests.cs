@@ -17,7 +17,7 @@ public class AuthHardeningEndpointTests : IClassFixture<ApiFactory>
     }
 
     [Fact]
-    public async Task Register_IgnoresARoleSentInTheRequest_AndCreatesAClient()
+    public async Task Register_IgnoresARoleSentInTheRequest_AndCreatesAUser()
     {
         var client = _factory.CreateClient();
         var email = UniqueEmail("sneaky");
@@ -30,7 +30,7 @@ public class AuthHardeningEndpointTests : IClassFixture<ApiFactory>
 
         Assert.Equal(HttpStatusCode.Created, response.StatusCode);
         var registered = await response.ReadAsync<RegisterResponseDto>();
-        Assert.Equal("Client", registered.User.Role);
+        Assert.Equal("User", registered.User.Role);
 
         // Signing in gives a Client token: the Admin area refuses it.
         var login = await client.PostAsJsonAsync("/api/auth/login", new LoginRequestDto { Email = email, Password = "secret1" }, Json);
