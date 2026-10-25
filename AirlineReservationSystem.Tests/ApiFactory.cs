@@ -79,6 +79,14 @@ public sealed class ApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
             services.PostConfigure<FlightGenerationSettings>(settings => settings.WorkerEnabled = false);
             services.PostConfigure<BookingLifecycleSettings>(settings => settings.WorkerEnabled = false);
 
+            // The same for the first-SuperAdmin settings: tests that need them set them themselves.
+            services.PostConfigure<BootstrapSettings>(settings =>
+            {
+                settings.Enabled = false;
+                settings.SuperAdminEmail = null;
+                settings.SuperAdminPassword = null;
+            });
+
             // A developer's local Seed:* user-secrets must not seed test databases; tests switch these on themselves.
             services.PostConfigure<SeedSettings>(settings =>
             {

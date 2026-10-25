@@ -121,7 +121,7 @@ public static class DemoSeedStartup
         return result;
     }
 
-    private static async Task<bool> MigrationsAppliedAsync(IServiceScope scope, ILogger logger, string what, CancellationToken cancellationToken)
+    internal static async Task<bool> MigrationsAppliedAsync(IServiceScope scope, ILogger logger, string what, CancellationToken cancellationToken)
     {
         var pending = (await scope.ServiceProvider.GetRequiredService<AppDbContext>().Database.GetPendingMigrationsAsync(cancellationToken)).ToList();
         if (pending.Count == 0)

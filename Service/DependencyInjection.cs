@@ -22,6 +22,7 @@ namespace Service
             services.Configure<TravelDocumentSettings>(configuration.GetSection(TravelDocumentSettings.SectionName));
             services.Configure<BookingLifecycleSettings>(configuration.GetSection(BookingLifecycleSettings.SectionName));
             services.Configure<SeedSettings>(configuration.GetSection(SeedSettings.SectionName));
+            services.Configure<BootstrapSettings>(configuration.GetSection(BootstrapSettings.SectionName));
 
             services.TryAddSingleton(TimeProvider.System);
             services.AddValidatorsFromAssembly(typeof(DependencyInjection).Assembly);
@@ -68,6 +69,7 @@ namespace Service
             services.AddScoped<IAdminDashboardService, AdminDashboardService>();
             services.AddScoped<IAuditLogService, AuditLogService>();
             services.AddScoped<IAdminUserService, AdminUserService>();
+            services.AddScoped<ISuperAdminProvisioningService, SuperAdminProvisioningService>();
             services.AddHostedService<BookingExpiryWorker>();
             services.AddHostedService<FlightGenerationWorker>();
             services.AddHostedService<BookingLifecycleWorker>();

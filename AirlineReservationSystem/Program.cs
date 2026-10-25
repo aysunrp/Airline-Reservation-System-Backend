@@ -121,6 +121,13 @@ builder.Services.AddSwaggerGen(options =>
 
 var app = builder.Build();
 
+// An operator command (dotnet run -- promote-superadmin --email ...) runs instead of the web site and ends the process.
+if (ServerCommands.IsCommand(args))
+{
+    Environment.ExitCode = await ServerCommands.RunAsync(args, app.Services, Console.In, Console.Out);
+    return;
+}
+
 // Configure the HTTP request pipeline.
 app.UseExceptionHandler();
 
@@ -150,6 +157,9 @@ app.MapControllers();
 
 // Development admin account (Seed:CreateAdmin) and demo data (Seed:Enabled): Development only, off by default (see DemoSeedStartup).
 await app.SeedDemoDataIfEnabledAsync();
+
+// The first SuperAdmin (Bootstrap:Enabled): any environment, server configuration only, off by default (see SuperAdminStartup).
+await SuperAdminStartup.RunAsync(app.Services, app.Logger);
 
 app.Run();
 
