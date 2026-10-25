@@ -39,13 +39,13 @@ public class AuthServiceTests
         var user = Assert.Single(await users.GetAllAsync());
         Assert.Equal("aysun@example.com", user.Email);
         Assert.Equal("Aysun", user.FirstName);
-        Assert.Equal(UserRole.Client, user.Role);
+        Assert.Equal(UserRole.User, user.Role);
         Assert.Null(user.EmailVerifiedAt);
         Assert.NotEqual("secret1", user.PasswordHash);
         Assert.True(_hasher.Verify("secret1", user.PasswordHash));
 
         Assert.Equal("aysun@example.com", result.User.Email);
-        Assert.Equal("Client", result.User.Role);
+        Assert.Equal("User", result.User.Role);
         Assert.False(result.User.EmailVerified);
         // No token: the person signs in on the login page.
         Assert.Null(typeof(RegisterResponseDto).GetProperty("AccessToken"));
@@ -85,7 +85,7 @@ public class AuthServiceTests
         var token = new JwtSecurityTokenHandler().ReadJwtToken(result.AccessToken);
         Assert.Equal("AEROVA", token.Issuer);
         Assert.Equal("5", token.Subject);
-        Assert.Contains(token.Claims, c => c.Type == ClaimTypes.Role && c.Value == "Client");
+        Assert.Contains(token.Claims, c => c.Type == ClaimTypes.Role && c.Value == "User");
     }
 
     [Theory]

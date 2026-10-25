@@ -39,7 +39,7 @@ public class DevelopmentAdminSeeder : IDevelopmentAdminSeeder
         if (existing is not null)
         {
             return new DevelopmentAdminResultDto(
-                existing.Role == UserRole.Admin ? DevelopmentAdminOutcome.AlreadyAdmin : DevelopmentAdminOutcome.ExistingNonAdmin,
+                existing.Role is UserRole.Admin or UserRole.SuperAdmin ? DevelopmentAdminOutcome.AlreadyAdmin : DevelopmentAdminOutcome.ExistingNonAdmin,
                 Array.Empty<string>());
         }
 

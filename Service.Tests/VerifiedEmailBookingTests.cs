@@ -9,7 +9,7 @@ public class VerifiedEmailBookingTests
 {
     private readonly BookingTestContext _context = new();
 
-    private async Task<User> AddUserAsync(UserRole role = UserRole.Client, DateTime? verifiedAt = null)
+    private async Task<User> AddUserAsync(UserRole role = UserRole.User, DateTime? verifiedAt = null)
     {
         var user = new User { Id = 1, Email = "aysun@example.com", FirstName = "Aysun", LastName = "Panahli", PasswordHash = "x", Role = role, EmailVerifiedAt = verifiedAt };
         await _context.Users.AddAsync(user);

@@ -15,6 +15,12 @@ public interface IAccountEmailService
     /// </summary>
     Task<bool> SendVerificationAsync(User user, string? language, CancellationToken cancellationToken = default);
 
+    /// <summary>
+    /// After the address of an account changed: every link that was sent to the old address stops working, and a new verification
+    /// e-mail goes to the new one (best effort). The caller has already made the account unverified.
+    /// </summary>
+    Task EmailChangedAsync(User user, string? language, CancellationToken cancellationToken = default);
+
     /// <summary>Confirms the address behind the token. A wrong, used or expired token gives the same error.</summary>
     Task VerifyEmailAsync(VerifyEmailRequestDto request, CancellationToken cancellationToken = default);
 

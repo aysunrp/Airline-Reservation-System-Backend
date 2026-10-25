@@ -2,6 +2,8 @@ using Domain.Common;
 using Domain.Entities;
 using Domain.Enums;
 using Repository.Repositories.Interfaces;
+using Service.Helpers.DTOs.Account;
+using Service.Services.Interfaces;
 
 namespace Service.Tests;
 
@@ -79,6 +81,44 @@ internal sealed class FakeUserRepository : FakeRepository<User>, IUserRepository
 
     public Task<bool> EmailExistsAsync(string email, CancellationToken cancellationToken = default)
         => Task.FromResult(Items.Any(u => u.Email == email));
+
+    public Task<IReadOnlyList<User>> SearchAsync(string? search, UserRole? role, bool? isActive, int take, CancellationToken cancellationToken = default)
+    {
+        var term = search?.Trim();
+        return Task.FromResult<IReadOnlyList<User>>(Items
+            .Where(u => string.IsNullOrEmpty(term) || u.Email.Contains(term, StringComparison.OrdinalIgnoreCase) || u.FirstName.Contains(term, StringComparison.OrdinalIgnoreCase) || u.LastName.Contains(term, StringComparison.OrdinalIgnoreCase))
+            .Where(u => role is null || u.Role == role)
+            .Where(u => isActive is null || u.IsActive == isActive)
+            .OrderByDescending(u => u.Id)
+            .Take(take)
+            .ToList());
+    }
+
+    public Task<int> CountActiveInRoleAsync(UserRole role, CancellationToken cancellationToken = default)
+        => Task.FromResult(Items.Count(u => u.Role == role && u.IsActive));
+
+    /// <summary>Ids of the accounts that have bookings.</summary>
+    public HashSet<int> WithBookings { get; } = new();
+
+    public Task<bool> HasBookingsAsync(int userId, CancellationToken cancellationToken = default)
+        => Task.FromResult(WithBookings.Contains(userId));
+
+    public Task<UserState?> GetStateAsync(int id, CancellationToken cancellationToken = default)
+        => Task.FromResult(Items.Where(u => u.Id == id).Select(u => new UserState(u.Role, u.IsActive)).FirstOrDefault());
+}
+
+internal sealed class FakeAuditLogRepository : FakeRepository<AuditLog>, IAuditLogRepository
+{
+    public IReadOnlyList<AuditLog> Entries => Items;
+
+    public Task<IReadOnlyList<AuditLog>> SearchAsync(string? action, int? actorUserId, string? targetType, int take, CancellationToken cancellationToken = default)
+        => Task.FromResult<IReadOnlyList<AuditLog>>(Items
+            .Where(a => string.IsNullOrWhiteSpace(action) || a.Action == action.Trim())
+            .Where(a => actorUserId is null || a.ActorUserId == actorUserId)
+            .Where(a => string.IsNullOrWhiteSpace(targetType) || a.TargetType == targetType.Trim())
+            .OrderByDescending(a => a.Id)
+            .Take(take)
+            .ToList());
 }
 
 internal sealed class FakeSavedPassengerRepository : FakeRepository<SavedPassenger>, ISavedPassengerRepository
@@ -437,4 +477,28 @@ internal sealed class FakeAircraftRepository : FakeRepository<Aircraft>, IAircra
 
     public Task<bool> IsInUseAsync(int id, CancellationToken cancellationToken = default)
         => Task.FromResult(InUse.Contains(id));
+}
+
+internal sealed class FakeAccountEmail : IAccountEmailService
+{
+    /// <summary>Ids of the accounts whose address changed.</summary>
+    public List<int> EmailChangedFor { get; } = new();
+
+    public bool IsEmailConfigured => true;
+
+    public Task<bool> SendVerificationAsync(User user, string? language, CancellationToken cancellationToken = default) => Task.FromResult(true);
+
+    public Task EmailChangedAsync(User user, string? language, CancellationToken cancellationToken = default)
+    {
+        EmailChangedFor.Add(user.Id);
+        return Task.CompletedTask;
+    }
+
+    public Task VerifyEmailAsync(VerifyEmailRequestDto request, CancellationToken cancellationToken = default) => Task.CompletedTask;
+
+    public Task ResendVerificationAsync(int userId, string? language, CancellationToken cancellationToken = default) => Task.CompletedTask;
+
+    public Task ForgotPasswordAsync(ForgotPasswordRequestDto request, CancellationToken cancellationToken = default) => Task.CompletedTask;
+
+    public Task ResetPasswordAsync(ResetPasswordRequestDto request, CancellationToken cancellationToken = default) => Task.CompletedTask;
 }

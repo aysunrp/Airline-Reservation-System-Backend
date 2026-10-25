@@ -32,6 +32,7 @@ namespace Service
 
             services.AddSingleton<IPasswordHasher, PasswordHasher>();
             services.AddSingleton<ILoginAttemptTracker, LoginAttemptTracker>();
+            services.AddSingleton<IUserStateCache, UserStateCache>();
             services.AddScoped<ITokenService, TokenService>();
             services.AddSingleton<IEmailSender, SmtpEmailSender>();
             services.AddScoped<IAccountEmailService, AccountEmailService>();
@@ -65,6 +66,8 @@ namespace Service
             services.AddScoped<IAdminBookingService, AdminBookingService>();
             services.AddScoped<IAdminPassengerService, AdminPassengerService>();
             services.AddScoped<IAdminDashboardService, AdminDashboardService>();
+            services.AddScoped<IAuditLogService, AuditLogService>();
+            services.AddScoped<IAdminUserService, AdminUserService>();
             services.AddHostedService<BookingExpiryWorker>();
             services.AddHostedService<FlightGenerationWorker>();
             services.AddHostedService<BookingLifecycleWorker>();

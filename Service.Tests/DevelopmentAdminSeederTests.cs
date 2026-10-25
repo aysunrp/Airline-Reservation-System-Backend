@@ -47,14 +47,14 @@ public class DevelopmentAdminSeederTests
     [Fact]
     public async Task ExistingClientAccount_IsNeitherChangedNorPromoted()
     {
-        var client = new User { Email = _email, PasswordHash = _hasher.Hash("client-pass1"), FirstName = "Leyla", LastName = "Mammadova", Role = UserRole.Client };
+        var client = new User { Email = _email, PasswordHash = _hasher.Hash("client-pass1"), FirstName = "Leyla", LastName = "Mammadova", Role = UserRole.User };
         await _users.AddAsync(client);
 
         var result = await CreateSeeder().EnsureAdminAsync(_email, _password);
 
         Assert.Equal(DevelopmentAdminOutcome.ExistingNonAdmin, result.Outcome);
         var user = Assert.Single(await _users.GetAllAsync());
-        Assert.Equal((UserRole.Client, "Leyla"), (user.Role, user.FirstName));
+        Assert.Equal((UserRole.User, "Leyla"), (user.Role, user.FirstName));
         Assert.True(_hasher.Verify("client-pass1", user.PasswordHash));
     }
 

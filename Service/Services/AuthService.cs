@@ -64,7 +64,7 @@ public class AuthService : IAuthService
             PasswordHash = _passwordHasher.Hash(request.Password),
             FirstName = request.FirstName.Trim(),
             LastName = request.LastName.Trim(),
-            Role = UserRole.Client
+            Role = UserRole.User
         };
 
         await _userRepository.AddAsync(user, cancellationToken);

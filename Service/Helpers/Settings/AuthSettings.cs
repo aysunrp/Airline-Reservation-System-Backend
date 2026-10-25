@@ -19,6 +19,15 @@ public class AuthSettings
     /// <summary>Sign-in and register requests one IP address may make per minute.</summary>
     public int RateLimitPerMinute { get; set; } = 10;
 
+    /// <summary>Requests per minute and IP address for the anonymous look-ups that can be guessed at (promo codes, booking reference and last name).</summary>
+    public int LookupRateLimitPerMinute { get; set; } = 60;
+
+    /// <summary>
+    /// How long the role and active flag of an account are remembered when a token is checked against the database. A role change
+    /// or a deactivation made through the API takes effect at once; one made straight in the database within this many seconds.
+    /// </summary>
+    public int UserStateCacheSeconds { get; set; } = 30;
+
     /// <summary>Address of the website. The links in e-mails open its verify-email.html and reset-password.html pages.</summary>
     public string FrontendBaseUrl { get; set; } = "http://localhost:5500";
 

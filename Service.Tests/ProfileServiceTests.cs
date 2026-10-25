@@ -21,8 +21,10 @@ public class ProfileServiceTests
         new SavedPassenger { Id = 10, UserId = 1, FirstName = "Orkhan", LastName = "Aliyev", Relationship = "Spouse" },
         new SavedPassenger { Id = 20, UserId = 2, FirstName = "Someone", LastName = "Else" });
 
+    private readonly FakeAccountEmail _accountEmail = new();
+
     private ProfileService CreateService()
-        => new(_users, _passengers, new UpdateProfileRequestValidator(Clock), new SavedPassengerRequestValidator(Clock));
+        => new(_users, _passengers, _accountEmail, new UpdateProfileRequestValidator(Clock), new SavedPassengerRequestValidator(Clock));
 
     private static UpdateProfileRequestDto ProfileRequest(string email = "aysun@example.com") => new()
     {
@@ -44,6 +46,29 @@ public class ProfileServiceTests
         Assert.Equal("AZ", result.NationalityCode);
         Assert.Equal("aysun@example.com", result.Email);
         Assert.Equal("+994508343943", result.Phone);
+    }
+
+    [Fact]
+    public async Task UpdateProfile_NewEmail_MustBeConfirmedAgain()
+    {
+        _users.Find(1)!.EmailVerifiedAt = new DateTime(2026, 10, 1, 0, 0, 0, DateTimeKind.Utc);
+
+        await CreateService().UpdateProfileAsync(1, ProfileRequest("new.address@example.com"));
+
+        Assert.Null(_users.Find(1)!.EmailVerifiedAt);
+        Assert.Equal(new[] { 1 }, _accountEmail.EmailChangedFor);
+    }
+
+    [Fact]
+    public async Task UpdateProfile_SameEmail_KeepsTheConfirmation()
+    {
+        var verifiedAt = new DateTime(2026, 10, 1, 0, 0, 0, DateTimeKind.Utc);
+        _users.Find(1)!.EmailVerifiedAt = verifiedAt;
+
+        await CreateService().UpdateProfileAsync(1, ProfileRequest(" AYSUN@example.com "));
+
+        Assert.Equal(verifiedAt, _users.Find(1)!.EmailVerifiedAt);
+        Assert.Empty(_accountEmail.EmailChangedFor);
     }
 
     [Fact]

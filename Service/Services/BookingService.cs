@@ -340,7 +340,7 @@ public class BookingService : IBookingService
         }
 
         var user = await _userRepository.GetByIdAsync(userId.Value, cancellationToken);
-        if (user is not null && user.Role == UserRole.Client && user.EmailVerifiedAt is null)
+        if (user is not null && user.Role == UserRole.User && user.EmailVerifiedAt is null)
         {
             throw new BusinessRuleException("Please confirm your email address before booking. Open the link we sent you, or ask for a new one in your profile.");
         }

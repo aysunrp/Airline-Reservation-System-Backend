@@ -13,7 +13,7 @@ public class User : BaseEntity
     public DateOnly? DateOfBirth { get; set; }
     public string? NationalityCode { get; set; }
     public string? Phone { get; set; }
-    public UserRole Role { get; set; } = UserRole.Client;
+    public UserRole Role { get; set; } = UserRole.User;
     public bool IsActive { get; set; } = true;
 
     /// <summary>When the owner opened the link sent to this address; null until then. Never set without that link (or the trusted admin seeder).</summary>

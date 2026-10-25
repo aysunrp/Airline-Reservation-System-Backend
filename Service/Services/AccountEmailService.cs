@@ -78,6 +78,26 @@ public class AccountEmailService : IAccountEmailService
         return await IssueAndSendAsync(user, EmailTokenPurpose.VerifyEmail, language, cancellationToken);
     }
 
+    public async Task EmailChangedAsync(User user, string? language, CancellationToken cancellationToken = default)
+    {
+        // A link meant for the old address must not confirm the new one or reset the password.
+        var now = Now();
+        foreach (var purpose in new[] { EmailTokenPurpose.VerifyEmail, EmailTokenPurpose.ResetPassword })
+        {
+            foreach (var token in await _tokens.GetUnusedAsync(user.Id, purpose, cancellationToken))
+            {
+                token.UsedAt = now;
+            }
+        }
+
+        await _tokens.SaveChangesAsync(cancellationToken);
+
+        if (_sender.IsConfigured)
+        {
+            await IssueAndSendAsync(user, EmailTokenPurpose.VerifyEmail, language, cancellationToken);
+        }
+    }
+
     public async Task VerifyEmailAsync(VerifyEmailRequestDto request, CancellationToken cancellationToken = default)
     {
         await _verifyValidator.ValidateAndThrowAsync(request, cancellationToken);
