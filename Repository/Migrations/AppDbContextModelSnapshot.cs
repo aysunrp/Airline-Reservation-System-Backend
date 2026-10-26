@@ -835,6 +835,8 @@ namespace Repository.Migrations
                     b.HasIndex("FlightId", "AircraftSeatId")
                         .IsUnique();
 
+                    b.HasIndex("Status", "FlightId", "HeldUntil");
+
                     b.ToTable("FlightSeats");
                 });
 

@@ -13,5 +13,7 @@ public class FlightSeatConfiguration : IEntityTypeConfiguration<FlightSeat>
         builder.HasOne(x => x.Flight).WithMany(x => x.Seats).HasForeignKey(x => x.FlightId).OnDelete(DeleteBehavior.Cascade);
         builder.HasOne(x => x.AircraftSeat).WithMany().HasForeignKey(x => x.AircraftSeatId).OnDelete(DeleteBehavior.Restrict);
         builder.HasIndex(x => new { x.FlightId, x.AircraftSeatId }).IsUnique();
+        // The dashboard counts the free seats of every upcoming flight; without this the count reads the whole seat table.
+        builder.HasIndex(x => new { x.Status, x.FlightId, x.HeldUntil });
     }
 }
