@@ -401,6 +401,12 @@ internal sealed class FakeBookingRepository : FakeRepository<Booking>, IBookingR
                 cancellation.Id = cancellation.Id == 0 ? _nextId++ : cancellation.Id;
                 cancellation.Booking = booking;
                 booking.Cancellation = cancellation;
+                foreach (var refund in cancellation.Refunds)
+                {
+                    refund.Id = refund.Id == 0 ? _nextId++ : refund.Id;
+                    refund.Cancellation = cancellation;
+                    refund.Payment ??= booking.Payments.First(p => p.Id == refund.PaymentId);
+                }
             }
         }
 
@@ -549,5 +555,77 @@ internal sealed class FakeStripeGateway : IStripeCheckoutGateway
     {
         Expired.Add(sessionId);
         return Task.CompletedTask;
+    }
+}
+
+/// <summary>Refunds live on the bookings' cancellations, so this reads them from there like an EF query would.</summary>
+internal sealed class FakeRefundRepository : FakeRepository<Refund>, IRefundRepository
+{
+    private readonly FakeBookingRepository _bookings;
+
+    public FakeRefundRepository(FakeBookingRepository bookings) => _bookings = bookings;
+
+    public IEnumerable<Refund> All => _bookings.All.Where(b => b.Cancellation is not null).SelectMany(b => b.Cancellation!.Refunds);
+
+    public int SaveCount { get; private set; }
+
+    public override Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
+    {
+        SaveCount++;
+        return Task.FromResult(1);
+    }
+
+    public Task<Refund?> GetWithDetailsAsync(int id, CancellationToken cancellationToken = default)
+        => Task.FromResult(All.FirstOrDefault(r => r.Id == id));
+
+    public Task<IReadOnlyList<Refund>> GetByPaymentIdAsync(int paymentId, CancellationToken cancellationToken = default)
+        => Task.FromResult<IReadOnlyList<Refund>>(All.Where(r => r.PaymentId == paymentId).ToList());
+
+    public Task<Refund?> GetByProviderReferenceAsync(string providerReference, CancellationToken cancellationToken = default)
+        => Task.FromResult(All.FirstOrDefault(r => r.ProviderReference == providerReference));
+
+    public Task<IReadOnlyList<Refund>> GetPageAsync(RefundStatus? status, int take, CancellationToken cancellationToken = default)
+        => Task.FromResult<IReadOnlyList<Refund>>(All.Where(r => status is null || r.Status == status).OrderByDescending(r => r.Id).Take(take).ToList());
+
+    public Task<IReadOnlyList<Refund>> GetUnsentStripeRefundsAsync(DateTime createdBefore, int take, CancellationToken cancellationToken = default)
+        => Task.FromResult<IReadOnlyList<Refund>>(All
+            .Where(r => r.Status == RefundStatus.Pending && r.ProviderReference is null && r.Payment.Method == PaymentMethod.StripeCheckout && r.CreatedAt < createdBefore)
+            .OrderBy(r => r.Id).Take(take).ToList());
+}
+
+/// <summary>
+/// Stands in for Stripe's refunds: the same refund and attempt always get the same answer (like an idempotency key), every
+/// distinct request is kept for the test to read, and it can be told to refuse, fail or be out of reach.
+/// </summary>
+internal sealed class FakeStripeRefundGateway : IStripeRefundGateway
+{
+    private readonly Dictionary<(int RefundId, int Attempt), StripeRefundResult> _answers = new();
+
+    public List<StripeRefundRequest> Requests { get; } = new();
+
+    /// <summary>Every call, including repeats of the same refund and attempt.</summary>
+    public int Calls { get; private set; }
+
+    public bool Unavailable { get; set; }
+
+    /// <summary>What a new refund answers; "succeeded" by default.</summary>
+    public Func<StripeRefundRequest, StripeRefundResult> Answer { get; set; } = request => new StripeRefundResult($"re_test_{request.RefundId}_{request.Attempt}", "succeeded", null);
+
+    public Task<StripeRefundResult> CreateRefundAsync(StripeRefundRequest request, CancellationToken cancellationToken = default)
+    {
+        Calls++;
+        if (Unavailable)
+        {
+            throw new Service.Helpers.Exceptions.ServiceUnavailableException("Refunds are not available right now. Please try again later.");
+        }
+
+        if (!_answers.TryGetValue((request.RefundId, request.Attempt), out var result))
+        {
+            Requests.Add(request);
+            result = Answer(request);
+            _answers[(request.RefundId, request.Attempt)] = result;
+        }
+
+        return Task.FromResult(result);
     }
 }

@@ -44,14 +44,14 @@ stripe login
 API işləyirkən (məs. `http://localhost:5080`):
 
 ```powershell
-stripe listen --forward-to http://localhost:5080/api/payments/webhook --events checkout.session.completed,checkout.session.async_payment_succeeded,checkout.session.async_payment_failed,checkout.session.expired
+stripe listen --forward-to http://localhost:5080/api/payments/webhook --events checkout.session.completed,checkout.session.async_payment_succeeded,checkout.session.async_payment_failed,checkout.session.expired,refund.created,refund.updated,refund.failed
 ```
 
 Əmr `Ready! Your webhook signing secret is whsec_...` yazır. Bu `whsec_...` dəyərini 1-ci addımdakı `Stripe:WebhookSecret` kimi yazın və API-ni
 **yenidən başladın**. `stripe listen` hər başladılanda eyni hesab üçün adətən eyni açarı verir, amma dəyişərsə yenidən yazın.
 
 Dashboard-da (canlı mühit üçün) eyni endpoint: Developers → Webhooks → Add endpoint, ünvan `https://<domen>/api/payments/webhook`,
-yuxarıdakı 4 hadisə. Verilən imza açarı canlı mühitin `Stripe__WebhookSecret` dəyəridir.
+yuxarıdakı 7 hadisə (4 ödəniş, 3 geri ödəniş). Verilən imza açarı canlı mühitin `Stripe__WebhookSecret` dəyəridir.
 
 ## 4. Test ödənişi
 
@@ -76,6 +76,25 @@ Digər test halları (Stripe test kartları):
 
 ## Məlum məhdudiyyətlər
 
-- **Geri ödəniş avtomatik deyil.** Stripe ilə ödənilmiş rezervasiya ləğv edilsə, pul Stripe Dashboard-dan əl ilə qaytarılır (ayrıca tapşırıq kimi təklif olunub).
+- **Geri ödəniş Stripe vasitəsilə gedir**, bax aşağıdakı bölməyə. Stripe-dan pul bank hesabına qayıdana qədər bir neçə gün keçə bilər: AEROVA yalnız Stripe `succeeded` deyəndən sonra "Completed" göstərir.
 - Stripe hesabınızın qeydiyyat ölkəsi dəstəklənməlidir. Azərbaycanda qeydiyyatlı biznes üçün Stripe-ın dəstəyini özünüz yoxlayın.
 - Real Stripe hesabı, real webhook çatdırılması və real ödəniş AEROVA tərəfindən sınaqdan keçirilməyib. Testlər saxta Stripe ilə aparılıb.
+
+## Geri ödəniş (ləğv olunmuş rezervasiya)
+
+Ödənilmiş rezervasiya ləğv olunanda qaytarılacaq məbləği server `CancellationRules` qaydalarından hesablayır (brauzerdən məbləğ qəbul edilmir) və Stripe-dan həmin məbləği qaytarmağı istəyir. Rezervasiya əvvəl ləğv olunub saxlanır, yalnız sonra Stripe-a müraciət edilir. Stripe əlçatmaz olsa, ləğv qalır, geri ödəniş `Pending` olur və fon işi onu təkrar göndərir.
+
+| Geri ödəniş statusu | Mənası |
+| --- | --- |
+| `Pending` | İstənilib, hələ Stripe-a göndərilməyib |
+| `Processing` | Stripe qəbul edib (`pending` və ya `requires_action`), pul hələ qayıtmayıb |
+| `Completed` | Stripe `succeeded` bildirdi. Bank hesabında görünməsi bir neçə gün çəkə bilər |
+| `Failed` | Stripe imtina etdi və ya qayıdan pul bankdan geri döndü. Səbəb Admin panelində görünür |
+| `Cancelled` | Stripe geri ödənişi ləğv etdi |
+| `NotEligible` | Tarif qaydalarına görə geri ödəniş yoxdur |
+
+**Admin API:** `GET /api/admin/refunds` (Admin və SuperAdmin) siyahını göstərir. `POST /api/admin/refunds/{id}/retry` yalnız SuperAdmin üçündür və `Failed` və ya `Cancelled` geri ödənişi yenidən göndərir (yeni Stripe sorğusu, audit jurnalına yazılır). Məbləğ həmişə ləğv zamanı hesablanan məbləğ olaraq qalır.
+
+**Webhook hadisələri:** `refund.created`, `refund.updated`, `refund.failed`. Hadisə AEROVA-nın öz geri ödənişinə Stripe refund id-si ilə (və ya sorğuda göndərilən metadata ilə) bağlanır, ödəniş (`pi_...`), məbləğ və valyuta uyğun olmalıdır. Dashboard-dan əl ilə edilmiş geri ödəniş AEROVA tərəfindən istənilməyibsə, qəbul edilir və nəzərə alınmır.
+
+**Əl ilə yoxlama (sandbox):** təsdiqlənmiş test ödənişini ləğv edin (Business sinif, uçuşa 7+ gün qalıb ki, tam geri ödəniş olsun). Stripe Dashboard → Payments-də ödənişdə **Refunded** görünməli, `stripe listen` pəncərəsində `refund.created`, `refund.updated` (`[200]`) çıxmalıdır, Admin panelində status `Completed` olmalıdır. Uğursuz hal üçün Stripe-ın test hesab qaydalarına baxın (bank tərəfindən rədd olunan refund test kartı ilə simulyasiya oluna bilər).

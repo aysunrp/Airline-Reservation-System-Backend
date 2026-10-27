@@ -11,5 +11,5 @@ public interface IAdminBookingService
 
     Task<BookingDto> GetDetailsAsync(string pnr, CancellationToken cancellationToken = default);
 
-    Task<BookingDto> CancelAsync(string pnr, string? reason = null, CancellationToken cancellationToken = default);
+    Task<BookingDto> CancelAsync(string pnr, string? reason = null, int? adminUserId = null, CancellationToken cancellationToken = default);
 }

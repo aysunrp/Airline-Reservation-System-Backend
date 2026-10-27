@@ -1117,11 +1117,26 @@ namespace Repository.Migrations
                         .HasPrecision(18, 2)
                         .HasColumnType("decimal(18,2)");
 
+                    b.Property<int>("Attempts")
+                        .HasColumnType("int");
+
                     b.Property<int>("CancellationId")
                         .HasColumnType("int");
 
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime2");
+
+                    b.Property<string>("Currency")
+                        .IsRequired()
+                        .HasMaxLength(3)
+                        .HasColumnType("nvarchar(3)");
+
+                    b.Property<string>("FailureReason")
+                        .HasMaxLength(300)
+                        .HasColumnType("nvarchar(300)");
+
+                    b.Property<int?>("InitiatedByUserId")
+                        .HasColumnType("int");
 
                     b.Property<int>("PaymentId")
                         .HasColumnType("int");
@@ -1133,6 +1148,14 @@ namespace Repository.Migrations
                         .HasMaxLength(100)
                         .HasColumnType("nvarchar(100)");
 
+                    b.Property<string>("ProviderStatus")
+                        .HasMaxLength(40)
+                        .HasColumnType("nvarchar(40)");
+
+                    b.Property<string>("Reason")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
                     b.Property<string>("Status")
                         .IsRequired()
                         .HasMaxLength(20)
@@ -1143,9 +1166,16 @@ namespace Repository.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("CancellationId");
+                    b.HasIndex("InitiatedByUserId");
 
                     b.HasIndex("PaymentId");
+
+                    b.HasIndex("ProviderReference")
+                        .IsUnique()
+                        .HasFilter("[ProviderReference] IS NOT NULL");
+
+                    b.HasIndex("CancellationId", "PaymentId")
+                        .IsUnique();
 
                     b.ToTable("Refunds");
                 });
@@ -1691,6 +1721,11 @@ namespace Repository.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
+                    b.HasOne("Domain.Entities.User", "InitiatedByUser")
+                        .WithMany()
+                        .HasForeignKey("InitiatedByUserId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
                     b.HasOne("Domain.Entities.Payment", "Payment")
                         .WithMany()
                         .HasForeignKey("PaymentId")
@@ -1698,6 +1733,8 @@ namespace Repository.Migrations
                         .IsRequired();
 
                     b.Navigation("Cancellation");
+
+                    b.Navigation("InitiatedByUser");
 
                     b.Navigation("Payment");
                 });

@@ -28,14 +28,15 @@ public class BookingLifecycleWorker : BackgroundService
         {
             using var scope = _scopeFactory.CreateScope();
             var refunds = await scope.ServiceProvider.GetRequiredService<IRefundProcessingService>().ProcessDueAsync(cancellationToken);
+            var sent = await scope.ServiceProvider.GetRequiredService<IRefundService>().SubmitDueAsync(cancellationToken);
             var trips = await scope.ServiceProvider.GetRequiredService<ITripCompletionService>().CompleteFinishedAsync(cancellationToken);
             var reminders = await scope.ServiceProvider.GetRequiredService<ICheckInReminderService>().QueueDueAsync(cancellationToken);
 
-            if (refunds.Processing + refunds.Completed + trips.Flights + trips.Tickets + trips.Bookings + reminders.Reminders > 0)
+            if (sent + refunds.Processing + refunds.Completed + trips.Flights + trips.Tickets + trips.Bookings + reminders.Reminders > 0)
             {
                 _logger.LogInformation(
-                    "Refunds: {Processing} processing, {Completed} completed. Completed {Flights} flights, {Tickets} tickets and {Bookings} bookings. Sent {Reminders} check-in reminders.",
-                    refunds.Processing, refunds.Completed, trips.Flights, trips.Tickets, trips.Bookings, reminders.Reminders);
+                    "Refunds: {Sent} sent to Stripe, {Processing} processing, {Completed} completed. Completed {Flights} flights, {Tickets} tickets and {Bookings} bookings. Sent {Reminders} check-in reminders.",
+                    sent, refunds.Processing, refunds.Completed, trips.Flights, trips.Tickets, trips.Bookings, reminders.Reminders);
             }
         }
         catch (Exception ex) when (ex is not OperationCanceledException || !cancellationToken.IsCancellationRequested)

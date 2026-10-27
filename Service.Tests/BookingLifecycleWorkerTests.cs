@@ -21,6 +21,25 @@ public class BookingLifecycleWorkerTests
         }
     }
 
+    private sealed class CountingRefundSender : IRefundService
+    {
+        public int Calls;
+
+        public Task SubmitAsync(int refundId, CancellationToken cancellationToken = default) => Task.CompletedTask;
+
+        public Task<int> SubmitDueAsync(CancellationToken cancellationToken = default)
+        {
+            Calls++;
+            return Task.FromResult(0);
+        }
+
+        public Task<string> ApplyProviderStateAsync(Domain.Entities.Refund refund, string? providerRefundId, string providerStatus, string? failureReason, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+
+        public Task<Service.Helpers.DTOs.Reservation.AdminRefundDto> RetryAsync(int refundId, AuditActor actor, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+
+        public Task<IReadOnlyList<Service.Helpers.DTOs.Reservation.AdminRefundDto>> GetAllAsync(Domain.Enums.RefundStatus? status, int take, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+    }
+
     private sealed class CountingCompletion : ITripCompletionService
     {
         public int Calls;
@@ -51,6 +70,7 @@ public class BookingLifecycleWorkerTests
     {
         var services = new ServiceCollection();
         services.AddSingleton<IRefundProcessingService>(_refunds);
+        services.AddSingleton<IRefundService>(new CountingRefundSender());
         services.AddSingleton<ITripCompletionService>(_completion);
         services.AddSingleton<ICheckInReminderService>(_reminders);
         return new BookingLifecycleWorker(

@@ -46,7 +46,7 @@ public class AdminBookingsController : ControllerBase
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status422UnprocessableEntity)]
     public async Task<ActionResult<BookingDto>> Cancel(string pnr, AdminCancelBookingRequestDto request, CancellationToken cancellationToken)
     {
-        var booking = await _bookingService.CancelAsync(pnr, request.Reason, cancellationToken);
+        var booking = await _bookingService.CancelAsync(pnr, request.Reason, User.GetUserIdOrNull(), cancellationToken);
         await _audit.RecordAsync(User.ToAuditActor(), AuditActions.BookingCancelledByAdmin, "Booking", pnr.ToUpperInvariant(), cancellationToken: cancellationToken);
         return Ok(booking);
     }

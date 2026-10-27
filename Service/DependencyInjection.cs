@@ -56,6 +56,8 @@ namespace Service
             services.AddScoped<IStripeWebhookService, StripeWebhookService>();
             services.AddScoped<ICancellationService, CancellationService>();
             services.AddScoped<IRefundProcessingService, RefundProcessingService>();
+            services.AddSingleton<IStripeRefundGateway, StripeRefundGateway>();
+            services.AddScoped<IRefundService, RefundService>();
             services.AddScoped<ITripCompletionService, TripCompletionService>();
             services.AddScoped<ICheckInReminderService, CheckInReminderService>();
 

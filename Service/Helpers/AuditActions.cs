@@ -17,6 +17,7 @@ public static class AuditActions
     public const string ScheduleDeleted = "ScheduleDeleted";
     public const string FlightsGenerated = "FlightsGenerated";
     public const string BookingCancelledByAdmin = "BookingCancelledByAdmin";
+    public const string RefundRetried = "RefundRetried";
     public const string AccessDenied = "AccessDenied";
     public const string SuperAdminBootstrapped = "SuperAdminBootstrapped";
 }

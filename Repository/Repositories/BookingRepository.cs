@@ -35,7 +35,7 @@ public class BookingRepository : BaseRepository<Booking>, IBookingRepository
             .Include(b => b.Flights).ThenInclude(f => f.Flight).ThenInclude(f => f.Route).ThenInclude(r => r.Destination)
             .Include(b => b.Flights).ThenInclude(f => f.Flight).ThenInclude(f => f.Aircraft)
             .Include(b => b.Passengers).ThenInclude(p => p.Tickets).ThenInclude(t => t.FlightSeat!).ThenInclude(s => s.AircraftSeat)
-            .Include(b => b.Cancellation!).ThenInclude(c => c.Refunds)
+            .Include(b => b.Cancellation!).ThenInclude(c => c.Refunds).ThenInclude(r => r.Payment)
             .Where(b => b.UserId == userId)
             .OrderByDescending(b => b.CreatedAt)
             .ToListAsync(cancellationToken);

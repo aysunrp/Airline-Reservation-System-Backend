@@ -50,6 +50,8 @@ public class ApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
     /// <summary>The Checkout pages the API asked "Stripe" for.</summary>
     public TestStripeGateway Stripe => Services.GetRequiredService<TestStripeGateway>();
 
+    public TestStripeRefundGateway StripeRefunds => Services.GetRequiredService<TestStripeRefundGateway>();
+
     /// <summary>The e-mails the API would have sent.</summary>
     public TestEmailSender Emails => Services.GetRequiredService<TestEmailSender>();
 
@@ -91,6 +93,9 @@ public class ApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
             services.RemoveAll<IStripeCheckoutGateway>();
             services.AddSingleton<TestStripeGateway>();
             services.AddSingleton<IStripeCheckoutGateway>(provider => provider.GetRequiredService<TestStripeGateway>());
+            services.RemoveAll<IStripeRefundGateway>();
+            services.AddSingleton<TestStripeRefundGateway>();
+            services.AddSingleton<IStripeRefundGateway>(provider => provider.GetRequiredService<TestStripeRefundGateway>());
 
             // No real SMTP in tests: the messages end up in a list the tests read.
             services.RemoveAll<IEmailSender>();

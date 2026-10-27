@@ -30,6 +30,8 @@ public class StripeWebhookService : IStripeWebhookService
     private readonly IPaymentRepository _payments;
     private readonly IBookingRepository _bookings;
     private readonly IPromoCodeRepository _promoCodes;
+    private readonly IRefundRepository _refunds;
+    private readonly IRefundService _refundService;
     private readonly IBookingConfirmationService _confirmation;
     private readonly StripeSettings _stripe;
     private readonly TimeProvider _timeProvider;
@@ -40,6 +42,8 @@ public class StripeWebhookService : IStripeWebhookService
         IPaymentRepository payments,
         IBookingRepository bookings,
         IPromoCodeRepository promoCodes,
+        IRefundRepository refunds,
+        IRefundService refundService,
         IBookingConfirmationService confirmation,
         IOptions<StripeSettings> stripe,
         TimeProvider timeProvider,
@@ -49,6 +53,8 @@ public class StripeWebhookService : IStripeWebhookService
         _payments = payments;
         _bookings = bookings;
         _promoCodes = promoCodes;
+        _refunds = refunds;
+        _refundService = refundService;
         _confirmation = confirmation;
         _stripe = stripe.Value;
         _timeProvider = timeProvider;
@@ -91,6 +97,9 @@ public class StripeWebhookService : IStripeWebhookService
 
         var outcome = (stripeEvent.Type, session) switch
         {
+            ("refund.created" or "refund.updated" or "refund.failed", _) => stripeEvent.Data?.Object is Stripe.Refund stripeRefund
+                ? await ApplyRefundAsync(stripeRefund, cancellationToken)
+                : "Ignored: not about a refund",
             (_, null) => "Ignored: not about a Checkout page",
             ("checkout.session.completed", _) when session.PaymentStatus == "paid" => await ConfirmAsync(session, cancellationToken),
             ("checkout.session.completed", _) => "Waiting: the payment is not taken yet",
@@ -158,6 +167,46 @@ public class StripeWebhookService : IStripeWebhookService
         // The money is taken but the booking cannot be confirmed (it ran out, was cancelled, or was already paid): it must be refunded.
         _logger.LogError("Payment {PaymentId} was taken by Stripe but its booking is {BookingStatus}; it needs a refund.", payment.Id, booking.Status);
         return $"Paid while the booking was {booking.Status}: refund needed";
+    }
+
+    /// <summary>
+    /// A refund event is matched to AEROVA's own refund by Stripe's refund id, or, when the event beats the answer to the request that
+    /// made it, by the refund id AEROVA put in its metadata. It must belong to the same PaymentIntent and carry the same amount and currency.
+    /// </summary>
+    private async Task<string> ApplyRefundAsync(Stripe.Refund stripeRefund, CancellationToken cancellationToken)
+    {
+        var refund = await _refunds.GetByProviderReferenceAsync(stripeRefund.Id, cancellationToken);
+        if (refund is null
+            && stripeRefund.Metadata is not null
+            && stripeRefund.Metadata.TryGetValue("refund_id", out var ownId)
+            && int.TryParse(ownId, out var refundId))
+        {
+            refund = await _refunds.GetWithDetailsAsync(refundId, cancellationToken);
+        }
+
+        if (refund is null)
+        {
+            // For example a refund made by hand in the Stripe dashboard: AEROVA did not ask for it and cannot tie it to a cancellation.
+            return "Ignored: not a refund AEROVA asked for";
+        }
+
+        var payment = refund.Payment;
+        if (payment.Method != Domain.Enums.PaymentMethod.StripeCheckout
+            || string.IsNullOrEmpty(payment.StripePaymentIntentId)
+            || payment.StripePaymentIntentId != stripeRefund.PaymentIntentId)
+        {
+            _logger.LogWarning("Stripe refund event for refund {RefundId} was rejected: its payment does not match.", refund.Id);
+            return "Rejected: references do not match";
+        }
+
+        if (stripeRefund.Amount != CheckoutService.ToMinorUnits(refund.Amount)
+            || !string.Equals(stripeRefund.Currency, refund.Currency, StringComparison.OrdinalIgnoreCase))
+        {
+            _logger.LogError("Stripe reported a refund for refund {RefundId} whose amount or currency does not match; nothing was changed. Check it in the Stripe dashboard.", refund.Id);
+            return "Rejected: amount or currency does not match";
+        }
+
+        return await _refundService.ApplyProviderStateAsync(refund, stripeRefund.Id, stripeRefund.Status, stripeRefund.FailureReason, cancellationToken);
     }
 
     private async Task<string> CloseAsync(Session session, PaymentStatus status, CancellationToken cancellationToken)

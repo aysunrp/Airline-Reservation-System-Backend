@@ -36,6 +36,7 @@ namespace Repository
             services.AddScoped<IAuditLogRepository, AuditLogRepository>();
             services.AddScoped<IPaymentRepository, PaymentRepository>();
             services.AddScoped<IStripeWebhookEventRepository, StripeWebhookEventRepository>();
+            services.AddScoped<IRefundRepository, RefundRepository>();
 
             return services;
         }

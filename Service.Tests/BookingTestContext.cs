@@ -86,6 +86,8 @@ internal sealed class BookingTestContext
         new FakePaymentRepository(Bookings),
         Bookings,
         PromoCodes,
+        Refunds,
+        CreateRefundService(),
         CreateConfirmationService(),
         Options.Create(Stripe),
         Clock,
@@ -109,13 +111,31 @@ internal sealed class BookingTestContext
         new CancellationRule { CabinClass = CabinClass.Business, MinDaysBeforeDeparture = 7, FeePercent = 0 },
         new CancellationRule { CabinClass = CabinClass.Business, MinDaysBeforeDeparture = 1, FeePercent = 15 });
 
+    private FakeRefundRepository? _refunds;
+
+    public FakeRefundRepository Refunds => _refunds ??= new FakeRefundRepository(Bookings);
+
+    public FakeStripeRefundGateway RefundGateway { get; } = new();
+
+    public FakeAuditLogRepository AuditEntries { get; } = new();
+
+    public RefundService CreateRefundService() => new(
+        Refunds,
+        RefundGateway,
+        new NotificationService(Notifications),
+        new AuditLogService(AuditEntries, new ListLogger<AuditLogService>()),
+        Clock,
+        new ListLogger<RefundService>());
+
     public CancellationService CreateCancellationService() => new(
         Bookings,
         new CancellationPolicyService(CancellationRules, Clock),
         CreateSeatService(),
         new NotificationService(Notifications),
+        CreateRefundService(),
         new CancelBookingRequestValidator(),
-        Clock);
+        Clock,
+        new ListLogger<CancellationService>());
 
     public static PaymentRequestDto CardPayment(string pnr) => new()
     {

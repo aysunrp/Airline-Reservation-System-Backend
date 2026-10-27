@@ -114,6 +114,8 @@ public class SwaggerContractTests : IClassFixture<ApiFactory>
         { "put", "/api/admin/users/{id}/active", true },
         { "delete", "/api/admin/users/{id}", true },
         { "get", "/api/admin/audit-logs", true },
+        { "get", "/api/admin/refunds", true },
+        { "post", "/api/admin/refunds/{id}/retry", true },
         { "post", "/api/payments/checkout-session", false },
         { "get", "/api/payments/{paymentId}", false },
         { "post", "/api/payments/webhook", false }

@@ -77,9 +77,12 @@ public class BookingsController : ControllerBase
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status422UnprocessableEntity)]
     public async Task<ActionResult<CancellationQuoteDto>> GetCancellationQuote(string pnr, [FromQuery] string lastName, CancellationToken cancellationToken)
-        => Ok(await _cancellationService.GetQuoteAsync(pnr, lastName, cancellationToken));
+        => Ok(await _cancellationService.GetQuoteAsync(pnr, lastName, User.GetUserIdOrNull(), cancellationToken));
 
-    /// <summary>Cancels the booking for good, releases its seats and requests the refund the fare rules allow.</summary>
+    /// <summary>
+    /// Cancels the booking for good, releases its seats and requests the refund the fare rules allow. A booking made under an account
+    /// needs that account's token (401 without one); a guest booking needs the last name of a passenger.
+    /// </summary>
     [HttpPost("{pnr:length(6)}/cancel")]
     [EnableRateLimiting(RateLimitPolicies.Lookup)]
     [ProducesResponseType<BookingDto>(StatusCodes.Status200OK)]
@@ -91,6 +94,6 @@ public class BookingsController : ControllerBase
     {
         // The route identifies the booking; the body carries the last name and the reason.
         request.Pnr = pnr;
-        return Ok(await _cancellationService.CancelAsync(request, cancellationToken));
+        return Ok(await _cancellationService.CancelAsync(request, User.GetUserIdOrNull(), cancellationToken));
     }
 }

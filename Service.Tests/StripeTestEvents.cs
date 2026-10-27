@@ -60,6 +60,41 @@ internal static class StripeTestEvents
             }
         });
 
+    /// <summary>A refund event as Stripe sends it: the refund object, tied to AEROVA's own refund through metadata.</summary>
+    public static string Refund(
+        string eventId,
+        string type,
+        string refundId,
+        string status,
+        long amount,
+        string paymentIntent,
+        int? metadataRefundId,
+        string currency = "usd",
+        string? failureReason = null)
+        => JsonSerializer.Serialize(new Dictionary<string, object?>
+        {
+            ["id"] = eventId,
+            ["object"] = "event",
+            ["api_version"] = "2025-01-27.acacia",
+            ["created"] = DateTimeOffset.UtcNow.ToUnixTimeSeconds(),
+            ["livemode"] = false,
+            ["type"] = type,
+            ["data"] = new Dictionary<string, object?>
+            {
+                ["object"] = new Dictionary<string, object?>
+                {
+                    ["id"] = refundId,
+                    ["object"] = "refund",
+                    ["amount"] = amount,
+                    ["currency"] = currency,
+                    ["status"] = status,
+                    ["payment_intent"] = paymentIntent,
+                    ["failure_reason"] = failureReason,
+                    ["metadata"] = metadataRefundId is int id ? new Dictionary<string, string> { ["refund_id"] = id.ToString() } : new Dictionary<string, string>()
+                }
+            }
+        });
+
     public static string Other(string eventId, string type)
         => JsonSerializer.Serialize(new Dictionary<string, object?>
         {
