@@ -56,6 +56,12 @@ public class CancellationService : ICancellationService
         return await CancelBookingAsync(booking, request.Reason, userId, cancellationToken, request.Language);
     }
 
+    public async Task<BookingDto> CancelOwnBookingAsync(string pnr, int userId, string? reason, string? language, CancellationToken cancellationToken = default)
+    {
+        var booking = await GetCancellableBookingAsync(pnr, null, userId, cancellationToken, byOwner: true);
+        return await CancelBookingAsync(booking, reason, userId, cancellationToken, language);
+    }
+
     public async Task<BookingDto> CancelByAdminAsync(string pnr, string? reason, int? adminUserId = null, CancellationToken cancellationToken = default)
     {
         var booking = await GetCancellableBookingAsync(pnr, null, null, cancellationToken, admin: true);
@@ -149,10 +155,12 @@ public class CancellationService : ICancellationService
     /// lastName is null for admins, who can open any booking. A booking made under an account can only be cancelled by that account:
     /// knowing the reference and a passenger's name is not enough to cancel someone's paid trip.
     /// </summary>
-    private async Task<Booking> GetCancellableBookingAsync(string pnr, string? lastName, int? userId, CancellationToken cancellationToken, bool admin = false)
+    private async Task<Booking> GetCancellableBookingAsync(string pnr, string? lastName, int? userId, CancellationToken cancellationToken, bool admin = false, bool byOwner = false)
     {
         var booking = await _bookingRepository.GetByPnrAsync(BookingService.NormalizePnr(pnr), cancellationToken);
-        if (booking is null || (!admin && !BookingService.HasPassengerNamed(booking, lastName)))
+        // Through the confirmed link the account itself is the proof (it must own the booking); otherwise a passenger's last name is.
+        var known = byOwner ? booking?.UserId is int bookedBy && bookedBy == userId : admin || (booking is not null && BookingService.HasPassengerNamed(booking, lastName));
+        if (booking is null || !known)
         {
             throw new NotFoundException(BookingService.BookingNotFoundMessage);
         }
