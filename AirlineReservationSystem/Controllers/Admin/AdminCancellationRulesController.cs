@@ -37,6 +37,7 @@ public class AdminCancellationRulesController : ControllerBase
         => Ok(await _ruleService.GetAsync(id, cancellationToken));
 
     /// <summary>One rule per cabin and starting day (409).</summary>
+    [Authorize(Policy = AuthorizationPolicies.SuperAdmin)]
     [HttpPost]
     [ProducesResponseType<CancellationRuleDto>(StatusCodes.Status201Created)]
     [ProducesResponseType<ValidationProblemDetails>(StatusCodes.Status400BadRequest)]
@@ -48,6 +49,7 @@ public class AdminCancellationRulesController : ControllerBase
     }
 
     /// <summary>Only quotes and cancellations made afterwards use the new values.</summary>
+    [Authorize(Policy = AuthorizationPolicies.SuperAdmin)]
     [HttpPut("{id:int}")]
     [ProducesResponseType<CancellationRuleDto>(StatusCodes.Status200OK)]
     [ProducesResponseType<ValidationProblemDetails>(StatusCodes.Status400BadRequest)]
@@ -56,6 +58,7 @@ public class AdminCancellationRulesController : ControllerBase
     public async Task<ActionResult<CancellationRuleDto>> Update(int id, CancellationRuleRequestDto request, CancellationToken cancellationToken)
         => Ok(await _ruleService.UpdateAsync(id, request, cancellationToken));
 
+    [Authorize(Policy = AuthorizationPolicies.SuperAdmin)]
     [HttpDelete("{id:int}")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]

@@ -107,6 +107,26 @@ public class SearchAndOptionsEndpointTests : IClassFixture<ApiFactory>
     }
 
     [Fact]
+    public async Task PassengerRules_ShowTheAgeLimitsAndThePassengerLimit_WithoutSigningIn()
+    {
+        var response = await _client.GetAsync("/api/booking-options/passenger-rules");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Equal(new PassengerRulesDto(2, 12, 9), await response.ReadAsync<PassengerRulesDto>());
+    }
+
+    [Fact]
+    public async Task Search_AllowsUpToNineTravellersWhoNeedASeat()
+    {
+        await _factory.GetSeedAsync();
+        var date = DateTime.UtcNow.AddDays(3);
+
+        Assert.Equal(HttpStatusCode.OK, (await _client.PostAsJsonAsync("/api/flights/search", Search(date, passengers: 9))).StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest, (await _client.PostAsJsonAsync("/api/flights/search", Search(date, passengers: 10))).StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest, (await _client.PostAsJsonAsync("/api/flights/search", Search(date, passengers: 0))).StatusCode);
+    }
+
+    [Fact]
     public async Task PromoCodes_ValidReturns200_InvalidReturns422()
     {
         await _factory.GetSeedAsync();

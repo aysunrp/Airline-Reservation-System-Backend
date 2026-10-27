@@ -8,6 +8,9 @@ public interface IPricingService
     /// <summary>Resolves Infant/Child/Adult from the passenger's age on the travel date.</summary>
     PassengerType GetPassengerType(DateOnly dateOfBirth, DateOnly travelDate);
 
+    /// <summary>The age limits and the passenger limit the server applies, for the pages to show the same rules.</summary>
+    PassengerRulesDto GetPassengerRules();
+
     /// <summary>The share of the cabin fare a passenger of the given type pays.</summary>
     decimal GetPassengerFare(decimal cabinFare, PassengerType passengerType);
 

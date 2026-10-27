@@ -8,7 +8,8 @@ public record ProfileDto(
     DateOnly? DateOfBirth,
     string? NationalityCode,
     string Email,
-    string? Phone);
+    string? Phone,
+    bool EmailVerified);
 
 public class UpdateProfileRequestDto
 {

@@ -13,17 +13,20 @@ public class ProfileService : IProfileService
 {
     private readonly IUserRepository _userRepository;
     private readonly ISavedPassengerRepository _savedPassengerRepository;
+    private readonly IAccountEmailService _accountEmail;
     private readonly IValidator<UpdateProfileRequestDto> _profileValidator;
     private readonly IValidator<SavedPassengerRequestDto> _passengerValidator;
 
     public ProfileService(
         IUserRepository userRepository,
         ISavedPassengerRepository savedPassengerRepository,
+        IAccountEmailService accountEmail,
         IValidator<UpdateProfileRequestDto> profileValidator,
         IValidator<SavedPassengerRequestDto> passengerValidator)
     {
         _userRepository = userRepository;
         _savedPassengerRepository = savedPassengerRepository;
+        _accountEmail = accountEmail;
         _profileValidator = profileValidator;
         _passengerValidator = passengerValidator;
     }
@@ -47,11 +50,22 @@ public class ProfileService : IProfileService
         user.LastName = request.LastName.Trim();
         user.DateOfBirth = request.DateOfBirth;
         user.NationalityCode = request.NationalityCode;
+        // A new address is not the confirmed one: it has to be confirmed again, whatever the old one was.
+        var emailChanged = email != user.Email;
         user.Email = email;
         user.Phone = string.IsNullOrWhiteSpace(request.Phone) ? null : request.Phone.Replace(" ", string.Empty);
+        if (emailChanged)
+        {
+            user.EmailVerifiedAt = null;
+        }
 
         _userRepository.Update(user);
         await _userRepository.SaveChangesAsync(cancellationToken);
+
+        if (emailChanged)
+        {
+            await _accountEmail.EmailChangedAsync(user, null, cancellationToken);
+        }
 
         return user.ToProfileDto();
     }

@@ -18,7 +18,7 @@ public class AdminBookingOptionEndpointTests : IClassFixture<ApiFactory>
     public async Task BaggageOptions_CrudCycle_AndOnlyActiveOnesAreOffered()
     {
         await _factory.GetSeedAsync();
-        var admin = await _factory.CreateAdminClientAsync();
+        var admin = await _factory.CreateSuperAdminClientAsync();
         var customer = _factory.CreateClient();
 
         var created = await admin.PostAsJsonAsync("/api/admin/booking-options/baggage",
@@ -42,7 +42,7 @@ public class AdminBookingOptionEndpointTests : IClassFixture<ApiFactory>
     public async Task MealOptions_CrudCycle()
     {
         await _factory.GetSeedAsync();
-        var admin = await _factory.CreateAdminClientAsync();
+        var admin = await _factory.CreateSuperAdminClientAsync();
 
         var created = await admin.PostAsJsonAsync("/api/admin/booking-options/meals",
             new MealOptionRequestDto { Code = "wellness", Name = "Wellness Dining", Description = "  ", Price = 25 }, Json);
@@ -61,7 +61,7 @@ public class AdminBookingOptionEndpointTests : IClassFixture<ApiFactory>
     public async Task Options_RulesAreEnforced()
     {
         var seed = await _factory.GetSeedAsync();
-        var admin = await _factory.CreateAdminClientAsync();
+        var admin = await _factory.CreateSuperAdminClientAsync();
 
         // The seed has bag20 and classic; codes are compared without case.
         Assert.Equal(HttpStatusCode.Conflict, (await admin.PostAsJsonAsync("/api/admin/booking-options/baggage",

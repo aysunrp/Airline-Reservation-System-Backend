@@ -48,7 +48,8 @@ public record BookingCancellationDto(
     decimal AmountPaid,
     decimal FeeAmount,
     decimal RefundAmount,
-    RefundStatus? RefundStatus);
+    RefundStatus? RefundStatus,
+    bool RefundIsDemo);
 
 public record BookingDto(
     int Id,
@@ -63,7 +64,8 @@ public record BookingDto(
     PaymentStatus? PaymentStatus,
     IReadOnlyList<BookingLegDto> Legs,
     IReadOnlyList<BookingPassengerDto> Passengers,
-    BookingCancellationDto? Cancellation);
+    BookingCancellationDto? Cancellation,
+    bool ContactConfirmed = true);
 
 /// <summary>A row on the My Trips page.</summary>
 public record BookingSummaryDto(
@@ -75,4 +77,5 @@ public record BookingSummaryDto(
     DateTime CreatedAt,
     int PassengerCount,
     RefundStatus? RefundStatus,
-    IReadOnlyList<BookingLegDto> Legs);
+    IReadOnlyList<BookingLegDto> Legs,
+    bool RefundIsDemo);

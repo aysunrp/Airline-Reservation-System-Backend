@@ -28,6 +28,6 @@ public class AdminBookingService : IAdminBookingService
         => (await _bookingRepository.GetByPnrAsync(BookingService.NormalizePnr(pnr), cancellationToken))?.ToDto()
            ?? throw new NotFoundException("Booking not found.");
 
-    public Task<BookingDto> CancelAsync(string pnr, string? reason = null, CancellationToken cancellationToken = default)
-        => _cancellationService.CancelByAdminAsync(pnr, reason, cancellationToken);
+    public Task<BookingDto> CancelAsync(string pnr, string? reason = null, int? adminUserId = null, CancellationToken cancellationToken = default)
+        => _cancellationService.CancelByAdminAsync(pnr, reason, adminUserId, cancellationToken);
 }

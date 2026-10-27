@@ -54,6 +54,7 @@ public class AdminBookingOptionsController : ControllerBase
     public async Task<ActionResult<BaggageOptionDto>> UpdateBaggageOption(int id, BaggageOptionRequestDto request, CancellationToken cancellationToken)
         => Ok(await _optionService.UpdateBaggageOptionAsync(id, request, cancellationToken));
 
+    [Authorize(Policy = AuthorizationPolicies.SuperAdmin)]
     [HttpDelete("baggage/{id:int}")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
@@ -94,6 +95,7 @@ public class AdminBookingOptionsController : ControllerBase
     public async Task<ActionResult<MealOptionDto>> UpdateMealOption(int id, MealOptionRequestDto request, CancellationToken cancellationToken)
         => Ok(await _optionService.UpdateMealOptionAsync(id, request, cancellationToken));
 
+    [Authorize(Policy = AuthorizationPolicies.SuperAdmin)]
     [HttpDelete("meals/{id:int}")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]

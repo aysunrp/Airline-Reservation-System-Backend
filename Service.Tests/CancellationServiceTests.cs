@@ -31,12 +31,12 @@ public class CancellationServiceTests
         var booking = await CreateBookingAsync(CabinClass.Economy, 103, pay: true);
         var service = _context.CreateCancellationService();
 
-        var quote = await service.GetQuoteAsync(booking.Pnr, "panahli");
+        var quote = await service.GetQuoteAsync(booking.Pnr, "panahli", 1);
         Assert.Equal(9, quote.DaysBeforeDeparture);
         Assert.False(quote.IsRefundable);
         Assert.Equal(0m, quote.RefundAmount);
 
-        var result = await service.CancelAsync(Cancel(booking.Pnr));
+        var result = await service.CancelAsync(Cancel(booking.Pnr), 1);
 
         Assert.Equal(BookingStatus.Cancelled, result.Status);
         Assert.Equal(booking.Price.Total, result.Cancellation!.AmountPaid);
@@ -52,7 +52,7 @@ public class CancellationServiceTests
     {
         var booking = await CreateBookingAsync(CabinClass.Economy, 103, pay: false);
 
-        var result = await _context.CreateCancellationService().CancelAsync(Cancel(booking.Pnr));
+        var result = await _context.CreateCancellationService().CancelAsync(Cancel(booking.Pnr), 1);
 
         Assert.Equal(BookingStatus.Cancelled, result.Status);
         Assert.Equal(SeatStatus.Available, _context.Data.Seat(103).Status);
@@ -64,11 +64,12 @@ public class CancellationServiceTests
     {
         var booking = await CreateBookingAsync(CabinClass.Business, 101, pay: true);
 
-        var result = await _context.CreateCancellationService().CancelAsync(Cancel(booking.Pnr));
+        var result = await _context.CreateCancellationService().CancelAsync(Cancel(booking.Pnr), 1);
 
         Assert.Equal(0m, result.Cancellation!.FeeAmount);
         Assert.Equal(booking.Price.Total, result.Cancellation.RefundAmount);
         Assert.Equal(RefundStatus.Pending, result.Cancellation.RefundStatus);
+        Assert.True(result.Cancellation.RefundIsDemo); // the pretend provider: no real money moves
         Assert.Equal(SeatStatus.Available, _context.Data.Seat(101).Status);
 
         // My Trips shows the refund state of the cancelled booking.
@@ -81,7 +82,7 @@ public class CancellationServiceTests
     {
         var booking = await CreateBookingAsync(CabinClass.Economy, 103, pay: false);
 
-        var result = await _context.CreateCancellationService().CancelAsync(Cancel(booking.Pnr));
+        var result = await _context.CreateCancellationService().CancelAsync(Cancel(booking.Pnr), 1);
 
         Assert.Equal(BookingStatus.Cancelled, result.Status);
         Assert.Equal(0m, result.Cancellation!.AmountPaid);
@@ -95,9 +96,9 @@ public class CancellationServiceTests
     {
         var booking = await CreateBookingAsync(CabinClass.Economy, 103, pay: true);
         var service = _context.CreateCancellationService();
-        await service.CancelAsync(Cancel(booking.Pnr));
+        await service.CancelAsync(Cancel(booking.Pnr), 1);
 
-        await Assert.ThrowsAsync<ConflictException>(() => service.CancelAsync(Cancel(booking.Pnr)));
+        await Assert.ThrowsAsync<ConflictException>(() => service.CancelAsync(Cancel(booking.Pnr), 1));
     }
 
     [Fact]
@@ -105,7 +106,7 @@ public class CancellationServiceTests
     {
         var booking = await CreateBookingAsync(CabinClass.Economy, 103, pay: true);
 
-        await Assert.ThrowsAsync<NotFoundException>(() => _context.CreateCancellationService().CancelAsync(Cancel(booking.Pnr, "Aliyev")));
+        await Assert.ThrowsAsync<NotFoundException>(() => _context.CreateCancellationService().CancelAsync(Cancel(booking.Pnr, "Aliyev"), 1));
         Assert.Equal(BookingStatus.Confirmed, (await _context.Bookings.GetByPnrAsync(booking.Pnr))!.Status);
     }
 
@@ -115,6 +116,6 @@ public class CancellationServiceTests
         var booking = await CreateBookingAsync(CabinClass.Economy, 103, pay: true);
         _context.Clock = new FixedTimeProvider(TestData.OutboundDeparture.AddHours(1));
 
-        await Assert.ThrowsAsync<BusinessRuleException>(() => _context.CreateCancellationService().CancelAsync(Cancel(booking.Pnr)));
+        await Assert.ThrowsAsync<BusinessRuleException>(() => _context.CreateCancellationService().CancelAsync(Cancel(booking.Pnr), 1));
     }
 }

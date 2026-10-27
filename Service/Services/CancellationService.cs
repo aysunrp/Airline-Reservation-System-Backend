@@ -1,6 +1,8 @@
 using Domain.Entities;
 using Domain.Enums;
 using FluentValidation;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using Repository.Repositories.Interfaces;
 using Service.Helpers.DTOs.Reservation;
 using Service.Helpers.Exceptions;
@@ -15,46 +17,52 @@ public class CancellationService : ICancellationService
     private readonly ICancellationPolicyService _policyService;
     private readonly ISeatService _seatService;
     private readonly INotificationService _notificationService;
+    private readonly IRefundService _refundService;
     private readonly IValidator<CancelBookingRequestDto> _validator;
     private readonly TimeProvider _timeProvider;
+    private readonly ILogger<CancellationService> _logger;
 
     public CancellationService(
         IBookingRepository bookingRepository,
         ICancellationPolicyService policyService,
         ISeatService seatService,
         INotificationService notificationService,
+        IRefundService refundService,
         IValidator<CancelBookingRequestDto> validator,
-        TimeProvider timeProvider)
+        TimeProvider timeProvider,
+        ILogger<CancellationService> logger)
     {
         _bookingRepository = bookingRepository;
         _policyService = policyService;
         _seatService = seatService;
         _notificationService = notificationService;
+        _refundService = refundService;
         _validator = validator;
         _timeProvider = timeProvider;
+        _logger = logger;
     }
 
-    public async Task<CancellationQuoteDto> GetQuoteAsync(string pnr, string lastName, CancellationToken cancellationToken = default)
+    public async Task<CancellationQuoteDto> GetQuoteAsync(string pnr, string lastName, int? userId = null, CancellationToken cancellationToken = default)
     {
-        var booking = await GetCancellableBookingAsync(pnr, lastName, cancellationToken);
+        var booking = await GetCancellableBookingAsync(pnr, lastName, userId, cancellationToken);
         return await QuoteAsync(booking, cancellationToken);
     }
 
-    public async Task<BookingDto> CancelAsync(CancelBookingRequestDto request, CancellationToken cancellationToken = default)
+    public async Task<BookingDto> CancelAsync(CancelBookingRequestDto request, int? userId = null, CancellationToken cancellationToken = default)
     {
         await _validator.ValidateAndThrowAsync(request, cancellationToken);
 
-        var booking = await GetCancellableBookingAsync(request.Pnr, request.LastName, cancellationToken);
-        return await CancelBookingAsync(booking, request.Reason, cancellationToken);
+        var booking = await GetCancellableBookingAsync(request.Pnr, request.LastName, userId, cancellationToken);
+        return await CancelBookingAsync(booking, request.Reason, userId, cancellationToken);
     }
 
-    public async Task<BookingDto> CancelByAdminAsync(string pnr, string? reason, CancellationToken cancellationToken = default)
+    public async Task<BookingDto> CancelByAdminAsync(string pnr, string? reason, int? adminUserId = null, CancellationToken cancellationToken = default)
     {
-        var booking = await GetCancellableBookingAsync(pnr, null, cancellationToken);
-        return await CancelBookingAsync(booking, reason, cancellationToken);
+        var booking = await GetCancellableBookingAsync(pnr, null, null, cancellationToken, admin: true);
+        return await CancelBookingAsync(booking, reason, adminUserId, cancellationToken);
     }
 
-    private async Task<BookingDto> CancelBookingAsync(Booking booking, string? reason, CancellationToken cancellationToken)
+    private async Task<BookingDto> CancelBookingAsync(Booking booking, string? reason, int? actorUserId, CancellationToken cancellationToken)
     {
         var quote = await QuoteAsync(booking, cancellationToken);
 
@@ -69,15 +77,20 @@ public class CancellationService : ICancellationService
         };
 
         var payment = booking.Payments.Where(p => p.Status == PaymentStatus.Paid).OrderByDescending(p => p.PaidAt).FirstOrDefault();
+        Refund? refund = null;
         if (payment is not null)
         {
             // The refund is only requested here; it becomes Completed when the payment provider confirms it.
-            cancellation.Refunds.Add(new Refund
+            refund = new Refund
             {
                 PaymentId = payment.Id,
                 Amount = quote.RefundAmount,
+                Currency = payment.Currency,
+                Reason = cancellation.Reason,
+                InitiatedByUserId = actorUserId,
                 Status = quote.IsRefundable && quote.RefundAmount > 0 ? RefundStatus.Pending : RefundStatus.NotEligible
-            });
+            };
+            cancellation.Refunds.Add(refund);
         }
 
         booking.Cancellation = cancellation;
@@ -101,17 +114,56 @@ public class CancellationService : ICancellationService
                 "Booking Cancelled", $"Your booking {booking.Pnr} has been cancelled.{refundText}", cancellationToken);
         }
 
-        await _bookingRepository.SaveChangesAsync(cancellationToken);
+        try
+        {
+            await _bookingRepository.SaveChangesAsync(cancellationToken);
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+            // The booking changed while it was being cancelled (a second cancel, or a payment arriving): nothing was saved.
+            throw new ConflictException("This booking was changed at the same time. Please check it and try again.");
+        }
+
+        // The booking is cancelled for good once it is saved. Asking Stripe happens after that, so a failure there can only
+        // leave the refund queued or failed; it can never undo the cancellation or send the money twice.
+        if (refund is { Status: RefundStatus.Pending } && payment!.Method == PaymentMethod.StripeCheckout)
+        {
+            try
+            {
+                await _refundService.SubmitAsync(refund.Id, cancellationToken);
+            }
+            catch (Exception exception) when (exception is not OperationCanceledException)
+            {
+                _logger.LogError(exception, "Refund {RefundId} of booking {Pnr} could not be sent to Stripe; the background job will try again.", refund.Id, booking.Pnr);
+            }
+        }
+
         return booking.ToDto();
     }
 
-    /// <summary>lastName is null for admins, who can open any booking.</summary>
-    private async Task<Booking> GetCancellableBookingAsync(string pnr, string? lastName, CancellationToken cancellationToken)
+    /// <summary>
+    /// lastName is null for admins, who can open any booking. A booking made under an account can only be cancelled by that account:
+    /// knowing the reference and a passenger's name is not enough to cancel someone's paid trip.
+    /// </summary>
+    private async Task<Booking> GetCancellableBookingAsync(string pnr, string? lastName, int? userId, CancellationToken cancellationToken, bool admin = false)
     {
         var booking = await _bookingRepository.GetByPnrAsync(BookingService.NormalizePnr(pnr), cancellationToken);
-        if (booking is null || (lastName is not null && !BookingService.HasPassengerNamed(booking, lastName)))
+        if (booking is null || (!admin && !BookingService.HasPassengerNamed(booking, lastName)))
         {
             throw new NotFoundException(BookingService.BookingNotFoundMessage);
+        }
+
+        if (!admin && booking.UserId is int owner)
+        {
+            if (userId is null)
+            {
+                throw new UnauthorizedException("Sign in to the account that made this booking to cancel it.");
+            }
+
+            if (userId != owner)
+            {
+                throw new NotFoundException(BookingService.BookingNotFoundMessage);
+            }
         }
 
         switch (booking.Status)

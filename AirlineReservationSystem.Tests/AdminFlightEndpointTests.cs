@@ -20,7 +20,7 @@ public class AdminFlightEndpointTests : IClassFixture<ApiFactory>
     private async Task<(HttpClient Admin, int AircraftId)> SetUpAsync()
     {
         await _factory.GetSeedAsync();
-        var admin = await _factory.CreateAdminClientAsync();
+        var admin = await _factory.CreateSuperAdminClientAsync();
         var aircraft = await (await admin.GetAsync("/api/admin/aircraft")).ReadAsync<List<AircraftDto>>();
         return (admin, aircraft.Single().Id);
     }

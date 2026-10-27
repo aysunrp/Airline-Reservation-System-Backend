@@ -39,7 +39,7 @@ public class DevelopmentAdminSeeder : IDevelopmentAdminSeeder
         if (existing is not null)
         {
             return new DevelopmentAdminResultDto(
-                existing.Role == UserRole.Admin ? DevelopmentAdminOutcome.AlreadyAdmin : DevelopmentAdminOutcome.ExistingNonAdmin,
+                existing.Role is UserRole.Admin or UserRole.SuperAdmin ? DevelopmentAdminOutcome.AlreadyAdmin : DevelopmentAdminOutcome.ExistingNonAdmin,
                 Array.Empty<string>());
         }
 
@@ -49,7 +49,9 @@ public class DevelopmentAdminSeeder : IDevelopmentAdminSeeder
             PasswordHash = _passwordHasher.Hash(password!),
             FirstName = "Aerova",
             LastName = "Admin",
-            Role = UserRole.Admin
+            Role = UserRole.Admin,
+            // Created by the developer's own configuration, not through a sign-up that needs an e-mail link.
+            EmailVerifiedAt = DateTime.UtcNow
         }, cancellationToken);
         await _userRepository.SaveChangesAsync(cancellationToken);
 

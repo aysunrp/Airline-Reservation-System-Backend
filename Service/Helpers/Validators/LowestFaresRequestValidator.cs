@@ -21,6 +21,6 @@ public class LowestFaresRequestValidator : AbstractValidator<LowestFaresRequestD
             .WithName("To")
             .WithMessage($"A price calendar covers at most {MaxDays} days.");
         RuleFor(x => x.CabinClass).IsInEnum();
-        RuleFor(x => x.Passengers).InclusiveBetween(1, 9);
+        RuleFor(x => x.Passengers).InclusiveBetween(1, CreateBookingRequestValidator.MaxPassengers);
     }
 }

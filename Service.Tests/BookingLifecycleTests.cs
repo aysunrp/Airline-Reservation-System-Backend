@@ -39,7 +39,7 @@ public class BookingLifecycleTests
     private async Task<DateTime> CancelAsync(string pnr, DateTime when)
     {
         _context.Clock = new FixedTimeProvider(when);
-        await _context.CreateCancellationService().CancelAsync(new CancelBookingRequestDto { Pnr = pnr, LastName = "Panahli" });
+        await _context.CreateCancellationService().CancelAsync(new CancelBookingRequestDto { Pnr = pnr, LastName = "Panahli" }, 1);
         return when;
     }
 

@@ -103,6 +103,19 @@ public class FlightSearchAndSeatTests
     }
 
     [Fact]
+    public async Task Search_AndLowestFares_SkipFlightsThatHaveAlreadyDeparted()
+    {
+        var request = new FlightSearchRequestDto { Legs = { Leg("GYD", "LHR", 10) } };
+        Assert.Single((await CreateSearch().SearchAsync(request))[0].Flights);
+
+        // Later the same day the flight is gone, so it is neither listed nor priced: booking would refuse it.
+        var later = new FixedTimeProvider(TestData.OutboundDeparture.AddHours(1));
+        FlightSearchService SearchLater() => new(_data.Airports(), _data.Flights(), _data.FlightSeats(), new FlightSearchRequestValidator(later), new LowestFaresRequestValidator(), later);
+        Assert.Empty((await SearchLater().SearchAsync(request))[0].Flights);
+        Assert.Empty(await SearchLater().GetLowestFaresAsync(Calendar("GYD", "LHR", new DateOnly(2026, 11, 1), new DateOnly(2026, 11, 30))));
+    }
+
+    [Fact]
     public async Task Search_FiltersByCabinAndFreeSeats()
     {
         var service = CreateSearch();

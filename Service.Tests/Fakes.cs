@@ -2,6 +2,8 @@ using Domain.Common;
 using Domain.Entities;
 using Domain.Enums;
 using Repository.Repositories.Interfaces;
+using Service.Helpers.DTOs.Account;
+using Service.Services.Interfaces;
 
 namespace Service.Tests;
 
@@ -72,11 +74,51 @@ internal sealed class FakeUserRepository : FakeRepository<User>, IUserRepository
     {
     }
 
+    public User? Find(int id) => Items.FirstOrDefault(u => u.Id == id);
+
     public Task<User?> GetByEmailAsync(string email, CancellationToken cancellationToken = default)
         => Task.FromResult(Items.FirstOrDefault(u => u.Email == email));
 
     public Task<bool> EmailExistsAsync(string email, CancellationToken cancellationToken = default)
         => Task.FromResult(Items.Any(u => u.Email == email));
+
+    public Task<IReadOnlyList<User>> SearchAsync(string? search, UserRole? role, bool? isActive, int take, CancellationToken cancellationToken = default)
+    {
+        var term = search?.Trim();
+        return Task.FromResult<IReadOnlyList<User>>(Items
+            .Where(u => string.IsNullOrEmpty(term) || u.Email.Contains(term, StringComparison.OrdinalIgnoreCase) || u.FirstName.Contains(term, StringComparison.OrdinalIgnoreCase) || u.LastName.Contains(term, StringComparison.OrdinalIgnoreCase))
+            .Where(u => role is null || u.Role == role)
+            .Where(u => isActive is null || u.IsActive == isActive)
+            .OrderByDescending(u => u.Id)
+            .Take(take)
+            .ToList());
+    }
+
+    public Task<int> CountActiveInRoleAsync(UserRole role, CancellationToken cancellationToken = default)
+        => Task.FromResult(Items.Count(u => u.Role == role && u.IsActive));
+
+    /// <summary>Ids of the accounts that have bookings.</summary>
+    public HashSet<int> WithBookings { get; } = new();
+
+    public Task<bool> HasBookingsAsync(int userId, CancellationToken cancellationToken = default)
+        => Task.FromResult(WithBookings.Contains(userId));
+
+    public Task<UserState?> GetStateAsync(int id, CancellationToken cancellationToken = default)
+        => Task.FromResult(Items.Where(u => u.Id == id).Select(u => new UserState(u.Role, u.IsActive)).FirstOrDefault());
+}
+
+internal sealed class FakeAuditLogRepository : FakeRepository<AuditLog>, IAuditLogRepository
+{
+    public IReadOnlyList<AuditLog> Entries => Items;
+
+    public Task<IReadOnlyList<AuditLog>> SearchAsync(string? action, int? actorUserId, string? targetType, int take, CancellationToken cancellationToken = default)
+        => Task.FromResult<IReadOnlyList<AuditLog>>(Items
+            .Where(a => string.IsNullOrWhiteSpace(action) || a.Action == action.Trim())
+            .Where(a => actorUserId is null || a.ActorUserId == actorUserId)
+            .Where(a => string.IsNullOrWhiteSpace(targetType) || a.TargetType == targetType.Trim())
+            .OrderByDescending(a => a.Id)
+            .Take(take)
+            .ToList());
 }
 
 internal sealed class FakeSavedPassengerRepository : FakeRepository<SavedPassenger>, ISavedPassengerRepository
@@ -112,6 +154,13 @@ internal sealed class FakeNotificationRepository : FakeRepository<Notification>,
             .Where(n => n.Type == type && n.BookingId != null && bookingIds.Contains(n.BookingId.Value))
             .Select(n => n.BookingId!.Value)
             .ToHashSet());
+
+    public Task<IReadOnlyList<Notification>> GetDueForEmailAsync(DateTime createdAfter, int maxAttempts, int take, CancellationToken cancellationToken = default)
+        => Task.FromResult<IReadOnlyList<Notification>>(Items
+            .Where(n => n.EmailSentAt == null && n.EmailAttempts < maxAttempts && n.CreatedAt > createdAfter && n.User?.EmailVerifiedAt != null)
+            .OrderBy(n => n.Id)
+            .Take(take)
+            .ToList());
 }
 
 internal sealed class FakeCancellationRuleRepository : FakeRepository<CancellationRule>, ICancellationRuleRepository
@@ -309,6 +358,8 @@ internal sealed class FakeBookingRepository : FakeRepository<Booking>, IBookingR
 
     public FakeBookingRepository(TestData data, params Booking[] items) : base(items) => _data = data;
 
+    public IEnumerable<Booking> All => Items;
+
     public int SaveCount { get; private set; }
 
     /// <summary>Resolves Booking.PromoCode like an EF include would.</summary>
@@ -357,6 +408,12 @@ internal sealed class FakeBookingRepository : FakeRepository<Booking>, IBookingR
                 cancellation.Id = cancellation.Id == 0 ? _nextId++ : cancellation.Id;
                 cancellation.Booking = booking;
                 booking.Cancellation = cancellation;
+                foreach (var refund in cancellation.Refunds)
+                {
+                    refund.Id = refund.Id == 0 ? _nextId++ : refund.Id;
+                    refund.Cancellation = cancellation;
+                    refund.Payment ??= booking.Payments.First(p => p.Id == refund.PaymentId);
+                }
             }
         }
 
@@ -435,4 +492,149 @@ internal sealed class FakeAircraftRepository : FakeRepository<Aircraft>, IAircra
 
     public Task<bool> IsInUseAsync(int id, CancellationToken cancellationToken = default)
         => Task.FromResult(InUse.Contains(id));
+}
+
+internal sealed class FakeAccountEmail : IAccountEmailService
+{
+    /// <summary>Ids of the accounts whose address changed.</summary>
+    public List<int> EmailChangedFor { get; } = new();
+
+    public bool IsEmailConfigured => true;
+
+    public Task<bool> SendVerificationAsync(User user, string? language, CancellationToken cancellationToken = default) => Task.FromResult(true);
+
+    public Task EmailChangedAsync(User user, string? language, CancellationToken cancellationToken = default)
+    {
+        EmailChangedFor.Add(user.Id);
+        return Task.CompletedTask;
+    }
+
+    public Task VerifyEmailAsync(VerifyEmailRequestDto request, CancellationToken cancellationToken = default) => Task.CompletedTask;
+
+    public Task ResendVerificationAsync(int userId, string? language, CancellationToken cancellationToken = default) => Task.CompletedTask;
+
+    public Task ForgotPasswordAsync(ForgotPasswordRequestDto request, CancellationToken cancellationToken = default) => Task.CompletedTask;
+
+    public Task<ResetTicketDto> VerifyResetCodeAsync(VerifyResetCodeRequestDto request, CancellationToken cancellationToken = default) => Task.FromResult(new ResetTicketDto("ticket", 10));
+
+    public Task ResetPasswordAsync(ResetPasswordRequestDto request, CancellationToken cancellationToken = default) => Task.CompletedTask;
+}
+
+internal sealed class FakePaymentRepository : FakeRepository<Payment>, IPaymentRepository
+{
+    private readonly FakeBookingRepository _bookings;
+
+    public FakePaymentRepository(FakeBookingRepository bookings) => _bookings = bookings;
+
+    public Task<Payment?> GetWithBookingAsync(int id, CancellationToken cancellationToken = default)
+        => Task.FromResult(_bookings.All.SelectMany(b => b.Payments).FirstOrDefault(p => p.Id == id));
+
+    public Task<Payment?> GetByCheckoutSessionIdAsync(string checkoutSessionId, CancellationToken cancellationToken = default)
+        => Task.FromResult(_bookings.All.SelectMany(b => b.Payments).FirstOrDefault(p => p.StripeCheckoutSessionId == checkoutSessionId));
+}
+
+internal sealed class FakeStripeWebhookEventRepository : FakeRepository<StripeWebhookEvent>, IStripeWebhookEventRepository
+{
+    public IReadOnlyList<StripeWebhookEvent> Events => Items;
+
+    public Task<StripeWebhookEvent?> GetByEventIdAsync(string eventId, CancellationToken cancellationToken = default)
+        => Task.FromResult(Items.FirstOrDefault(e => e.EventId == eventId));
+}
+
+/// <summary>Stands in for Stripe: hands out made-up Checkout pages, or fails when told to.</summary>
+internal sealed class FakeStripeGateway : IStripeCheckoutGateway
+{
+    public List<StripeCheckoutRequest> Created { get; } = new();
+    public List<string> Expired { get; } = new();
+    public bool Fail { get; set; }
+
+    public Task<StripeCheckoutSession> CreateSessionAsync(StripeCheckoutRequest request, CancellationToken cancellationToken = default)
+    {
+        if (Fail)
+        {
+            throw new Service.Helpers.Exceptions.ServiceUnavailableException("Card payments are not available right now. Please try again later.");
+        }
+
+        Created.Add(request);
+        var id = $"cs_test_{Created.Count:D4}{Guid.NewGuid():N}";
+        return Task.FromResult(new StripeCheckoutSession(id, $"https://checkout.stripe.test/c/pay/{id}", request.ExpiresAtUtc));
+    }
+
+    public Task ExpireSessionAsync(string sessionId, CancellationToken cancellationToken = default)
+    {
+        Expired.Add(sessionId);
+        return Task.CompletedTask;
+    }
+}
+
+/// <summary>Refunds live on the bookings' cancellations, so this reads them from there like an EF query would.</summary>
+internal sealed class FakeRefundRepository : FakeRepository<Refund>, IRefundRepository
+{
+    private readonly FakeBookingRepository _bookings;
+
+    public FakeRefundRepository(FakeBookingRepository bookings) => _bookings = bookings;
+
+    public IEnumerable<Refund> All => _bookings.All.Where(b => b.Cancellation is not null).SelectMany(b => b.Cancellation!.Refunds);
+
+    public int SaveCount { get; private set; }
+
+    public override Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
+    {
+        SaveCount++;
+        return Task.FromResult(1);
+    }
+
+    public Task<Refund?> GetWithDetailsAsync(int id, CancellationToken cancellationToken = default)
+        => Task.FromResult(All.FirstOrDefault(r => r.Id == id));
+
+    public Task<IReadOnlyList<Refund>> GetByPaymentIdAsync(int paymentId, CancellationToken cancellationToken = default)
+        => Task.FromResult<IReadOnlyList<Refund>>(All.Where(r => r.PaymentId == paymentId).ToList());
+
+    public Task<Refund?> GetByProviderReferenceAsync(string providerReference, CancellationToken cancellationToken = default)
+        => Task.FromResult(All.FirstOrDefault(r => r.ProviderReference == providerReference));
+
+    public Task<IReadOnlyList<Refund>> GetPageAsync(RefundStatus? status, int take, CancellationToken cancellationToken = default)
+        => Task.FromResult<IReadOnlyList<Refund>>(All.Where(r => status is null || r.Status == status).OrderByDescending(r => r.Id).Take(take).ToList());
+
+    public Task<IReadOnlyList<Refund>> GetUnsentStripeRefundsAsync(DateTime createdBefore, int take, CancellationToken cancellationToken = default)
+        => Task.FromResult<IReadOnlyList<Refund>>(All
+            .Where(r => r.Status == RefundStatus.Pending && r.ProviderReference is null && r.Payment.Method == PaymentMethod.StripeCheckout && r.CreatedAt < createdBefore)
+            .OrderBy(r => r.Id).Take(take).ToList());
+}
+
+/// <summary>
+/// Stands in for Stripe's refunds: the same refund and attempt always get the same answer (like an idempotency key), every
+/// distinct request is kept for the test to read, and it can be told to refuse, fail or be out of reach.
+/// </summary>
+internal sealed class FakeStripeRefundGateway : IStripeRefundGateway
+{
+    private readonly Dictionary<(int RefundId, int Attempt), StripeRefundResult> _answers = new();
+
+    public List<StripeRefundRequest> Requests { get; } = new();
+
+    /// <summary>Every call, including repeats of the same refund and attempt.</summary>
+    public int Calls { get; private set; }
+
+    public bool Unavailable { get; set; }
+
+    /// <summary>What a new refund answers; "succeeded" by default.</summary>
+    public Func<StripeRefundRequest, StripeRefundResult> Answer { get; set; } = request => new StripeRefundResult($"re_test_{request.RefundId}_{request.Attempt}", "succeeded", null);
+
+    public Task<StripeRefundResult> CreateRefundAsync(StripeRefundRequest request, CancellationToken cancellationToken = default)
+    {
+        Calls++;
+        if (Unavailable)
+        {
+            throw new Service.Helpers.Exceptions.ServiceUnavailableException("Refunds are not available right now. Please try again later.");
+        }
+
+        if (!_answers.TryGetValue((request.RefundId, request.Attempt), out var result))
+        {
+            Requests.Add(request);
+            result = Answer(request);
+            _answers[(request.RefundId, request.Attempt)] = result;
+        }
+
+        return Task.FromResult(result);
+    }
 }

@@ -41,7 +41,8 @@ public class RefundProcessingService : IRefundProcessingService
             var cancellation = booking.Cancellation!;
             var age = now - cancellation.RequestedAt;
 
-            foreach (var refund in cancellation.Refunds.Where(r => r.Status is RefundStatus.Pending or RefundStatus.Processing))
+            // Stripe refunds are sent to Stripe and finished by its webhook; the pretend provider never touches them.
+            foreach (var refund in cancellation.Refunds.Where(r => r.Status is RefundStatus.Pending or RefundStatus.Processing && booking.Payments.Any(p => p.Id == r.PaymentId && p.Method != PaymentMethod.StripeCheckout)))
             {
                 if (age >= TimeSpan.FromMinutes(_settings.RefundCompletedAfterMinutes))
                 {

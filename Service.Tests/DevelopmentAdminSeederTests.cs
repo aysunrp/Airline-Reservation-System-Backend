@@ -24,6 +24,8 @@ public class DevelopmentAdminSeederTests
         Assert.Equal(DevelopmentAdminOutcome.Created, result.Outcome);
         var user = Assert.Single(await _users.GetAllAsync());
         Assert.Equal((_email, UserRole.Admin, true), (user.Email, user.Role, user.IsActive));
+        // The trusted seeder needs no e-mail link: the admin counts as verified.
+        Assert.NotNull(user.EmailVerifiedAt);
         Assert.NotEqual(_password, user.PasswordHash);
         Assert.DoesNotContain(_password, user.PasswordHash);
         Assert.True(_hasher.Verify(_password, user.PasswordHash));
@@ -45,14 +47,14 @@ public class DevelopmentAdminSeederTests
     [Fact]
     public async Task ExistingClientAccount_IsNeitherChangedNorPromoted()
     {
-        var client = new User { Email = _email, PasswordHash = _hasher.Hash("client-pass1"), FirstName = "Leyla", LastName = "Mammadova", Role = UserRole.Client };
+        var client = new User { Email = _email, PasswordHash = _hasher.Hash("client-pass1"), FirstName = "Leyla", LastName = "Mammadova", Role = UserRole.User };
         await _users.AddAsync(client);
 
         var result = await CreateSeeder().EnsureAdminAsync(_email, _password);
 
         Assert.Equal(DevelopmentAdminOutcome.ExistingNonAdmin, result.Outcome);
         var user = Assert.Single(await _users.GetAllAsync());
-        Assert.Equal((UserRole.Client, "Leyla"), (user.Role, user.FirstName));
+        Assert.Equal((UserRole.User, "Leyla"), (user.Role, user.FirstName));
         Assert.True(_hasher.Verify("client-pass1", user.PasswordHash));
     }
 

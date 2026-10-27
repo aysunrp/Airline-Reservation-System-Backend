@@ -43,7 +43,9 @@ public static class BookingMappings
                     cancellation.AmountPaid,
                     cancellation.FeeAmount,
                     cancellation.RefundAmount,
-                    booking.LatestRefundStatus()));
+                    booking.LatestRefundStatus(),
+                    booking.LatestRefundIsDemo()),
+            booking.ContactConfirmedAt is not null);
     }
 
     /// <summary>Expects legs with route airports and passengers with tickets and seats to be loaded.</summary>
@@ -72,7 +74,7 @@ public static class BookingMappings
     /// <summary>Expects legs with route airports and aircraft, passengers with tickets and seats, and refunds to be loaded.</summary>
     public static BookingSummaryDto ToSummaryDto(this Booking booking)
         => new(booking.Id, booking.Pnr, booking.Status, booking.TripType, booking.TotalAmount, booking.CreatedAt,
-            booking.Passengers.Count, booking.LatestRefundStatus(), booking.ToLegDtos());
+            booking.Passengers.Count, booking.LatestRefundStatus(), booking.ToLegDtos(), booking.LatestRefundIsDemo());
 
     private static IReadOnlyList<BookingLegDto> ToLegDtos(this Booking booking)
         => booking.Flights
@@ -104,6 +106,22 @@ public static class BookingMappings
     /// <summary>First, middle (when given) and last name, as admins search and read it.</summary>
     public static string FullName(this BookingPassenger passenger)
         => string.Join(" ", new[] { passenger.FirstName, passenger.MiddleName, passenger.LastName }.Where(part => !string.IsNullOrWhiteSpace(part)));
+
+    /// <summary>
+    /// True when the latest refund goes through the pretend provider (no real money moves), false for a refund at Stripe and when
+    /// there is no refund; the pages show their "demo" notes only for the first.
+    /// </summary>
+    private static bool LatestRefundIsDemo(this Booking booking)
+    {
+        var refund = booking.Cancellation?.Refunds.OrderByDescending(r => r.CreatedAt).FirstOrDefault();
+        if (refund is null)
+        {
+            return false;
+        }
+
+        var method = refund.Payment?.Method ?? booking.Payments.FirstOrDefault(p => p.Id == refund.PaymentId)?.Method;
+        return method is not null && method != PaymentMethod.StripeCheckout;
+    }
 
     private static RefundStatus? LatestRefundStatus(this Booking booking)
         => booking.Cancellation?.Refunds.OrderByDescending(r => r.CreatedAt).FirstOrDefault()?.Status;

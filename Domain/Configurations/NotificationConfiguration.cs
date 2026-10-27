@@ -14,5 +14,6 @@ public class NotificationConfiguration : IEntityTypeConfiguration<Notification>
         builder.HasOne(x => x.User).WithMany(x => x.Notifications).HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.Cascade);
         builder.HasOne(x => x.Booking).WithMany().HasForeignKey(x => x.BookingId).OnDelete(DeleteBehavior.SetNull);
         builder.HasIndex(x => new { x.UserId, x.IsRead });
+        builder.HasIndex(x => x.EmailSentAt);
     }
 }

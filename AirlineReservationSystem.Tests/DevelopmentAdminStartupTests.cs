@@ -144,7 +144,7 @@ public class DevelopmentAdminStartupTests : IClassFixture<ApiFactory>
 
         Assert.Equal(DevelopmentAdminOutcome.ExistingNonAdmin, result!.Outcome);
         using var scope = _factory.Services.CreateScope();
-        Assert.Equal(UserRole.Client, (await scope.ServiceProvider.GetRequiredService<AppDbContext>().Users.SingleAsync(u => u.Email == _email)).Role);
+        Assert.Equal(UserRole.User, (await scope.ServiceProvider.GetRequiredService<AppDbContext>().Users.SingleAsync(u => u.Email == _email)).Role);
         var login = await _factory.CreateClient().PostAsJsonAsync("/api/auth/login", new LoginRequestDto { Email = _email, Password = _password }, Json);
         Assert.Equal(HttpStatusCode.Unauthorized, login.StatusCode);
     }

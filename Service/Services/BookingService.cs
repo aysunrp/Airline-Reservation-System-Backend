@@ -9,6 +9,7 @@ using Repository.Repositories.Interfaces;
 using Service.Helpers.DTOs.Reservation;
 using Service.Helpers.Exceptions;
 using Service.Helpers.Mappings;
+using Service.Helpers.Scheduling;
 using Service.Helpers.Settings;
 using Service.Services.Interfaces;
 
@@ -21,6 +22,9 @@ public class BookingService : IBookingService
     private const int TicketNumberLength = 13;
     private const string NotFoundMessage = "We could not find a reservation matching that reference and last name.";
 
+    private readonly IUserRepository _userRepository;
+    private readonly IEmailSender _emailSender;
+    private readonly AuthSettings _authSettings;
     private readonly IBookingRepository _bookingRepository;
     private readonly IFlightRepository _flightRepository;
     private readonly IFlightSeatRepository _flightSeatRepository;
@@ -32,6 +36,7 @@ public class BookingService : IBookingService
     private readonly IBookingExpiryService _expiryService;
     private readonly ITravelDocumentPolicy _documentPolicy;
     private readonly IValidator<CreateBookingRequestDto> _validator;
+    private readonly IBookingEmailConfirmationService _confirmation;
     private readonly BookingSettings _settings;
     private readonly TimeProvider _timeProvider;
 
@@ -48,8 +53,16 @@ public class BookingService : IBookingService
         ITravelDocumentPolicy documentPolicy,
         IValidator<CreateBookingRequestDto> validator,
         IOptions<BookingSettings> settings,
-        TimeProvider timeProvider)
+        TimeProvider timeProvider,
+        IUserRepository userRepository,
+        IEmailSender emailSender,
+        IOptions<AuthSettings> authSettings,
+        IBookingEmailConfirmationService confirmation)
     {
+        _confirmation = confirmation;
+        _userRepository = userRepository;
+        _emailSender = emailSender;
+        _authSettings = authSettings.Value;
         _bookingRepository = bookingRepository;
         _flightRepository = flightRepository;
         _flightSeatRepository = flightSeatRepository;
@@ -67,7 +80,14 @@ public class BookingService : IBookingService
 
     public async Task<BookingDto> CreateBookingAsync(int? userId, CreateBookingRequestDto request, CancellationToken cancellationToken = default)
     {
+        // Before anything is read or held: a guest gets no seats and no booking.
+        if (userId is null && _authSettings.RequireSignInToBook)
+        {
+            throw new UnauthorizedException("Sign in to book a flight.");
+        }
+
         await _validator.ValidateAndThrowAsync(request, cancellationToken);
+        await RequireVerifiedEmailAsync(userId, cancellationToken);
 
         // Seats of unpaid bookings whose hold ran out become bookable again before we check availability.
         await _expiryService.ReleaseExpiredAsync(cancellationToken);
@@ -88,7 +108,9 @@ public class BookingService : IBookingService
             TripType = request.TripType,
             Status = BookingStatus.Pending,
             ExpiresAt = holdUntil,
-            PromoCodeId = quote.PromoCode?.Id
+            PromoCodeId = quote.PromoCode?.Id,
+            // A booking of an account waits for its own e-mail link; one that needs none is confirmed from the start.
+            ContactConfirmedAt = userId is not null && _confirmation.IsRequired ? null : now
         };
 
         var bookingFlights = quote.Legs
@@ -163,6 +185,12 @@ public class BookingService : IBookingService
             // Another booking changed one of these seats in the meantime (row version) or already holds an
             // active ticket for it (unique index). Nothing was saved.
             throw new ConflictException("One or more selected seats were just taken. Please choose other seats.");
+        }
+
+        if (booking.ContactConfirmedAt is null)
+        {
+            // Best effort: when the message does not go out the page offers to send it again.
+            await _confirmation.SendAsync(booking, request.Language, cancellationToken);
         }
 
         return await GetByPnrInternalAsync(booking.Pnr, cancellationToken);
@@ -292,11 +320,13 @@ public class BookingService : IBookingService
 
     private List<PassengerType> ResolvePassengerTypes(CreateBookingRequestDto request, List<(BookingLegRequestDto Request, Flight Flight, decimal Fare)> legs)
     {
-        // Age is taken on the first travel day; the document must stay valid until the last one.
-        var firstTravelDate = DateOnly.FromDateTime(legs[0].Flight.DepartureAt);
-        var lastTravelDate = DateOnly.FromDateTime(legs[^1].Flight.DepartureAt);
+        // Age is taken on the day of the last flight of the trip, by the clock of its departure airport: a child who turns 12 (or an
+        // infant who turns 2) before the return flight is priced and seated as the older passenger on the whole booking.
+        // The document must stay valid until that same day.
+        var lastFlight = legs[^1].Flight;
+        var lastTravelDate = ScheduleTimeCalculator.LocalDate(lastFlight.DepartureAt, lastFlight.Route.Origin);
 
-        var types = request.Passengers.Select(p => _pricingService.GetPassengerType(p.DateOfBirth, firstTravelDate)).ToList();
+        var types = request.Passengers.Select(p => _pricingService.GetPassengerType(p.DateOfBirth, lastTravelDate)).ToList();
 
         var adults = types.Count(t => t == PassengerType.Adult);
         if (adults == 0)
@@ -313,6 +343,24 @@ public class BookingService : IBookingService
         _documentPolicy.Check(legs.Select(l => l.Flight).ToList(), request.Passengers, lastTravelDate);
 
         return types;
+    }
+
+    /// <summary>
+    /// A signed-in customer needs a confirmed e-mail address to book. The rule only applies while e-mail can be sent at all: without
+    /// SMTP nobody could confirm an address, and the rule would lock every customer out. Guests and admins are not affected.
+    /// </summary>
+    private async Task RequireVerifiedEmailAsync(int? userId, CancellationToken cancellationToken)
+    {
+        if (userId is null || !_authSettings.RequireVerifiedEmailForBooking || !_emailSender.IsConfigured)
+        {
+            return;
+        }
+
+        var user = await _userRepository.GetByIdAsync(userId.Value, cancellationToken);
+        if (user is not null && user.Role == UserRole.User && user.EmailVerifiedAt is null)
+        {
+            throw new BusinessRuleException("Please confirm your email address before booking. Open the link we sent you, or ask for a new one in your profile.");
+        }
     }
 
     private async Task CheckSavedPassengersAsync(int? userId, CreateBookingRequestDto request, CancellationToken cancellationToken)

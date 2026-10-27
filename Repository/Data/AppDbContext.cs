@@ -35,6 +35,9 @@ public class AppDbContext : DbContext
     public DbSet<Cancellation> Cancellations => Set<Cancellation>();
     public DbSet<Refund> Refunds => Set<Refund>();
     public DbSet<Notification> Notifications => Set<Notification>();
+    public DbSet<EmailToken> EmailTokens => Set<EmailToken>();
+    public DbSet<AuditLog> AuditLogs => Set<AuditLog>();
+    public DbSet<StripeWebhookEvent> StripeWebhookEvents => Set<StripeWebhookEvent>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

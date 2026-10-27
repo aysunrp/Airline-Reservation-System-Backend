@@ -14,7 +14,7 @@ public class FlightSearchRequestValidator : AbstractValidator<FlightSearchReques
             .WithMessage($"A search can contain at most {MaxLegs} flights.");
 
         RuleFor(x => x.CabinClass).IsInEnum();
-        RuleFor(x => x.Passengers).InclusiveBetween(1, 9);
+        RuleFor(x => x.Passengers).InclusiveBetween(1, CreateBookingRequestValidator.MaxPassengers);
 
         RuleForEach(x => x.Legs).ChildRules(leg =>
         {

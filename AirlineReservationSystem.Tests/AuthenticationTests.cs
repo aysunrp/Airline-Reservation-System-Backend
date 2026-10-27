@@ -54,7 +54,7 @@ public class AuthenticationTests : IClassFixture<ApiFactory>
         var authorization = scope.ServiceProvider.GetRequiredService<IAuthorizationService>();
 
         var client = Admin;
-        client.Role = UserRole.Client;
+        client.Role = UserRole.User;
 
         var (_, adminPrincipal) = await ValidateAsync(tokens.CreateToken(Admin).AccessToken);
         var (_, clientPrincipal) = await ValidateAsync(tokens.CreateToken(client).AccessToken);

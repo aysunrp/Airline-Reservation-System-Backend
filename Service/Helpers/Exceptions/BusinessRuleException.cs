@@ -6,4 +6,12 @@ public class BusinessRuleException : Exception
     public BusinessRuleException(string message) : base(message)
     {
     }
+
+    public BusinessRuleException(string message, string? code) : base(message)
+    {
+        Code = code;
+    }
+
+    /// <summary>A short machine-readable reason (for example link_expired) that the page can react to without reading the text.</summary>
+    public string? Code { get; }
 }

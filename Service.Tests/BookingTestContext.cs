@@ -14,6 +14,7 @@ internal sealed class BookingTestContext
 {
     public BookingTestContext()
     {
+        Tokens = new FakeEmailTokenRepository(Users);
         Bookings = new FakeBookingRepository(Data)
         {
             PromoCodeLookup = id => PromoCodes.GetByIdAsync(id).Result
@@ -26,6 +27,30 @@ internal sealed class BookingTestContext
     public FakePromoCodeRepository PromoCodes { get; } = new(new PromoCode { Id = 5, Code = "AEROVA10", DiscountPercent = 10, MaxUses = 100, UsedCount = 3 });
     public FakeSavedPassengerRepository SavedPassengers { get; } = new(new SavedPassenger { Id = 7, UserId = 1, FirstName = "Orkhan", LastName = "Aliyev" });
     public FakeNotificationRepository Notifications { get; } = new();
+
+    /// <summary>The accounts bookings are made for; empty unless a test needs the e-mail check.</summary>
+    public FakeUserRepository Users { get; } = new();
+
+    public FakeEmailSender EmailSender { get; } = new();
+
+    public FakeEmailTokenRepository Tokens { get; }
+
+    /// <summary>Off here so the many booking tests need no verified account; the tests of that rule switch it on.</summary>
+    public AuthSettings AuthSettings { get; } = new()
+    {
+        RequireVerifiedEmailForBooking = false,
+        RequireSignInToBook = false,
+        RequireBookingEmailConfirmation = false,
+        FrontendBaseUrl = "https://aerova.test"
+    };
+
+    public BookingEmailConfirmationService CreateBookingEmailConfirmation() => new(
+        Bookings,
+        Tokens,
+        EmailSender,
+        Options.Create(AuthSettings),
+        Clock,
+        Microsoft.Extensions.Logging.Abstractions.NullLogger<BookingEmailConfirmationService>.Instance);
 
     public FakeFlightSeatRepository FlightSeats() => Data.FlightSeats();
 
@@ -46,15 +71,55 @@ internal sealed class BookingTestContext
         new TravelDocumentPolicy(Options.Create(TestData.FrontendDocumentRules())),
         new CreateBookingRequestValidator(Clock),
         Options.Create(new BookingSettings { SeatHoldMinutes = 15 }),
-        Clock);
+        Clock,
+        Users,
+        EmailSender,
+        Options.Create(AuthSettings),
+        CreateBookingEmailConfirmation());
+
+    /// <summary>Stripe is not configured unless a test sets the two secrets.</summary>
+    public StripeSettings Stripe { get; } = new();
+
+    /// <summary>The pretend payment stays usable here, as in Development.</summary>
+    public PaymentSettings PaymentSettings { get; } = new() { AllowMockPayments = true };
+
+    public FakeStripeGateway Gateway { get; } = new();
+
+    public BookingConfirmationService CreateConfirmationService() => new(Bookings, FlightSeats(), new NotificationService(Notifications));
 
     public PaymentService CreatePaymentService() => new(
         Bookings,
-        FlightSeats(),
         PromoCodes,
         CreateExpiryService(),
-        new NotificationService(Notifications),
+        CreateConfirmationService(),
         new PaymentRequestValidator(Clock),
+        Clock,
+        Options.Create(Stripe),
+        Options.Create(PaymentSettings));
+
+    public FakeStripeWebhookEventRepository WebhookEvents { get; } = new();
+
+    public StripeWebhookService CreateWebhookService() => new(
+        WebhookEvents,
+        new FakePaymentRepository(Bookings),
+        Bookings,
+        PromoCodes,
+        Refunds,
+        CreateRefundService(),
+        CreateConfirmationService(),
+        Options.Create(Stripe),
+        Clock,
+        new ListLogger<StripeWebhookService>());
+
+    public CheckoutService CreateCheckoutService() => new(
+        Bookings,
+        new FakePaymentRepository(Bookings),
+        PromoCodes,
+        CreateExpiryService(),
+        Gateway,
+        new CreateCheckoutSessionRequestValidator(),
+        Options.Create(Stripe),
+        Options.Create(new AuthSettings { FrontendBaseUrl = "https://aerova.test/", RequireBookingEmailConfirmation = AuthSettings.RequireBookingEmailConfirmation }),
         Clock);
 
     // Same bands as the booking-details page (Economy and Business).
@@ -64,13 +129,31 @@ internal sealed class BookingTestContext
         new CancellationRule { CabinClass = CabinClass.Business, MinDaysBeforeDeparture = 7, FeePercent = 0 },
         new CancellationRule { CabinClass = CabinClass.Business, MinDaysBeforeDeparture = 1, FeePercent = 15 });
 
+    private FakeRefundRepository? _refunds;
+
+    public FakeRefundRepository Refunds => _refunds ??= new FakeRefundRepository(Bookings);
+
+    public FakeStripeRefundGateway RefundGateway { get; } = new();
+
+    public FakeAuditLogRepository AuditEntries { get; } = new();
+
+    public RefundService CreateRefundService() => new(
+        Refunds,
+        RefundGateway,
+        new NotificationService(Notifications),
+        new AuditLogService(AuditEntries, new ListLogger<AuditLogService>()),
+        Clock,
+        new ListLogger<RefundService>());
+
     public CancellationService CreateCancellationService() => new(
         Bookings,
         new CancellationPolicyService(CancellationRules, Clock),
         CreateSeatService(),
         new NotificationService(Notifications),
+        CreateRefundService(),
         new CancelBookingRequestValidator(),
-        Clock);
+        Clock,
+        new ListLogger<CancellationService>());
 
     public static PaymentRequestDto CardPayment(string pnr) => new()
     {

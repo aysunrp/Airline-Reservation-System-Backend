@@ -3,6 +3,7 @@ using Microsoft.Extensions.Options;
 using Service.Helpers.DTOs.Reservation;
 using Service.Helpers.Exceptions;
 using Service.Helpers.Settings;
+using Service.Helpers.Validators;
 using Service.Services.Interfaces;
 
 namespace Service.Services;
@@ -36,6 +37,9 @@ public class PricingService : IPricingService
 
         return age < _settings.ChildMaxAgeYears ? PassengerType.Child : PassengerType.Adult;
     }
+
+    public PassengerRulesDto GetPassengerRules()
+        => new(_settings.InfantMaxAgeYears, _settings.ChildMaxAgeYears, CreateBookingRequestValidator.MaxPassengers);
 
     public decimal GetPassengerFare(decimal cabinFare, PassengerType passengerType)
     {

@@ -2,50 +2,66 @@ using Domain.Entities;
 using Domain.Enums;
 using FluentValidation;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
 using Repository.Repositories.Interfaces;
 using Service.Helpers.DTOs.Payment;
 using Service.Helpers.DTOs.Reservation;
 using Service.Helpers.Exceptions;
 using Service.Helpers.Mappings;
+using Service.Helpers.Settings;
 using Service.Helpers.Validators;
 using Service.Services.Interfaces;
 
 namespace Service.Services;
 
 /// <summary>
-/// Payments are recorded against a mock provider: no real payment service is contacted yet,
-/// so a valid request is treated as approved.
+/// The pretend payment: a valid request is treated as approved without any provider. It only works where Payments:AllowMockPayments
+/// is on and Stripe is not configured (local demos and tests); real payments go through <see cref="CheckoutService"/>.
 /// </summary>
 public class PaymentService : IPaymentService
 {
     private readonly IBookingRepository _bookingRepository;
-    private readonly IFlightSeatRepository _flightSeatRepository;
     private readonly IPromoCodeRepository _promoCodeRepository;
     private readonly IBookingExpiryService _expiryService;
-    private readonly INotificationService _notificationService;
+    private readonly IBookingConfirmationService _confirmation;
     private readonly IValidator<PaymentRequestDto> _validator;
     private readonly TimeProvider _timeProvider;
+    private readonly StripeSettings _stripe;
+    private readonly PaymentSettings _payments;
 
     public PaymentService(
         IBookingRepository bookingRepository,
-        IFlightSeatRepository flightSeatRepository,
         IPromoCodeRepository promoCodeRepository,
         IBookingExpiryService expiryService,
-        INotificationService notificationService,
+        IBookingConfirmationService confirmation,
         IValidator<PaymentRequestDto> validator,
-        TimeProvider timeProvider)
+        TimeProvider timeProvider,
+        IOptions<StripeSettings> stripe,
+        IOptions<PaymentSettings> payments)
     {
         _bookingRepository = bookingRepository;
-        _flightSeatRepository = flightSeatRepository;
         _promoCodeRepository = promoCodeRepository;
         _expiryService = expiryService;
-        _notificationService = notificationService;
+        _confirmation = confirmation;
         _validator = validator;
         _timeProvider = timeProvider;
+        _stripe = stripe.Value;
+        _payments = payments.Value;
     }
 
     public async Task<BookingDto> PayAsync(PaymentRequestDto request, CancellationToken cancellationToken = default)
     {
+        // Card details must never reach this server once real payments exist.
+        if (_stripe.IsConfigured)
+        {
+            throw new BusinessRuleException("Card payments go through the secure Stripe checkout. Please pay there.");
+        }
+
+        if (!_payments.AllowMockPayments)
+        {
+            throw new ServiceUnavailableException(CheckoutService.UnavailableMessage);
+        }
+
         await _validator.ValidateAndThrowAsync(request, cancellationToken);
 
         var booking = await _bookingRepository.GetByPnrAsync(BookingService.NormalizePnr(request.Pnr), cancellationToken)
@@ -84,31 +100,7 @@ public class PaymentService : IPaymentService
             PaidAt = now
         });
 
-        booking.Status = BookingStatus.Confirmed;
-        booking.ExpiresAt = null;
-        _bookingRepository.Update(booking);
-
-        var tickets = booking.Passengers.SelectMany(p => p.Tickets).ToList();
-        foreach (var ticket in tickets)
-        {
-            ticket.Status = TicketStatus.Issued;
-        }
-
-        var seatIds = tickets.Select(t => t.FlightSeatId).OfType<int>().ToList();
-        foreach (var seat in await _flightSeatRepository.GetTrackedByIdsAsync(seatIds, cancellationToken))
-        {
-            seat.Status = SeatStatus.Booked;
-            seat.HeldUntil = null;
-            _flightSeatRepository.Update(seat);
-        }
-
-        if (booking.UserId is int userId)
-        {
-            await _notificationService.QueueAsync(userId, booking.Id, NotificationType.BookingConfirmed,
-                "Booking Confirmed", $"Your booking {booking.Pnr} is confirmed.", cancellationToken);
-            await _notificationService.QueueAsync(userId, booking.Id, NotificationType.PaymentSuccessful,
-                "Payment Successful", $"We received your payment of {booking.TotalAmount:0.00} for booking {booking.Pnr}.", cancellationToken);
-        }
+        await _confirmation.ConfirmAsync(booking, booking.TotalAmount, cancellationToken);
 
         try
         {
