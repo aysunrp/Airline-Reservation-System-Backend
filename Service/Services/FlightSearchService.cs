@@ -87,11 +87,14 @@ public class FlightSearchService : IFlightSearchService
         return flight.ToResultDto();
     }
 
-    /// <summary>Keeps flights that sell the requested cabin and still have a free seat for every traveller.</summary>
+    /// <summary>Keeps flights that have not departed, sell the requested cabin and still have a free seat for every traveller.</summary>
     private async Task<IReadOnlyList<Domain.Entities.Flight>> FilterBookableAsync(
         IReadOnlyList<Domain.Entities.Flight> flights, Domain.Enums.CabinClass? cabinClass, int passengers, CancellationToken cancellationToken)
     {
+        // The same rule booking applies, so a flight that is listed here can still be booked.
+        var now = _timeProvider.GetUtcNow().UtcDateTime;
         var candidates = flights
+            .Where(f => f.Status != Domain.Enums.FlightStatus.Completed && f.DepartureAt > now)
             .Where(f => cabinClass is null || f.Fares.Any(fare => fare.CabinClass == cabinClass))
             .ToList();
         if (candidates.Count == 0)
@@ -100,7 +103,7 @@ public class FlightSearchService : IFlightSearchService
         }
 
         var freeSeats = await _flightSeatRepository.GetFreeSeatCountsAsync(
-            candidates.Select(f => f.Id).ToList(), cabinClass, _timeProvider.GetUtcNow().UtcDateTime, cancellationToken);
+            candidates.Select(f => f.Id).ToList(), cabinClass, now, cancellationToken);
 
         return candidates
             .Where(f => freeSeats.TryGetValue(f.Id, out var free) && free >= passengers)
