@@ -24,4 +24,7 @@ public class EmailToken : BaseEntity
 
     /// <summary>Wrong guesses of a reset code. After the allowed number the code is dead, whatever the right answer is.</summary>
     public int Attempts { get; set; }
+
+    /// <summary>The booking a <see cref="EmailTokenPurpose.BookingConfirm"/> link belongs to; empty for the other kinds.</summary>
+    public int? BookingId { get; set; }
 }

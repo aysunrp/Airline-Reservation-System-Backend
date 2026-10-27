@@ -261,6 +261,9 @@ namespace Repository.Migrations
                         .HasPrecision(18, 2)
                         .HasColumnType("decimal(18,2)");
 
+                    b.Property<DateTime?>("ContactConfirmedAt")
+                        .HasColumnType("datetime2");
+
                     b.Property<string>("ContactEmail")
                         .IsRequired()
                         .HasMaxLength(256)
@@ -546,6 +549,9 @@ namespace Repository.Migrations
                     b.Property<int>("Attempts")
                         .HasColumnType("int");
 
+                    b.Property<int?>("BookingId")
+                        .HasColumnType("int");
+
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime2");
 
@@ -572,6 +578,8 @@ namespace Repository.Migrations
                         .HasColumnType("int");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("BookingId");
 
                     b.HasIndex("TokenHash")
                         .IsUnique();

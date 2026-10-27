@@ -13,5 +13,6 @@ public class EmailTokenConfiguration : IEntityTypeConfiguration<EmailToken>
         builder.HasOne(x => x.User).WithMany().HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.Cascade);
         builder.HasIndex(x => x.TokenHash).IsUnique();
         builder.HasIndex(x => new { x.UserId, x.Purpose });
+        builder.HasIndex(x => x.BookingId);
     }
 }

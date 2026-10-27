@@ -6,5 +6,8 @@ public enum EmailTokenPurpose
     ResetPassword,
 
     /// <summary>The six-digit code of a password reset: the person types it in, and a correct one is traded for a <see cref="ResetPassword"/> ticket.</summary>
-    ResetCode
+    ResetCode,
+
+    /// <summary>The link that confirms one booking by e-mail before it can be paid.</summary>
+    BookingConfirm
 }
