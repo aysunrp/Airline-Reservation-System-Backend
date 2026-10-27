@@ -173,27 +173,6 @@ public class AccountEmailTests
     // ---- password reset ---------------------------------------------------------------------------------------------
 
     [Fact]
-    public async Task ForgotPassword_SendsNothingForADisabledAccount_AndNotTwiceInAMinute()
-    {
-        var disabled = AccountTestContext.Customer("secret1");
-        disabled.IsActive = false;
-        var context = new AccountTestContext(disabled);
-        var service = context.CreateAccountEmail();
-
-        await service.ForgotPasswordAsync(new ForgotPasswordRequestDto { Email = "aysun@example.com" });
-        Assert.Empty(context.Sender.Sent);
-
-        disabled.IsActive = true;
-        await service.ForgotPasswordAsync(new ForgotPasswordRequestDto { Email = "aysun@example.com" });
-        await service.ForgotPasswordAsync(new ForgotPasswordRequestDto { Email = "aysun@example.com" });
-        Assert.Single(context.Sender.Sent);
-
-        context.Clock.Advance(TimeSpan.FromSeconds(61));
-        await service.ForgotPasswordAsync(new ForgotPasswordRequestDto { Email = "aysun@example.com" });
-        Assert.Equal(2, context.Sender.Sent.Count);
-    }
-
-    [Fact]
     public async Task ForgotPassword_WithoutSmtp_SaysEmailIsUnavailable_ForEveryAddress()
     {
         var context = new AccountTestContext(AccountTestContext.Customer("secret1"));
@@ -204,17 +183,6 @@ public class AccountEmailTests
         var unknown = await Assert.ThrowsAsync<ServiceUnavailableException>(() => service.ForgotPasswordAsync(new ForgotPasswordRequestDto { Email = "nobody@example.com" }));
 
         Assert.Equal(known.Message, unknown.Message);
-    }
-
-    [Fact]
-    public async Task ForgotPassword_WithAFailedDelivery_StillAnswersLikeASentLink()
-    {
-        var context = new AccountTestContext(AccountTestContext.Customer("secret1"));
-        context.Sender.Fail = true;
-
-        await context.CreateAccountEmail().ForgotPasswordAsync(new ForgotPasswordRequestDto { Email = "aysun@example.com" });
-
-        Assert.Empty(context.Sender.Sent);
     }
 
     [Fact]

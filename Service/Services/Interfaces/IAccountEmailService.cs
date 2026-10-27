@@ -30,7 +30,10 @@ public interface IAccountEmailService
     /// <summary>Sends a new verification e-mail to the signed-in account.</summary>
     Task ResendVerificationAsync(int userId, string? language, CancellationToken cancellationToken = default);
 
-    /// <summary>Sends a six-digit reset code when the account exists; says nothing either way, so addresses cannot be probed.</summary>
+    /// <summary>
+    /// Sends a six-digit reset code to the address of an active account. No account gives a 404, a code asked for again within a
+    /// minute (or too often in an hour) a 429, and a code that could not be mailed a 503: it is never reported as sent when it was not.
+    /// </summary>
     Task ForgotPasswordAsync(ForgotPasswordRequestDto request, CancellationToken cancellationToken = default);
 
     /// <summary>

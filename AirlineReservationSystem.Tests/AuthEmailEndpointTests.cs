@@ -89,7 +89,7 @@ public class AuthEmailEndpointTests : IClassFixture<ApiFactory>
     }
 
     [Fact]
-    public async Task ForgotPassword_Returns202ForAnyAddress_AndMailsOnlyAnExistingAccount()
+    public async Task ForgotPassword_Returns202ForAnAccount_And404ForAnAddressWithoutOne_AndMailsOnlyTheAccount()
     {
         var client = _factory.CreateClient();
         var email = UniqueEmail("forgot");
@@ -101,8 +101,13 @@ public class AuthEmailEndpointTests : IClassFixture<ApiFactory>
         var stranger = await client.PostAsJsonAsync("/api/auth/forgot-password", new ForgotPasswordRequestDto { Email = unknown }, Json);
 
         Assert.Equal(HttpStatusCode.Accepted, known.StatusCode);
-        Assert.Equal(HttpStatusCode.Accepted, stranger.StatusCode);
-        Assert.Equal(await known.Content.ReadAsStringAsync(), await stranger.Content.ReadAsStringAsync());
+        Assert.Equal(HttpStatusCode.NotFound, stranger.StatusCode);
+        Assert.Equal("No account was found for this email address.", (await stranger.ReadJsonAsync()).GetProperty("detail").GetString());
+
+        // A second request a moment later is held back and says how long to wait.
+        var again = await client.PostAsJsonAsync("/api/auth/forgot-password", new ForgotPasswordRequestDto { Email = email }, Json);
+        Assert.Equal(HttpStatusCode.TooManyRequests, again.StatusCode);
+        Assert.True(int.Parse(again.Headers.GetValues("Retry-After").Single()) > 0);
         Assert.Equal(before + 1, _factory.Emails.Sent.Count);
         Assert.DoesNotContain(_factory.Emails.Sent, m => m.To == unknown);
         var mail = _factory.Emails.Sent.Last(m => m.To == email);
@@ -229,7 +234,7 @@ public class AuthEmailEndpointTests : IClassFixture<ApiFactory>
     }
 
     [Fact]
-    public async Task AFailedDelivery_NeverRevealsAnAccount_NorBreaksRegistration()
+    public async Task AFailedDelivery_NeverBreaksRegistration_AndAFailedCodeIsReportedAsFailed()
     {
         _factory.Emails.Fail = true;
         var client = _factory.CreateClient();
@@ -239,8 +244,9 @@ public class AuthEmailEndpointTests : IClassFixture<ApiFactory>
         Assert.Equal(HttpStatusCode.Created, registered.StatusCode);
         Assert.False((await registered.ReadAsync<RegisterResponseDto>()).VerificationEmailSent);
 
+        // Never told "sent" when nothing went out.
         var forgot = await client.PostAsJsonAsync("/api/auth/forgot-password", new ForgotPasswordRequestDto { Email = email }, Json);
-        Assert.Equal(HttpStatusCode.Accepted, forgot.StatusCode);
+        Assert.Equal(HttpStatusCode.ServiceUnavailable, forgot.StatusCode);
     }
 
     [Fact]

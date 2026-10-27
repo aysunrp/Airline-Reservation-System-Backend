@@ -24,6 +24,7 @@ public class AccountEmailService : IAccountEmailService
 {
     private const string InvalidLinkMessage = "This link is invalid or has expired.";
     private const string InvalidCodeMessage = "That code is not correct or has expired. Ask for a new one.";
+    private const string NoAccountMessage = "No account was found for this email address.";
     private const string EmailUnavailableMessage = "We cannot send e-mail right now. Please try again later.";
 
     private readonly IUserRepository _users;
@@ -178,7 +179,6 @@ public class AccountEmailService : IAccountEmailService
     {
         await _forgotValidator.ValidateAndThrowAsync(request, cancellationToken);
 
-        // The same for everybody: whether e-mail works does not depend on the address that was typed.
         if (!_sender.IsConfigured)
         {
             throw new ServiceUnavailableException(EmailUnavailableMessage);
@@ -186,20 +186,30 @@ public class AccountEmailService : IAccountEmailService
 
         var user = await _users.GetByEmailAsync(AuthService.NormalizeEmail(request.Email), cancellationToken);
 
-        // From here on the caller learns nothing: no account, a disabled account, a mail sent a moment ago and a failed
-        // delivery all end the same way as a sent reset link.
-        if (user is null || !user.IsActive || await RetryAfterAsync(user.Id, EmailTokenPurpose.ResetCode, cancellationToken) > TimeSpan.Zero)
+        // The person is told when no account uses the address (a disabled account counts as none), so nothing is sent to a stranger.
+        // This is a choice for convenience: it shows which addresses have accounts, and the sign-up page already does the same.
+        if (user is null || !user.IsActive)
         {
-            return;
+            throw new NotFoundException(NoAccountMessage);
+        }
+
+        var wait = await RetryAfterAsync(user.Id, EmailTokenPurpose.ResetCode, cancellationToken);
+        if (wait > TimeSpan.Zero)
+        {
+            throw new TooManyAttemptsException("A code was sent a moment ago. Please wait before asking for another.", wait);
         }
 
         // At most a few codes an hour per account: neither endless guessing nor a flood of mail to somebody's inbox.
         if (await _tokens.CountCreatedSinceAsync(user.Id, EmailTokenPurpose.ResetCode, Now().AddHours(-1), cancellationToken) >= Math.Max(1, _settings.ResetCodesPerHour))
         {
-            return;
+            throw new TooManyAttemptsException("Too many codes were asked for this account. Please try again in a while.", TimeSpan.FromHours(1));
         }
 
-        await IssueAndSendCodeAsync(user, request.Language, cancellationToken);
+        // A code that did not go out is never reported as sent.
+        if (!await IssueAndSendCodeAsync(user, request.Language, cancellationToken))
+        {
+            throw new ServiceUnavailableException(EmailUnavailableMessage);
+        }
     }
 
     public async Task<ResetTicketDto> VerifyResetCodeAsync(VerifyResetCodeRequestDto request, CancellationToken cancellationToken = default)
@@ -344,7 +354,7 @@ public class AccountEmailService : IAccountEmailService
     }
 
     /// <summary>Makes a new reset code, keeps its hash and mails it. Older codes of the account stop working at once.</summary>
-    private async Task IssueAndSendCodeAsync(User user, string? language, CancellationToken cancellationToken)
+    private async Task<bool> IssueAndSendCodeAsync(User user, string? language, CancellationToken cancellationToken)
     {
         var now = Now();
         foreach (var old in await _tokens.GetUnusedAsync(user.Id, EmailTokenPurpose.ResetCode, cancellationToken))
@@ -380,6 +390,7 @@ public class AccountEmailService : IAccountEmailService
         try
         {
             await _sender.SendAsync(new EmailMessage(user.Email, subject, text, html), cancellationToken);
+            return true;
         }
         catch (EmailDeliveryException)
         {
@@ -387,6 +398,7 @@ public class AccountEmailService : IAccountEmailService
             token.UsedAt = Now();
             await _tokens.SaveChangesAsync(cancellationToken);
             _logger.LogWarning("A {Purpose} e-mail could not be delivered.", EmailTokenPurpose.ResetCode);
+            return false;
         }
     }
 

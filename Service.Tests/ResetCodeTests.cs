@@ -56,14 +56,21 @@ public class ResetCodeTests
     }
 
     [Fact]
-    public async Task ForgotPassword_AnswersTheSameForAKnownAndAnUnknownAddress_AndMailsOnlyTheKnownOne()
+    public async Task ForgotPassword_SaysSoWhenNoAccountUsesTheAddress_AndSendsNothingToAStranger()
     {
-        var (context, service, _) = await CustomerAsync();
+        var (context, service, user) = await CustomerAsync();
 
-        await service.ForgotPasswordAsync(Forgot("nobody@example.com"));
+        var none = await Assert.ThrowsAsync<NotFoundException>(() => service.ForgotPasswordAsync(Forgot("nobody@example.com")));
+        Assert.Equal("No account was found for this email address.", none.Message);
         Assert.Empty(context.Sender.Sent);
         Assert.Empty(context.Tokens.All);
 
+        // A disabled account counts as no account.
+        user.IsActive = false;
+        await Assert.ThrowsAsync<NotFoundException>(() => service.ForgotPasswordAsync(Forgot()));
+        Assert.Empty(context.Sender.Sent);
+
+        user.IsActive = true;
         await service.ForgotPasswordAsync(Forgot());
         Assert.Single(context.Sender.Sent);
     }
@@ -83,33 +90,41 @@ public class ResetCodeTests
     }
 
     [Fact]
-    public async Task AFailedDelivery_StillAnswersLikeASentCode_AndClosesTheUnreceivedCode()
+    public async Task AFailedDelivery_IsReportedAsFailed_NeverAsSent_AndClosesTheUnreceivedCode()
     {
         var (context, service, _) = await CustomerAsync();
         context.Sender.Fail = true;
 
-        await service.ForgotPasswordAsync(Forgot());
+        await Assert.ThrowsAsync<ServiceUnavailableException>(() => service.ForgotPasswordAsync(Forgot()));
 
         Assert.Empty(context.Sender.Sent);
         Assert.NotNull(Assert.Single(context.Tokens.All).UsedAt);
     }
 
     [Fact]
-    public async Task ACodeIsNotMailedTwiceInAMinute_AndNotMoreThanFiveTimesAnHour()
+    public async Task ACodeIsNotMailedTwiceInAMinute_AndNotMoreThanFiveTimesAnHour_AndTheAnswerSaysSo()
     {
         var (context, service, _) = await CustomerAsync();
 
         await service.ForgotPasswordAsync(Forgot());
-        await service.ForgotPasswordAsync(Forgot());
+        var tooSoon = await Assert.ThrowsAsync<TooManyAttemptsException>(() => service.ForgotPasswordAsync(Forgot()));
+        Assert.True(tooSoon.RetryAfter > TimeSpan.Zero);
         Assert.Single(context.Sender.Sent);
 
-        for (var i = 0; i < 6; i++)
+        for (var i = 0; i < 4; i++)
         {
             context.Clock.Advance(TimeSpan.FromSeconds(61));
             await service.ForgotPasswordAsync(Forgot());
         }
 
+        context.Clock.Advance(TimeSpan.FromSeconds(61));
+        await Assert.ThrowsAsync<TooManyAttemptsException>(() => service.ForgotPasswordAsync(Forgot()));
         Assert.Equal(5, context.Sender.Sent.Count);
+
+        // An hour after the first code, new ones may be asked for again.
+        context.Clock.Advance(TimeSpan.FromHours(1));
+        await service.ForgotPasswordAsync(Forgot());
+        Assert.Equal(6, context.Sender.Sent.Count);
     }
 
     [Fact]
@@ -314,7 +329,7 @@ public class ResetCodeTests
     {
         var (context, service, _) = await CustomerAsync();
         context.Sender.Fail = true;
-        await service.ForgotPasswordAsync(Forgot());
+        await Assert.ThrowsAsync<ServiceUnavailableException>(() => service.ForgotPasswordAsync(Forgot()));
         context.Sender.Fail = false;
         context.Clock.Advance(TimeSpan.FromSeconds(61));
         await service.ForgotPasswordAsync(Forgot());

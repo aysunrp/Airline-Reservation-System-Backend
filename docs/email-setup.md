@@ -69,7 +69,7 @@ Login səhifəsində "Şifrəni unutdun?" basıldıqda axın belədir: e-poçt �
 
 - Kod **10 dəqiqə** etibarlıdır, **bir dəfə** işləyir, hər kod üçün **5 yanlış cəhd** var, sonra ölür. Hesab başına saatda **5 kod**, iki kod arasında **1 dəqiqə**; IP üzrə dəqiqədə 10 sorğu limiti qalır.
 - Düzgün kod qısa ömürlü (10 dəqiqə) birdəfəlik **bilet** verir, şifrə yalnız bu biletlə dəyişir.
-- Cavablar ünvanın mövcudluğunu açıqlamır: bilinməyən ünvan, yanlış, vaxtı bitmiş və istifadə olunmuş kod eyni xətanı verir.
+- **Hesabı olmayan ünvana kod göndərilmir** və səhifə "Bu e-poçt ünvanı ilə hesab tapılmadı" yazır (seçim: rahatlıq üçün, bu halda ünvanın hesabı olub-olmadığı bilinir). Kod göndərilməyibsə (SMTP xətası) "göndərdik" deyilmir, xəta göstərilir. Koddan sonrakı mərhələdə isə yanlış, vaxtı bitmiş və istifadə olunmuş kod eyni xətanı verir.
 - Kod bazada açıq saxlanmır (serverin gizli açarı ilə HMAC), logda heç vaxt yoxdur.
 - Ayarlar (`Auth` bölməsi): `ResetCodeMinutes` (10), `ResetCodeMaxAttempts` (5), `ResetCodesPerHour` (5), `ResetTicketMinutes` (10).
 - Bu axın üçün `EmailTokens` cədvəlinə `Attempts` sütunu lazımdır (miqrasiya `AddResetCodeAttempts`). Onu tətbiq etmədən yeni backend-i real bazada işlətməyin.

@@ -73,13 +73,14 @@ public class AuthController : ControllerBase
     }
 
     /// <summary>
-    /// Sends a six-digit password reset code when an account has this address. The answer is 202 whether or not it does, so
-    /// addresses cannot be probed; 503 only when the API cannot send e-mail at all.
+    /// Sends a six-digit password reset code to the address of an account: 202 when it was sent, 404 when no account uses the
+    /// address, 429 when a code was asked for too soon or too often, 503 when the e-mail could not be sent.
     /// </summary>
     [HttpPost("forgot-password")]
     [EnableRateLimiting(RateLimitPolicies.Auth)]
     [ProducesResponseType(StatusCodes.Status202Accepted)]
     [ProducesResponseType<ValidationProblemDetails>(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status429TooManyRequests)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status503ServiceUnavailable)]
     public async Task<IActionResult> ForgotPassword(ForgotPasswordRequestDto request, CancellationToken cancellationToken)
