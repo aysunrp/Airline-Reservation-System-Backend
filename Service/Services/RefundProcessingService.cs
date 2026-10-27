@@ -59,8 +59,8 @@ public class RefundProcessingService : IRefundProcessingService
 
                     if (booking.UserId is int userId)
                     {
-                        await _notificationService.QueueAsync(userId, booking.Id, NotificationType.RefundCompleted, "Refund Completed",
-                            $"Your refund of {refund.Amount:0.00} for booking {booking.Pnr} has been completed.", cancellationToken);
+                        await _notificationService.QueueOnceAsync($"refund:{refund.Id}:{refund.Attempts}:completed", userId, booking.Id, NotificationType.RefundCompleted, "Refund Completed",
+                            $"Your refund of {refund.Amount:0.00} {refund.Currency} for booking {booking.Pnr} has been completed.", cancellationToken);
                     }
                 }
                 else if (refund.Status == RefundStatus.Pending && age >= TimeSpan.FromMinutes(_settings.RefundProcessingAfterMinutes))

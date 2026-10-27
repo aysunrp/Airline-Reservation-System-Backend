@@ -44,7 +44,10 @@ public static class BookingMappings
                     cancellation.FeeAmount,
                     cancellation.RefundAmount,
                     booking.LatestRefundStatus(),
-                    booking.LatestRefundIsDemo()),
+                    booking.LatestRefundIsDemo(),
+                    booking.LatestRefund()?.Currency ?? booking.Payments.Select(p => p.Currency).FirstOrDefault() ?? Domain.Constants.AppConstants.Currency,
+                    cancellation.Reason,
+                    booking.LatestRefund()?.ProcessedAt),
             booking.ContactConfirmedAt is not null);
     }
 
@@ -74,7 +77,8 @@ public static class BookingMappings
     /// <summary>Expects legs with route airports and aircraft, passengers with tickets and seats, and refunds to be loaded.</summary>
     public static BookingSummaryDto ToSummaryDto(this Booking booking)
         => new(booking.Id, booking.Pnr, booking.Status, booking.TripType, booking.TotalAmount, booking.CreatedAt,
-            booking.Passengers.Count, booking.LatestRefundStatus(), booking.ToLegDtos(), booking.LatestRefundIsDemo());
+            booking.Passengers.Count, booking.LatestRefundStatus(), booking.ToLegDtos(), booking.LatestRefundIsDemo(),
+            booking.Cancellation?.RefundAmount, booking.LatestRefund()?.Currency);
 
     private static IReadOnlyList<BookingLegDto> ToLegDtos(this Booking booking)
         => booking.Flights
@@ -124,7 +128,10 @@ public static class BookingMappings
     }
 
     private static RefundStatus? LatestRefundStatus(this Booking booking)
-        => booking.Cancellation?.Refunds.OrderByDescending(r => r.CreatedAt).FirstOrDefault()?.Status;
+        => booking.LatestRefund()?.Status;
+
+    internal static Refund? LatestRefund(this Booking booking)
+        => booking.Cancellation?.Refunds.OrderByDescending(r => r.CreatedAt).FirstOrDefault();
 
     private static BookingPassengerDto ToDto(this BookingPassenger passenger)
         => new(

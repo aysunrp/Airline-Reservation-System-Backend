@@ -161,6 +161,9 @@ internal sealed class FakeNotificationRepository : FakeRepository<Notification>,
             .OrderBy(n => n.Id)
             .Take(take)
             .ToList());
+
+    public Task<bool> EmailKeyExistsAsync(string emailKey, CancellationToken cancellationToken = default)
+        => Task.FromResult(Items.Any(n => n.EmailKey == emailKey));
 }
 
 internal sealed class FakeCancellationRuleRepository : FakeRepository<CancellationRule>, ICancellationRuleRepository

@@ -18,6 +18,12 @@ public class Notification : BaseEntity
     /// <summary>How many times sending it failed; after a few tries it is left alone, the in-app notification stays.</summary>
     public int EmailAttempts { get; set; }
 
+    /// <summary>
+    /// The event this notification stands for (for example "refund:12:1:completed"). The same event is never notified twice, however
+    /// often Stripe reports it; null for notifications that do not need it.
+    /// </summary>
+    public string? EmailKey { get; set; }
+
     public User User { get; set; } = null!;
     public Booking? Booking { get; set; }
 }
