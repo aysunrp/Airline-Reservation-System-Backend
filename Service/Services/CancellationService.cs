@@ -53,7 +53,13 @@ public class CancellationService : ICancellationService
         await _validator.ValidateAndThrowAsync(request, cancellationToken);
 
         var booking = await GetCancellableBookingAsync(request.Pnr, request.LastName, userId, cancellationToken);
-        return await CancelBookingAsync(booking, request.Reason, userId, cancellationToken);
+        return await CancelBookingAsync(booking, request.Reason, userId, cancellationToken, request.Language);
+    }
+
+    public async Task<BookingDto> CancelOwnBookingAsync(string pnr, int userId, string? reason, string? language, CancellationToken cancellationToken = default)
+    {
+        var booking = await GetCancellableBookingAsync(pnr, null, userId, cancellationToken, byOwner: true);
+        return await CancelBookingAsync(booking, reason, userId, cancellationToken, language);
     }
 
     public async Task<BookingDto> CancelByAdminAsync(string pnr, string? reason, int? adminUserId = null, CancellationToken cancellationToken = default)
@@ -62,7 +68,7 @@ public class CancellationService : ICancellationService
         return await CancelBookingAsync(booking, reason, adminUserId, cancellationToken);
     }
 
-    private async Task<BookingDto> CancelBookingAsync(Booking booking, string? reason, int? actorUserId, CancellationToken cancellationToken)
+    private async Task<BookingDto> CancelBookingAsync(Booking booking, string? reason, int? actorUserId, CancellationToken cancellationToken, string? language = null)
     {
         var quote = await QuoteAsync(booking, cancellationToken);
 
@@ -73,7 +79,8 @@ public class CancellationService : ICancellationService
             Reason = string.IsNullOrWhiteSpace(reason) ? null : reason.Trim(),
             AmountPaid = quote.AmountPaid,
             FeeAmount = quote.FeeAmount,
-            RefundAmount = quote.RefundAmount
+            RefundAmount = quote.RefundAmount,
+            Language = string.IsNullOrWhiteSpace(language) ? null : Service.Helpers.Mail.EmailTemplates.NormalizeLanguage(language)
         };
 
         var payment = booking.Payments.Where(p => p.Status == PaymentStatus.Paid).OrderByDescending(p => p.PaidAt).FirstOrDefault();
@@ -109,8 +116,11 @@ public class CancellationService : ICancellationService
         // A hold that was never paid is not a trip: releasing it (for example when the traveller changes seats) is not news.
         if (booking.UserId is int userId && payment is not null)
         {
-            var refundText = quote.RefundAmount > 0 ? $" An estimated refund of {quote.RefundAmount:0.00} has been requested." : " Under the fare rules no refund is due.";
-            await _notificationService.QueueAsync(userId, booking.Id, NotificationType.BookingCancelled,
+            // Requested, not paid back: the money is only said to be on its way once Stripe confirms it (a refund notification follows).
+            var refundText = refund is { Status: RefundStatus.Pending }
+                ? $" A refund of {quote.RefundAmount:0.00} {payment.Currency} has been requested to the card you paid with; we will tell you when it is confirmed."
+                : " Under the fare rules no refund is due.";
+            await _notificationService.QueueOnceAsync($"booking:{booking.Id}:cancelled", userId, booking.Id, NotificationType.BookingCancelled,
                 "Booking Cancelled", $"Your booking {booking.Pnr} has been cancelled.{refundText}", cancellationToken);
         }
 
@@ -145,10 +155,12 @@ public class CancellationService : ICancellationService
     /// lastName is null for admins, who can open any booking. A booking made under an account can only be cancelled by that account:
     /// knowing the reference and a passenger's name is not enough to cancel someone's paid trip.
     /// </summary>
-    private async Task<Booking> GetCancellableBookingAsync(string pnr, string? lastName, int? userId, CancellationToken cancellationToken, bool admin = false)
+    private async Task<Booking> GetCancellableBookingAsync(string pnr, string? lastName, int? userId, CancellationToken cancellationToken, bool admin = false, bool byOwner = false)
     {
         var booking = await _bookingRepository.GetByPnrAsync(BookingService.NormalizePnr(pnr), cancellationToken);
-        if (booking is null || (!admin && !BookingService.HasPassengerNamed(booking, lastName)))
+        // Through the confirmed link the account itself is the proof (it must own the booking); otherwise a passenger's last name is.
+        var known = byOwner ? booking?.UserId is int bookedBy && bookedBy == userId : admin || (booking is not null && BookingService.HasPassengerNamed(booking, lastName));
+        if (booking is null || !known)
         {
             throw new NotFoundException(BookingService.BookingNotFoundMessage);
         }

@@ -27,4 +27,7 @@ public class EmailToken : BaseEntity
 
     /// <summary>The booking a <see cref="EmailTokenPurpose.BookingConfirm"/> link belongs to; empty for the other kinds.</summary>
     public int? BookingId { get; set; }
+
+    /// <summary>What the request carried that the link must remember (for a cancellation: the reason and page language, as JSON).</summary>
+    public string? Payload { get; set; }
 }

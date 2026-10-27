@@ -22,4 +22,10 @@ public interface INotificationService
 
     /// <summary>Adds a notification for the user. Does not save; it is committed with the caller's unit of work.</summary>
     Task QueueAsync(int userId, int? bookingId, NotificationType type, string title, string message, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Like <see cref="QueueAsync"/>, for an event that must be told once (a cancellation, a refund reaching a status): when a notification
+    /// with this key exists already nothing is added and the answer is false. A unique index backs this up in the database.
+    /// </summary>
+    Task<bool> QueueOnceAsync(string emailKey, int userId, int? bookingId, NotificationType type, string title, string message, CancellationToken cancellationToken = default);
 }

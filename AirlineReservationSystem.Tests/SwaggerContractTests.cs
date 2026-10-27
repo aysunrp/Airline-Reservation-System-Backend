@@ -33,6 +33,7 @@ public class SwaggerContractTests : IClassFixture<ApiFactory>
         { "post", "/api/bookings/quote", false },
         { "post", "/api/bookings", false },
         { "post", "/api/bookings/confirm-email", false },
+        { "post", "/api/bookings/cancel-confirm", false },
         { "get", "/api/bookings/{pnr}", false },
         { "get", "/api/bookings/{pnr}/cancellation-quote", false },
         { "post", "/api/bookings/{pnr}/cancel", false },

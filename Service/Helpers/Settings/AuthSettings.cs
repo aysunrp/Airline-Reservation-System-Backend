@@ -69,4 +69,13 @@ public class AuthSettings
     /// e-mail at all, and only for bookings of an account.
     /// </summary>
     public bool RequireBookingEmailConfirmation { get; set; } = true;
+
+    /// <summary>
+    /// Cancelling a paid booking of an account is confirmed with a link e-mailed to the account; the booking is cancelled only when
+    /// that link is opened and confirmed. Holds that were never paid are released at once.
+    /// </summary>
+    public bool RequireCancellationEmailConfirmation { get; set; } = true;
+
+    /// <summary>Minutes the cancellation confirmation link works.</summary>
+    public int CancelLinkMinutes { get; set; } = 30;
 }

@@ -41,6 +41,7 @@ internal sealed class BookingTestContext
         RequireVerifiedEmailForBooking = false,
         RequireSignInToBook = false,
         RequireBookingEmailConfirmation = false,
+        RequireCancellationEmailConfirmation = false,
         FrontendBaseUrl = "https://aerova.test"
     };
 
@@ -154,6 +155,17 @@ internal sealed class BookingTestContext
         new CancelBookingRequestValidator(),
         Clock,
         new ListLogger<CancellationService>());
+
+    public CancellationLinkService CreateCancellationLinkService() => new(
+        CreateCancellationService(),
+        Bookings,
+        Users,
+        Tokens,
+        EmailSender,
+        new CancelBookingRequestValidator(),
+        Options.Create(AuthSettings),
+        Clock,
+        new ListLogger<CancellationLinkService>());
 
     public static PaymentRequestDto CardPayment(string pnr) => new()
     {

@@ -417,6 +417,9 @@ public class BookingService : IBookingService
             }
         }
 
+        // Every flight is checked before any seat is held: a seat that is taken on the return flight must not leave the outbound
+        // seats marked as held.
+        var checkedSeats = new List<FlightSeat>();
         var held = new Dictionary<(int Passenger, int FlightId), FlightSeat>();
         foreach (var leg in legs)
         {
@@ -445,15 +448,20 @@ public class BookingService : IBookingService
                     throw new ConflictException($"Seat {label} on flight {leg.Flight.FlightNumber} is no longer available.");
                 }
 
-                seat.Status = SeatStatus.Held;
-                seat.HeldUntil = holdUntil;
-                _flightSeatRepository.Update(seat);
+                checkedSeats.Add(seat);
             }
 
             foreach (var entry in requested.Where(r => r.Key.FlightId == leg.Flight.Id))
             {
                 held[entry.Key] = seats[entry.Value];
             }
+        }
+
+        foreach (var seat in checkedSeats)
+        {
+            seat.Status = SeatStatus.Held;
+            seat.HeldUntil = holdUntil;
+            _flightSeatRepository.Update(seat);
         }
 
         return held;

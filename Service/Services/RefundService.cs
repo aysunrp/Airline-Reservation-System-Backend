@@ -94,6 +94,9 @@ public class RefundService : IRefundService
 
         switch (status)
         {
+            case RefundStatus.Processing:
+                await NotifyAsync(refund, "processing", cancellationToken);
+                break;
             case RefundStatus.Completed:
                 refund.ProcessedAt = _timeProvider.GetUtcNow().UtcDateTime;
                 refund.FailureReason = null;
@@ -102,6 +105,7 @@ public class RefundService : IRefundService
             case RefundStatus.Failed:
             case RefundStatus.Cancelled:
                 refund.FailureReason = Shorten(failureReason ?? providerStatus);
+                await NotifyAsync(refund, returnedByBank ? "returned" : "failed", cancellationToken);
                 break;
         }
 
@@ -169,6 +173,7 @@ public class RefundService : IRefundService
             refund.Status = RefundStatus.Failed;
             refund.FailureReason = problem;
             _refunds.Update(refund);
+            await NotifyAsync(refund, "failed", cancellationToken);
             await _refunds.SaveChangesAsync(cancellationToken);
             return;
         }
@@ -240,12 +245,34 @@ public class RefundService : IRefundService
             payment.Status = PaymentStatus.Refunded;
         }
 
+        await NotifyAsync(refund, "completed", cancellationToken);
+    }
+
+    /*
+     * One notification (and so one e-mail) per refund, attempt and status reached; Stripe may report the same change several times.
+     * The texts only say what is true at that status: "started" while Stripe processes it, "confirmed" once it succeeded, and never
+     * that money arrived when the refund failed. Sending the e-mail is a separate step, so it can never change the refund.
+     */
+    private async Task NotifyAsync(Refund refund, string stage, CancellationToken cancellationToken)
+    {
         var booking = refund.Cancellation.Booking;
-        if (booking.UserId is int userId)
+        if (booking.UserId is not int userId)
         {
-            await _notifications.QueueAsync(userId, booking.Id, NotificationType.RefundCompleted, "Refund Completed",
-                $"Your refund of {refund.Amount:0.00} for booking {booking.Pnr} has been sent back to your card. Your bank can take a few days to show it.", cancellationToken);
+            return;
         }
+
+        var amount = $"{refund.Amount:0.00} {refund.Currency}";
+        var (type, title, message) = stage switch
+        {
+            "processing" => (NotificationType.RefundPending, "Refund Started",
+                $"The refund of {amount} for booking {booking.Pnr} has been started to the card you paid with and is being processed. We will tell you when it is confirmed."),
+            "completed" => (NotificationType.RefundCompleted, "Refund Completed",
+                $"The refund of {amount} for booking {booking.Pnr} has been confirmed and sent to the card you paid with. Banks usually show it within 5 to 10 business days."),
+            _ => (NotificationType.RefundFailed, "Refund Not Completed",
+                $"The refund of {amount} for booking {booking.Pnr} could not be completed. Your booking stays cancelled and the amount is still owed to you; please contact AEROVA support with your booking reference.")
+        };
+
+        await _notifications.QueueOnceAsync($"refund:{refund.Id}:{refund.Attempts}:{stage}", userId, booking.Id, type, title, message, cancellationToken);
     }
 
     private static string Shorten(string text) => text.Length > 300 ? text[..300] : text;

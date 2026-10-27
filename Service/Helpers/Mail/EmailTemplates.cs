@@ -57,6 +57,39 @@ public static class EmailTemplates
         return Build(subject, intro, link, validity, ignore, name);
     }
 
+    /// <summary>
+    /// Asks the person to confirm the cancellation of a paid booking. The amounts are the estimate of the fare rules at the time of the
+    /// request; the booking stays as it is until the link is opened and confirmed.
+    /// </summary>
+    public static (string Subject, string Text, string Html) CancelConfirmation(string? language, string name, string pnr, string flights,
+        decimal refund, decimal fee, string currency, bool refundDue, string link, int minutes)
+    {
+        string Money(decimal amount) => amount.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture) + " " + currency.ToUpperInvariant();
+        var (subject, intro, estimate, none, validity, ignore) = NormalizeLanguage(language) switch
+        {
+            "az" => ($"AEROVA rezervasiyasının ləğvini təsdiqləyin ({pnr})",
+                $"Salam {name},\n\n{pnr} rezervasiyasının ({flights}) ləğvi üçün sorğu aldıq. Rezervasiya yalnız bu keçidi açıb ləğvi təsdiqlədikdən sonra ləğv olunacaq:",
+                $"Tarif qaydalarına görə təxmini qaytarılacaq məbləğ: {Money(refund)}" + (fee > 0 ? $" (ləğv cəriməsi {Money(fee)})." : "."),
+                "Tarif qaydalarına görə bu rezervasiya üçün qaytarılacaq məbləğ yoxdur.",
+                $"Keçid {minutes} dəqiqə etibarlıdır və yalnız bir dəfə işləyir.",
+                "Bu sorğunu siz göndərməmisinizsə, məktuba məhəl qoymayın: rezervasiyanız qüvvədə qalır."),
+            "ru" => ($"Подтвердите отмену бронирования AEROVA ({pnr})",
+                $"Здравствуйте, {name}!\n\nМы получили запрос на отмену бронирования {pnr} ({flights}). Бронирование будет отменено только после того, как вы откроете ссылку и подтвердите отмену:",
+                $"Ориентировочная сумма возврата по правилам тарифа: {Money(refund)}" + (fee > 0 ? $" (сбор за отмену {Money(fee)})." : "."),
+                "По правилам тарифа возврат по этому бронированию не положен.",
+                $"Ссылка действует {minutes} мин. и работает один раз.",
+                "Если вы не отправляли запрос, проигнорируйте письмо: бронирование остаётся в силе."),
+            _ => ($"Confirm the cancellation of your AEROVA booking ({pnr})",
+                $"Hello {name},\n\nWe received a request to cancel booking {pnr} ({flights}). The booking is only cancelled after you open this link and confirm:",
+                $"Estimated refund under the fare rules: {Money(refund)}" + (fee > 0 ? $" (cancellation fee {Money(fee)})." : "."),
+                "Under the fare rules no refund is due for this booking.",
+                $"The link is valid for {minutes} minutes and works once.",
+                "If you did not ask for this, ignore this message: your booking stays active.")
+        };
+
+        return Build(subject, intro + "\n\n" + (refundDue ? estimate : none), link, validity, ignore, name);
+    }
+
     /// <summary>Lets the person choose a new password by opening the link.</summary>
     public static (string Subject, string Text, string Html) PasswordReset(string? language, string name, string link, int minutes)
     {

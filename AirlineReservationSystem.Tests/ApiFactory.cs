@@ -54,6 +54,9 @@ public class ApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
     /// <summary>Off by default so the many tests that book and pay need no mailbox; the tests of the per-booking link switch it on.</summary>
     public bool RequireBookingEmailConfirmation { get; init; }
 
+    /// <summary>Off by default so the tests that cancel paid bookings need no mailbox; the tests of the cancellation link switch it on.</summary>
+    public bool RequireCancellationEmailConfirmation { get; init; }
+
     public const string TestWebhookSecret = "whsec_api_tests_only";
 
     /// <summary>The Checkout pages the API asked "Stripe" for.</summary>
@@ -90,6 +93,7 @@ public class ApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
                 settings.LookupRateLimitPerMinute = LookupRateLimitPerMinute;
                 settings.RequireVerifiedEmailForBooking = RequireVerifiedEmailForBooking;
                 settings.RequireBookingEmailConfirmation = RequireBookingEmailConfirmation;
+                settings.RequireCancellationEmailConfirmation = RequireCancellationEmailConfirmation;
                 settings.RequireSignInToBook = RequireSignInToBook;
                 settings.FrontendBaseUrl = "https://aerova.test";
             });

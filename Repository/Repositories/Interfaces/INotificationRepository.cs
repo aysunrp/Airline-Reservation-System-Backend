@@ -24,4 +24,7 @@ public interface INotificationRepository : IBaseRepository<Notification>
     /// <paramref name="maxAttempts"/>, created after <paramref name="createdAfter"/>, and for an account whose e-mail address is verified.
     /// </summary>
     Task<IReadOnlyList<Notification>> GetDueForEmailAsync(DateTime createdAfter, int maxAttempts, int take, CancellationToken cancellationToken = default);
+
+    /// <summary>True when a notification for this event already exists (saved before).</summary>
+    Task<bool> EmailKeyExistsAsync(string emailKey, CancellationToken cancellationToken = default);
 }

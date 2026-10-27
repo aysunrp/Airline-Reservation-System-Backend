@@ -18,10 +18,10 @@ public interface IEmailTokenRepository : IBaseRepository<EmailToken>
     Task<int> CountCreatedSinceAsync(int userId, EmailTokenPurpose purpose, DateTime since, CancellationToken cancellationToken = default);
 
     /// <summary>Booking links that were not used yet (tracked), so a new one can replace them.</summary>
-    Task<IReadOnlyList<EmailToken>> GetUnusedForBookingAsync(int bookingId, CancellationToken cancellationToken = default);
+    Task<IReadOnlyList<EmailToken>> GetUnusedForBookingAsync(int bookingId, EmailTokenPurpose purpose = EmailTokenPurpose.BookingConfirm, CancellationToken cancellationToken = default);
 
     /// <summary>When the latest link of this booking was made; null when there is none.</summary>
-    Task<DateTime?> GetLatestCreatedAtForBookingAsync(int bookingId, CancellationToken cancellationToken = default);
+    Task<DateTime?> GetLatestCreatedAtForBookingAsync(int bookingId, EmailTokenPurpose purpose = EmailTokenPurpose.BookingConfirm, CancellationToken cancellationToken = default);
 
     /// <summary>Removes tokens that expired before the given moment; returns how many.</summary>
     Task<int> DeleteExpiredAsync(DateTime before, CancellationToken cancellationToken = default);

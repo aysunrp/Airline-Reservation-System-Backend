@@ -14,5 +14,6 @@ public class EmailTokenConfiguration : IEntityTypeConfiguration<EmailToken>
         builder.HasIndex(x => x.TokenHash).IsUnique();
         builder.HasIndex(x => new { x.UserId, x.Purpose });
         builder.HasIndex(x => x.BookingId);
+        builder.Property(x => x.Payload).HasMaxLength(700);
     }
 }

@@ -15,6 +15,7 @@ public class NotificationEmailTests
 
     private NotificationEmailService CreateService() => new(
         _context.Notifications,
+        _context.Bookings,
         _context.EmailSender,
         Options.Create(new AuthSettings { FrontendBaseUrl = "https://aerova.test/" }),
         _context.Clock,

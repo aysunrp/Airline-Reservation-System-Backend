@@ -42,6 +42,7 @@ public class NotificationRepository : BaseRepository<Notification>, INotificatio
     public async Task<IReadOnlyList<Notification>> GetDueForEmailAsync(DateTime createdAfter, int maxAttempts, int take, CancellationToken cancellationToken = default)
         => await Set
             .Include(n => n.User)
+            .Include(n => n.Booking)
             .Where(n => n.EmailSentAt == null
                         && n.EmailAttempts < maxAttempts
                         && n.CreatedAt > createdAfter
@@ -49,4 +50,7 @@ public class NotificationRepository : BaseRepository<Notification>, INotificatio
             .OrderBy(n => n.Id)
             .Take(take)
             .ToListAsync(cancellationToken);
+
+    public Task<bool> EmailKeyExistsAsync(string emailKey, CancellationToken cancellationToken = default)
+        => Set.AnyAsync(n => n.EmailKey == emailKey, cancellationToken);
 }

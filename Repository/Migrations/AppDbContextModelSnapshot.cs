@@ -482,6 +482,10 @@ namespace Repository.Migrations
                         .HasPrecision(18, 2)
                         .HasColumnType("decimal(18,2)");
 
+                    b.Property<string>("Language")
+                        .HasMaxLength(5)
+                        .HasColumnType("nvarchar(5)");
+
                     b.Property<string>("Reason")
                         .HasMaxLength(500)
                         .HasColumnType("nvarchar(500)");
@@ -557,6 +561,10 @@ namespace Repository.Migrations
 
                     b.Property<DateTime>("ExpiresAt")
                         .HasColumnType("datetime2");
+
+                    b.Property<string>("Payload")
+                        .HasMaxLength(700)
+                        .HasColumnType("nvarchar(700)");
 
                     b.Property<string>("Purpose")
                         .IsRequired()
@@ -964,6 +972,10 @@ namespace Repository.Migrations
                     b.Property<int>("EmailAttempts")
                         .HasColumnType("int");
 
+                    b.Property<string>("EmailKey")
+                        .HasMaxLength(80)
+                        .HasColumnType("nvarchar(80)");
+
                     b.Property<DateTime?>("EmailSentAt")
                         .HasColumnType("datetime2");
 
@@ -994,6 +1006,10 @@ namespace Repository.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("BookingId");
+
+                    b.HasIndex("EmailKey")
+                        .IsUnique()
+                        .HasFilter("[EmailKey] IS NOT NULL");
 
                     b.HasIndex("EmailSentAt");
 

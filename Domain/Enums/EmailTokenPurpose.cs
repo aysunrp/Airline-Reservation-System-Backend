@@ -9,5 +9,8 @@ public enum EmailTokenPurpose
     ResetCode,
 
     /// <summary>The link that confirms one booking by e-mail before it can be paid.</summary>
-    BookingConfirm
+    BookingConfirm,
+
+    /// <summary>The link that confirms the cancellation of one paid booking; the booking is only cancelled when it is opened and confirmed.</summary>
+    CancelBooking
 }

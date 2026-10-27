@@ -49,7 +49,10 @@ public record BookingCancellationDto(
     decimal FeeAmount,
     decimal RefundAmount,
     RefundStatus? RefundStatus,
-    bool RefundIsDemo);
+    bool RefundIsDemo,
+    string Currency = "USD",
+    string? Reason = null,
+    DateTime? RefundProcessedAt = null);
 
 public record BookingDto(
     int Id,
@@ -78,4 +81,6 @@ public record BookingSummaryDto(
     int PassengerCount,
     RefundStatus? RefundStatus,
     IReadOnlyList<BookingLegDto> Legs,
-    bool RefundIsDemo);
+    bool RefundIsDemo,
+    decimal? RefundAmount = null,
+    string? RefundCurrency = null);

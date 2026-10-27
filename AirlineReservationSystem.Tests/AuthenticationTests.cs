@@ -82,8 +82,9 @@ public class AuthenticationTests : IClassFixture<ApiFactory>
     public async Task ExpiredToken_IsRejected()
     {
         var settings = _factory.Services.GetRequiredService<IOptions<JwtSettings>>();
-        var lastWeek = new FixedTimeProvider(DateTime.UtcNow.AddDays(-7));
-        var expired = new TokenService(settings, lastWeek).CreateToken(Admin).AccessToken;
+        // Issued longer ago than a token lives (whatever the configured lifetime is), so it ran out an hour ago.
+        var longAgo = new FixedTimeProvider(DateTime.UtcNow.AddMinutes(-(settings.Value.ExpiryMinutes + 60)));
+        var expired = new TokenService(settings, longAgo).CreateToken(Admin).AccessToken;
 
         Assert.False((await ValidateAsync(expired)).IsValid);
     }

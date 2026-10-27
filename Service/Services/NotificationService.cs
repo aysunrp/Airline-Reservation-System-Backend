@@ -98,4 +98,23 @@ public class NotificationService : INotificationService
             Title = title,
             Message = message
         }, cancellationToken);
+
+    public async Task<bool> QueueOnceAsync(string emailKey, int userId, int? bookingId, NotificationType type, string title, string message, CancellationToken cancellationToken = default)
+    {
+        if (await _notificationRepository.EmailKeyExistsAsync(emailKey, cancellationToken))
+        {
+            return false;
+        }
+
+        await _notificationRepository.AddAsync(new Notification
+        {
+            UserId = userId,
+            BookingId = bookingId,
+            Type = type,
+            Title = title,
+            Message = message,
+            EmailKey = emailKey
+        }, cancellationToken);
+        return true;
+    }
 }

@@ -7,5 +7,11 @@ public enum NotificationType
     PaymentSuccessful,
     FlightUpdate,
     CheckInReminder,
-    RefundCompleted
+    RefundCompleted,
+
+    /// <summary>Stripe has taken the refund and is still processing it: nothing is said to have arrived yet.</summary>
+    RefundPending,
+
+    /// <summary>The refund did not go through; the booking stays cancelled and the amount is still owed.</summary>
+    RefundFailed
 }
