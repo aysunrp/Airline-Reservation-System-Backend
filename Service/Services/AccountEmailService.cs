@@ -134,6 +134,12 @@ public class AccountEmailService : IAccountEmailService
 
         token.UsedAt = now;
         token.User.EmailVerifiedAt ??= now;
+        // The address is confirmed once: the other open links are spent with it.
+        foreach (var other in await _tokens.GetUnusedAsync(token.UserId, EmailTokenPurpose.VerifyEmail, cancellationToken))
+        {
+            other.UsedAt = now;
+        }
+
         _users.Update(token.User);
         await _tokens.SaveChangesAsync(cancellationToken);
     }
@@ -295,10 +301,14 @@ public class AccountEmailService : IAccountEmailService
             ? TimeSpan.FromHours(Math.Max(1, _settings.VerifyEmailHours))
             : TimeSpan.FromMinutes(Math.Max(5, _settings.ResetPasswordMinutes));
 
-        // Old links of the same kind stop working; long expired ones are removed.
-        foreach (var open in await _tokens.GetUnusedAsync(user.Id, purpose, cancellationToken))
+        // Old password links stop working; long expired ones are removed. Confirmation links stay valid until one of them is used:
+        // mail arrives out of order, and a person who asks for a second message often still opens the first one.
+        if (purpose != EmailTokenPurpose.VerifyEmail)
         {
-            open.UsedAt = now;
+            foreach (var open in await _tokens.GetUnusedAsync(user.Id, purpose, cancellationToken))
+            {
+                open.UsedAt = now;
+            }
         }
 
         await _tokens.DeleteExpiredAsync(now.AddDays(-7), cancellationToken);

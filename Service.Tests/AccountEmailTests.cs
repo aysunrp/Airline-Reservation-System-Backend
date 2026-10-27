@@ -113,7 +113,7 @@ public class AccountEmailTests
     }
 
     [Fact]
-    public async Task Resend_IsLimitedToOnePerMinute_AndTheOldLinkStopsWorking()
+    public async Task Resend_IsLimitedToOnePerMinute_AndTheFirstLinkStillConfirmsTheAddress()
     {
         var (context, user) = await RegisteredAsync();
         var firstToken = context.Sender.LatestToken();
@@ -126,11 +126,33 @@ public class AccountEmailTests
         await service.ResendVerificationAsync(1, null);
 
         Assert.Equal(2, context.Sender.Sent.Count);
-        await Assert.ThrowsAsync<BusinessRuleException>(() => service.VerifyEmailAsync(Verify(firstToken)));
-        await service.VerifyEmailAsync(Verify(context.Sender.LatestToken()));
+        var secondToken = context.Sender.LatestToken();
+
+        // Mail can arrive in any order, so the message sent first confirms the address as well as the newer one does.
+        await service.VerifyEmailAsync(Verify(firstToken));
         Assert.NotNull(user.EmailVerifiedAt);
 
+        // Confirmed once: the other link is spent, and says that the address is already confirmed.
+        var spent = await Assert.ThrowsAsync<BusinessRuleException>(() => service.VerifyEmailAsync(Verify(secondToken)));
+        Assert.Equal("link_confirmed", spent.Code);
         await Assert.ThrowsAsync<ConflictException>(() => service.ResendVerificationAsync(1, null));
+    }
+
+    [Fact]
+    public async Task ChangingTheEmailAddress_StillRevokesEveryOpenConfirmationLink()
+    {
+        var (context, user) = await RegisteredAsync();
+        var firstToken = context.Sender.LatestToken();
+        var service = context.CreateAccountEmail();
+        context.Clock.Advance(TimeSpan.FromSeconds(61));
+        await service.ResendVerificationAsync(1, null);
+        var secondToken = context.Sender.LatestToken();
+
+        await service.EmailChangedAsync(user, null);
+
+        await Assert.ThrowsAsync<BusinessRuleException>(() => service.VerifyEmailAsync(Verify(firstToken)));
+        await Assert.ThrowsAsync<BusinessRuleException>(() => service.VerifyEmailAsync(Verify(secondToken)));
+        Assert.Null(user.EmailVerifiedAt);
     }
 
     [Fact]
