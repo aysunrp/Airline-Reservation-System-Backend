@@ -19,6 +19,7 @@ public class SwaggerContractTests : IClassFixture<ApiFactory>
         { "post", "/api/auth/login", false },
         { "post", "/api/auth/verify-email", false },
         { "post", "/api/auth/forgot-password", false },
+        { "post", "/api/auth/verify-reset-code", false },
         { "post", "/api/auth/reset-password", false },
         { "get", "/api/airports", false },
         { "post", "/api/flights/search", false },

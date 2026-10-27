@@ -63,3 +63,16 @@ dotnet run --no-launch-profile -- check-email
 Nəticələr: "The mail server accepted the login" (hər şey qaydasındadır, təsdiq linkini profildən yenidən istəyin), "refused the login" (App password və ya giriş ünvanı səhv, ya da hesab App password-a icazə vermir), "could not be reached" (internet, firewall və ya antivirus 587 portunu bağlayır).
 
 Təsdiq linki 24 saat etibarlıdır. Vaxtı keçibsə, profildən yenisini istəyin: köhnə link işləmir.
+
+## Şifrəni unutdum: e-poçt kodu ilə
+Login səhifəsində "Şifrəni unutdun?" basıldıqda axın belədir: e-poçt ünvanı → **6 rəqəmli kod** (e-poçta gəlir) → kodu daxil etmə → yeni şifrə → girişə qayıdış (yeni şifrə ilə daxil olunur, avtomatik giriş yoxdur).
+
+- Kod **10 dəqiqə** etibarlıdır, **bir dəfə** işləyir, hər kod üçün **5 yanlış cəhd** var, sonra ölür. Hesab başına saatda **5 kod**, iki kod arasında **1 dəqiqə**; IP üzrə dəqiqədə 10 sorğu limiti qalır.
+- Düzgün kod qısa ömürlü (10 dəqiqə) birdəfəlik **bilet** verir, şifrə yalnız bu biletlə dəyişir.
+- Cavablar ünvanın mövcudluğunu açıqlamır: bilinməyən ünvan, yanlış, vaxtı bitmiş və istifadə olunmuş kod eyni xətanı verir.
+- Kod bazada açıq saxlanmır (serverin gizli açarı ilə HMAC), logda heç vaxt yoxdur.
+- Ayarlar (`Auth` bölməsi): `ResetCodeMinutes` (10), `ResetCodeMaxAttempts` (5), `ResetCodesPerHour` (5), `ResetTicketMinutes` (10).
+- Bu axın üçün `EmailTokens` cədvəlinə `Attempts` sütunu lazımdır (miqrasiya `AddResetCodeAttempts`). Onu tətbiq etmədən yeni backend-i real bazada işlətməyin.
+
+## E-poçt təsdiqi
+Təsdiq yalnız yeni hesab açılanda (və ya profildə e-poçt ünvanı dəyişəndə) tələb olunur. Təsdiqləndikdən sonra hesab hər girişdə yenidən təsdiq istəmir, rezervasiya zamanı da məktub göndərilmir. Link açılanda üç hal göstərilir: uğurlu, vaxtı bitmiş (24 saat) və artıq istifadə olunmuş.

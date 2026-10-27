@@ -113,34 +113,6 @@ public class AccountEmailTests
     }
 
     [Fact]
-    public async Task AnExpiredOrUnknownLink_IsRefusedWithTheSameMessage()
-    {
-        var (context, user) = await RegisteredAsync();
-        var token = context.Sender.LatestToken();
-        var service = context.CreateAccountEmail();
-
-        var unknown = await Assert.ThrowsAsync<BusinessRuleException>(() => service.VerifyEmailAsync(Verify("not-a-real-token")));
-        context.Clock.Advance(TimeSpan.FromHours(24.1));
-        var expired = await Assert.ThrowsAsync<BusinessRuleException>(() => service.VerifyEmailAsync(Verify(token)));
-
-        Assert.Equal(unknown.Message, expired.Message);
-        Assert.Null(user.EmailVerifiedAt);
-    }
-
-    [Fact]
-    public async Task AResetToken_CannotVerifyAnAddress()
-    {
-        var (context, user) = await RegisteredAsync();
-        var service = context.CreateAccountEmail();
-        await service.ForgotPasswordAsync(new ForgotPasswordRequestDto { Email = "aysun@example.com" });
-        var resetToken = context.Sender.LatestToken();
-
-        await Assert.ThrowsAsync<BusinessRuleException>(() => service.VerifyEmailAsync(Verify(resetToken)));
-
-        Assert.Null(user.EmailVerifiedAt);
-    }
-
-    [Fact]
     public async Task Resend_IsLimitedToOnePerMinute_AndTheOldLinkStopsWorking()
     {
         var (context, user) = await RegisteredAsync();
@@ -177,22 +149,6 @@ public class AccountEmailTests
     }
 
     // ---- password reset ---------------------------------------------------------------------------------------------
-
-    [Fact]
-    public async Task ForgotPassword_AnswersTheSameForAKnownAndAnUnknownAddress_AndMailsOnlyTheKnownOne()
-    {
-        var context = new AccountTestContext(AccountTestContext.Customer("secret1"));
-        var service = context.CreateAccountEmail();
-
-        await service.ForgotPasswordAsync(new ForgotPasswordRequestDto { Email = "nobody@example.com" });
-        Assert.Empty(context.Sender.Sent);
-
-        await service.ForgotPasswordAsync(new ForgotPasswordRequestDto { Email = " AYSUN@example.com " });
-        var message = Assert.Single(context.Sender.Sent);
-        Assert.Equal("aysun@example.com", message.To);
-        Assert.Contains("https://aerova.test/reset-password.html?token=", message.TextBody);
-        Assert.Equal(AccountTestContext.Start.AddMinutes(60), context.Tokens.All.Single().ExpiresAt);
-    }
 
     [Fact]
     public async Task ForgotPassword_SendsNothingForADisabledAccount_AndNotTwiceInAMinute()
@@ -247,113 +203,7 @@ public class AccountEmailTests
         await Assert.ThrowsAsync<ValidationException>(() => service.ForgotPasswordAsync(new ForgotPasswordRequestDto { Email = "not-an-email" }));
     }
 
-    [Fact]
-    public async Task ResetPassword_SetsTheNewPassword_Once()
-    {
-        var user = AccountTestContext.Customer("secret1");
-        var context = new AccountTestContext(user);
-        var service = context.CreateAccountEmail();
-        await service.ForgotPasswordAsync(new ForgotPasswordRequestDto { Email = "aysun@example.com" });
-        var token = context.Sender.LatestToken();
-
-        await service.ResetPasswordAsync(Reset(token));
-
-        var auth = context.CreateAuth();
-        Assert.Equal(5, (await auth.LoginAsync(new LoginRequestDto { Email = "aysun@example.com", Password = "new-secret2" })).User.Id);
-        await Assert.ThrowsAsync<UnauthorizedException>(() => auth.LoginAsync(new LoginRequestDto { Email = "aysun@example.com", Password = "secret1" }));
-        Assert.NotEqual("new-secret2", user.PasswordHash);
-
-        await Assert.ThrowsAsync<BusinessRuleException>(() => service.ResetPasswordAsync(Reset(token, "another-pass3")));
-    }
-
-    [Fact]
-    public async Task ResetPassword_RefusesAnExpiredAnUnknownAndAnUnsuitableLink()
-    {
-        var context = new AccountTestContext(AccountTestContext.Customer("secret1"));
-        var service = context.CreateAccountEmail();
-        await service.ForgotPasswordAsync(new ForgotPasswordRequestDto { Email = "aysun@example.com" });
-        var token = context.Sender.LatestToken();
-
-        await Assert.ThrowsAsync<BusinessRuleException>(() => service.ResetPasswordAsync(Reset("not-a-real-token")));
-
-        // A password that is too short is refused before the token is looked at, and does not use the token up.
-        await Assert.ThrowsAsync<ValidationException>(() => service.ResetPasswordAsync(Reset(token, "123")));
-        await Assert.ThrowsAsync<ValidationException>(() => service.ResetPasswordAsync(new ResetPasswordRequestDto { Token = token, NewPassword = "secret3", ConfirmPassword = "secret4" }));
-
-        context.Clock.Advance(TimeSpan.FromMinutes(61));
-        await Assert.ThrowsAsync<BusinessRuleException>(() => service.ResetPasswordAsync(Reset(token)));
-    }
-
-    [Fact]
-    public async Task ResetPassword_UsesUpEveryOpenResetLink_AndEndsASignInPause()
-    {
-        var context = new AccountTestContext(AccountTestContext.Customer("secret1"));
-        var service = context.CreateAccountEmail();
-        var auth = context.CreateAuth();
-
-        await service.ForgotPasswordAsync(new ForgotPasswordRequestDto { Email = "aysun@example.com" });
-        var first = context.Sender.LatestToken();
-        context.Clock.Advance(TimeSpan.FromSeconds(61));
-        await service.ForgotPasswordAsync(new ForgotPasswordRequestDto { Email = "aysun@example.com" });
-        var second = context.Sender.LatestToken();
-
-        // The newer link replaced the older one.
-        await Assert.ThrowsAsync<BusinessRuleException>(() => service.ResetPasswordAsync(Reset(first)));
-
-        for (var i = 0; i < 5; i++)
-        {
-            await Assert.ThrowsAsync<UnauthorizedException>(() => auth.LoginAsync(new LoginRequestDto { Email = "aysun@example.com", Password = "wrong-password" }));
-        }
-
-        await service.ResetPasswordAsync(Reset(second));
-
-        Assert.NotNull(await auth.LoginAsync(new LoginRequestDto { Email = "aysun@example.com", Password = "new-secret2" }));
-        Assert.All(context.Tokens.All, token => Assert.NotNull(token.UsedAt));
-    }
-
-    [Fact]
-    public async Task OpeningTheResetLink_ShowsTheMailboxIsTheirs_SoTheAddressCountsAsVerified()
-    {
-        var user = AccountTestContext.Customer("secret1");
-        var context = new AccountTestContext(user);
-        var service = context.CreateAccountEmail();
-        await service.ForgotPasswordAsync(new ForgotPasswordRequestDto { Email = "aysun@example.com" });
-
-        await service.ResetPasswordAsync(Reset(context.Sender.LatestToken()));
-
-        Assert.Equal(AccountTestContext.Start, user.EmailVerifiedAt);
-    }
-
     // ---- logs --------------------------------------------------------------------------------------------------------
-
-    [Fact]
-    public async Task TheLog_NeverHoldsATokenAnAddressOrAPassword()
-    {
-        var context = new AccountTestContext();
-        context.Sender.Fail = true;
-        var auth = context.CreateAuth();
-        await auth.RegisterAsync(Registration());
-        var service = context.CreateAccountEmail();
-
-        context.Sender.Fail = false;
-        context.Clock.Advance(TimeSpan.FromSeconds(61));
-        await service.ResendVerificationAsync(1, null);
-        var token = context.Sender.LatestToken();
-        await service.ForgotPasswordAsync(new ForgotPasswordRequestDto { Email = "aysun@example.com" });
-        var resetToken = context.Sender.LatestToken();
-        await service.ResetPasswordAsync(Reset(resetToken, "my-new-password9"));
-
-        var lines = context.EmailLog.Messages.Concat(context.AuthLog.Messages).ToList();
-        Assert.All(lines, line =>
-        {
-            Assert.DoesNotContain("aysun", line, StringComparison.OrdinalIgnoreCase);
-            Assert.DoesNotContain(token, line);
-            Assert.DoesNotContain(resetToken, line);
-            Assert.DoesNotContain("secret1", line);
-            Assert.DoesNotContain("my-new-password9", line);
-            Assert.DoesNotContain("token=", line);
-        });
-    }
 
     [Fact]
     public async Task ASmtpFailure_IsLoggedWithoutTheLoginThePasswordOrTheRecipient()

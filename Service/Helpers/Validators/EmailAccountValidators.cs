@@ -19,6 +19,15 @@ public class ForgotPasswordRequestValidator : AbstractValidator<ForgotPasswordRe
     }
 }
 
+public class VerifyResetCodeRequestValidator : AbstractValidator<VerifyResetCodeRequestDto>
+{
+    public VerifyResetCodeRequestValidator()
+    {
+        RuleFor(x => x.Email).NotEmpty().EmailAddress().MaximumLength(256);
+        RuleFor(x => x.Code).NotEmpty().Matches("^[0-9]{6}$").WithMessage("Enter the six digits from the e-mail.");
+    }
+}
+
 public class ResetPasswordRequestValidator : AbstractValidator<ResetPasswordRequestDto>
 {
     public ResetPasswordRequestValidator()

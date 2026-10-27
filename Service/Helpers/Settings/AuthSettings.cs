@@ -34,8 +34,20 @@ public class AuthSettings
     /// <summary>How long the link that confirms an e-mail address works.</summary>
     public int VerifyEmailHours { get; set; } = 24;
 
-    /// <summary>How long the link that resets a password works.</summary>
+    /// <summary>How long a password reset link from an older e-mail still works.</summary>
     public int ResetPasswordMinutes { get; set; } = 60;
+
+    /// <summary>How long the six-digit code of a password reset works.</summary>
+    public int ResetCodeMinutes { get; set; } = 10;
+
+    /// <summary>Wrong guesses allowed for one reset code; after that the code is dead and a new one has to be asked for.</summary>
+    public int ResetCodeMaxAttempts { get; set; } = 5;
+
+    /// <summary>Reset codes one account can be sent per hour, so the codes cannot be used for endless guessing or for mail bombing.</summary>
+    public int ResetCodesPerHour { get; set; } = 5;
+
+    /// <summary>How long the person has, after typing the right code, to choose the new password.</summary>
+    public int ResetTicketMinutes { get; set; } = 10;
 
     /// <summary>Seconds before another e-mail of the same kind can be sent to the same account.</summary>
     public int EmailCooldownSeconds { get; set; } = 60;

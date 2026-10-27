@@ -38,6 +38,13 @@ public sealed class TestEmailSender : IEmailSender
         return Task.CompletedTask;
     }
 
+    /// <summary>The six-digit code of the latest message sent to the address (what the person would type in).</summary>
+    public string CodeFor(string email)
+    {
+        var message = Sent.Last(m => string.Equals(m.To, email, StringComparison.OrdinalIgnoreCase));
+        return System.Text.RegularExpressions.Regex.Match(message.TextBody, @"(?<!\d)\d{6}(?!\d)").Value;
+    }
+
     /// <summary>The token of the latest message sent to the address (what the person would click).</summary>
     public string TokenFor(string email)
     {

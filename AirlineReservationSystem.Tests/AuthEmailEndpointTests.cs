@@ -64,7 +64,9 @@ public class AuthEmailEndpointTests : IClassFixture<ApiFactory>
 
         var wrong = await client.PostAsJsonAsync("/api/auth/verify-email", new VerifyEmailRequestDto { Token = "definitely-not-a-token" }, Json);
         Assert.Equal(HttpStatusCode.UnprocessableEntity, wrong.StatusCode);
-        Assert.Equal("This link is invalid or has expired.", (await wrong.ReadJsonAsync()).GetProperty("detail").GetString());
+        var problem = await wrong.ReadJsonAsync();
+        Assert.Equal("This link is not valid.", problem.GetProperty("detail").GetString());
+        Assert.Equal("link_invalid", problem.GetProperty("code").GetString());
 
         Assert.Equal(HttpStatusCode.BadRequest, (await client.PostAsJsonAsync("/api/auth/verify-email", new VerifyEmailRequestDto { Token = "" }, Json)).StatusCode);
     }
@@ -103,7 +105,9 @@ public class AuthEmailEndpointTests : IClassFixture<ApiFactory>
         Assert.Equal(await known.Content.ReadAsStringAsync(), await stranger.Content.ReadAsStringAsync());
         Assert.Equal(before + 1, _factory.Emails.Sent.Count);
         Assert.DoesNotContain(_factory.Emails.Sent, m => m.To == unknown);
-        Assert.Contains("reset-password.html?token=", _factory.Emails.Sent.Last(m => m.To == email).TextBody);
+        var mail = _factory.Emails.Sent.Last(m => m.To == email);
+        Assert.Matches("(?<!\\d)[0-9]{6}(?!\\d)", mail.TextBody);
+        Assert.DoesNotContain("reset-password.html", mail.TextBody);
 
         Assert.Equal(HttpStatusCode.BadRequest, (await client.PostAsJsonAsync("/api/auth/forgot-password", new ForgotPasswordRequestDto { Email = "not-an-email" }, Json)).StatusCode);
     }
@@ -129,7 +133,15 @@ public class AuthEmailEndpointTests : IClassFixture<ApiFactory>
         var email = UniqueEmail("reset");
         await client.RegisterAsync(email);
         await client.PostAsJsonAsync("/api/auth/forgot-password", new ForgotPasswordRequestDto { Email = email }, Json);
-        var token = _factory.Emails.TokenFor(email);
+
+        // The e-mailed code is traded for a ticket; the password cannot be changed with the code itself.
+        var code = _factory.Emails.CodeFor(email);
+        var withCode = await client.PostAsJsonAsync("/api/auth/reset-password", new ResetPasswordRequestDto { Token = code, NewPassword = "brand-new1", ConfirmPassword = "brand-new1" }, Json);
+        Assert.Equal(HttpStatusCode.UnprocessableEntity, withCode.StatusCode);
+
+        var verified = await client.PostAsJsonAsync("/api/auth/verify-reset-code", new VerifyResetCodeRequestDto { Email = email, Code = code }, Json);
+        Assert.Equal(HttpStatusCode.OK, verified.StatusCode);
+        var token = (await verified.ReadAsync<ResetTicketDto>()).Ticket;
 
         var mismatch = await client.PostAsJsonAsync("/api/auth/reset-password", new ResetPasswordRequestDto { Token = token, NewPassword = "brand-new1", ConfirmPassword = "other-one2" }, Json);
         Assert.Equal(HttpStatusCode.BadRequest, mismatch.StatusCode);
@@ -142,6 +154,59 @@ public class AuthEmailEndpointTests : IClassFixture<ApiFactory>
 
         var reused = await client.PostAsJsonAsync("/api/auth/reset-password", new ResetPasswordRequestDto { Token = token, NewPassword = "third-pass3", ConfirmPassword = "third-pass3" }, Json);
         Assert.Equal(HttpStatusCode.UnprocessableEntity, reused.StatusCode);
+    }
+
+    [Fact]
+    public async Task VerifyResetCode_GivesTheSameAnswerForEveryKindOfFailure_AndKillsACodeAfterFiveGuesses()
+    {
+        var client = _factory.CreateClient();
+        var email = UniqueEmail("code");
+        await client.RegisterAsync(email);
+        await client.PostAsJsonAsync("/api/auth/forgot-password", new ForgotPasswordRequestDto { Email = email }, Json);
+        var code = _factory.Emails.CodeFor(email);
+        var wrong = code == "000000" ? "000001" : "000000";
+
+        var unknown = await client.PostAsJsonAsync("/api/auth/verify-reset-code", new VerifyResetCodeRequestDto { Email = UniqueEmail("nobody"), Code = wrong }, Json);
+        var first = await client.PostAsJsonAsync("/api/auth/verify-reset-code", new VerifyResetCodeRequestDto { Email = email, Code = wrong }, Json);
+        Assert.Equal(HttpStatusCode.UnprocessableEntity, unknown.StatusCode);
+        Assert.Equal(HttpStatusCode.UnprocessableEntity, first.StatusCode);
+        var unknownBody = await unknown.ReadJsonAsync();
+        var wrongBody = await first.ReadJsonAsync();
+        Assert.Equal("code_invalid", wrongBody.GetProperty("code").GetString());
+        Assert.Equal(unknownBody.GetProperty("detail").GetString(), wrongBody.GetProperty("detail").GetString());
+        Assert.Equal(unknownBody.GetProperty("code").GetString(), wrongBody.GetProperty("code").GetString());
+
+        // Bad input never reaches the account.
+        Assert.Equal(HttpStatusCode.BadRequest, (await client.PostAsJsonAsync("/api/auth/verify-reset-code", new VerifyResetCodeRequestDto { Email = email, Code = "12" }, Json)).StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest, (await client.PostAsJsonAsync("/api/auth/verify-reset-code", new VerifyResetCodeRequestDto { Email = "not-an-email", Code = "123456" }, Json)).StatusCode);
+
+        for (var i = 0; i < 4; i++)
+        {
+            await client.PostAsJsonAsync("/api/auth/verify-reset-code", new VerifyResetCodeRequestDto { Email = email, Code = wrong }, Json);
+        }
+
+        // Five wrong guesses are spent: the right code no longer works either.
+        var dead = await client.PostAsJsonAsync("/api/auth/verify-reset-code", new VerifyResetCodeRequestDto { Email = email, Code = code }, Json);
+        Assert.Equal(HttpStatusCode.UnprocessableEntity, dead.StatusCode);
+    }
+
+    [Fact]
+    public async Task AVerificationLink_TellsUnknownFromAlreadyUsedOverHttp()
+    {
+        var client = _factory.CreateClient();
+        var email = UniqueEmail("states");
+        await client.RegisterAsync(email);
+        var token = _factory.Emails.TokenFor(email);
+
+        var unknown = await client.PostAsJsonAsync("/api/auth/verify-email", new VerifyEmailRequestDto { Token = "not-a-real-token" }, Json);
+        Assert.Equal(HttpStatusCode.UnprocessableEntity, unknown.StatusCode);
+        Assert.Equal("link_invalid", (await unknown.ReadJsonAsync()).GetProperty("code").GetString());
+
+        Assert.Equal(HttpStatusCode.NoContent, (await client.PostAsJsonAsync("/api/auth/verify-email", new VerifyEmailRequestDto { Token = token }, Json)).StatusCode);
+
+        var used = await client.PostAsJsonAsync("/api/auth/verify-email", new VerifyEmailRequestDto { Token = token }, Json);
+        Assert.Equal(HttpStatusCode.UnprocessableEntity, used.StatusCode);
+        Assert.Equal("link_confirmed", (await used.ReadJsonAsync()).GetProperty("code").GetString());
     }
 
     [Fact]

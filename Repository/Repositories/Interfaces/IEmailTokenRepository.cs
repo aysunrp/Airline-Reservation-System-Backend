@@ -14,6 +14,9 @@ public interface IEmailTokenRepository : IBaseRepository<EmailToken>
     /// <summary>When the user's latest token of this purpose was made; null when there is none.</summary>
     Task<DateTime?> GetLatestCreatedAtAsync(int userId, EmailTokenPurpose purpose, CancellationToken cancellationToken = default);
 
+    /// <summary>How many tokens of this purpose were made for the user since the given moment (used or not).</summary>
+    Task<int> CountCreatedSinceAsync(int userId, EmailTokenPurpose purpose, DateTime since, CancellationToken cancellationToken = default);
+
     /// <summary>Removes tokens that expired before the given moment; returns how many.</summary>
     Task<int> DeleteExpiredAsync(DateTime before, CancellationToken cancellationToken = default);
 }

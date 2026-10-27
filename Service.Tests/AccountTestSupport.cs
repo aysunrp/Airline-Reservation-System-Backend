@@ -60,6 +60,10 @@ internal sealed class FakeEmailSender : IEmailSender
         return Task.CompletedTask;
     }
 
+    /// <summary>The six-digit code in the latest message (what the person would type in).</summary>
+    public string LatestCode()
+        => System.Text.RegularExpressions.Regex.Match(Sent[^1].TextBody, @"(?<!\d)\d{6}(?!\d)").Value;
+
     /// <summary>The token inside the link of the latest message (what the person would click).</summary>
     public string LatestToken() => TokenOf(Sent[^1]);
 
@@ -95,6 +99,9 @@ internal sealed class FakeEmailTokenRepository : FakeRepository<EmailToken>, IEm
 
     public Task<DateTime?> GetLatestCreatedAtAsync(int userId, EmailTokenPurpose purpose, CancellationToken cancellationToken = default)
         => Task.FromResult(Items.Where(t => t.UserId == userId && t.Purpose == purpose).Select(t => (DateTime?)t.CreatedAt).OrderByDescending(d => d).FirstOrDefault());
+
+    public Task<int> CountCreatedSinceAsync(int userId, EmailTokenPurpose purpose, DateTime since, CancellationToken cancellationToken = default)
+        => Task.FromResult(Items.Count(t => t.UserId == userId && t.Purpose == purpose && t.CreatedAt >= since));
 
     public Task<int> DeleteExpiredAsync(DateTime before, CancellationToken cancellationToken = default)
         => Task.FromResult(Items.RemoveAll(t => t.ExpiresAt < before));
@@ -139,7 +146,7 @@ internal sealed class AccountTestContext
     public AccountEmailService CreateAccountEmail() => new(
         Users, Tokens, Sender, Hasher, Attempts,
         new VerifyEmailRequestValidator(), new ForgotPasswordRequestValidator(), new ResetPasswordRequestValidator(),
-        Options.Create(Settings), Clock, EmailLog);
+        new VerifyResetCodeRequestValidator(), Options.Create(Jwt), Options.Create(Settings), Clock, EmailLog);
 
     public AuthService CreateAuth(JwtSettings? jwt = null) => new(
         Users, Hasher, new TokenService(Options.Create(jwt ?? Jwt), Clock),

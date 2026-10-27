@@ -51,6 +51,11 @@ public sealed class GlobalExceptionHandler : IExceptionHandler
         problem.Instance = httpContext.Request.Path;
         problem.Extensions["traceId"] = httpContext.TraceIdentifier;
 
+        if (exception is BusinessRuleException { Code: not null } coded)
+        {
+            problem.Extensions["code"] = coded.Code;
+        }
+
         if (exception is TooManyAttemptsException tooMany)
         {
             httpContext.Response.Headers.RetryAfter = Math.Max(1, (int)Math.Ceiling(tooMany.RetryAfter.TotalSeconds)).ToString();

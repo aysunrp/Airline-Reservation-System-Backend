@@ -9,5 +9,5 @@ public static class UserMappings
         => new(user.Id, user.Email, user.FirstName, user.LastName, user.Role.ToString(), user.EmailVerifiedAt is not null);
 
     public static ProfileDto ToProfileDto(this User user)
-        => new(user.Id, user.Title, user.FirstName, user.LastName, user.DateOfBirth, user.NationalityCode, user.Email, user.Phone);
+        => new(user.Id, user.Title, user.FirstName, user.LastName, user.DateOfBirth, user.NationalityCode, user.Email, user.Phone, user.EmailVerifiedAt is not null);
 }

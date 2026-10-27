@@ -57,6 +57,38 @@ public static class EmailTemplates
         return Build(subject, intro, link, validity, ignore, name);
     }
 
+    /// <summary>The six-digit code of a password reset, in English, Azerbaijani or Russian. The code is shown large, not as a link.</summary>
+    public static (string Subject, string Text, string Html) ResetCode(string? language, string name, string code, int minutes)
+    {
+        var (subject, intro, validity, ignore) = NormalizeLanguage(language) switch
+        {
+            "az" => ("AEROVA şifrə sıfırlama kodu",
+                $"Salam {name},\n\nAEROVA şifrənizin sıfırlanması üçün sorğu aldıq. Kodunuz:",
+                $"Kod {minutes} dəqiqə etibarlıdır və yalnız bir dəfə işləyir. Kodu heç kimlə bölüşməyin.",
+                "Bunu siz istəməmisinizsə, məktuba məhəl qoymayın; şifrəniz dəyişməyəcək."),
+            "ru" => ("Код для сброса пароля AEROVA",
+                $"Здравствуйте, {name}!\n\nМы получили запрос на сброс пароля AEROVA. Ваш код:",
+                $"Код действует {minutes} мин. и работает один раз. Никому его не сообщайте.",
+                "Если вы не отправляли запрос, проигнорируйте письмо: пароль останется прежним."),
+            _ => ("Your AEROVA password reset code",
+                $"Hello {name},\n\nWe received a request to reset your AEROVA password. Your code is:",
+                $"The code is valid for {minutes} minutes and works once. Do not share it with anyone.",
+                "If you did not ask for this, ignore this message; your password stays the same.")
+        };
+
+        var text = $"{intro}\n\n{code}\n\n{validity}\n{ignore}\n\nAEROVA";
+
+        var html =
+            "<div style=\"font-family:Arial,Helvetica,sans-serif;max-width:520px;margin:0 auto;padding:24px;color:#0b1a2c\">" +
+            "<p style=\"letter-spacing:.2em;color:#9a7844;font-size:13px;margin:0 0 18px\">AEROVA</p>" +
+            $"<p style=\"white-space:pre-line;line-height:1.55\">{WebUtility.HtmlEncode(intro)}</p>" +
+            $"<p style=\"margin:22px 0;font-size:34px;letter-spacing:.35em;font-weight:bold;font-family:Consolas,Menlo,monospace;color:#0b1a2c\">{WebUtility.HtmlEncode(code)}</p>" +
+            $"<p style=\"font-size:13px;color:#555\">{WebUtility.HtmlEncode(validity)}<br>{WebUtility.HtmlEncode(ignore)}</p>" +
+            "</div>";
+
+        return (subject, text, html);
+    }
+
     /// <summary>
     /// A notification of the app as an e-mail: the title and text the traveller also sees in AEROVA (they are written in English when
     /// the event happens), with a link to the notifications page.

@@ -73,8 +73,8 @@ public class AuthController : ControllerBase
     }
 
     /// <summary>
-    /// Sends the password reset link when an account has this address. The answer is 202 whether or not it does, so addresses
-    /// cannot be probed; 503 only when the API cannot send e-mail at all.
+    /// Sends a six-digit password reset code when an account has this address. The answer is 202 whether or not it does, so
+    /// addresses cannot be probed; 503 only when the API cannot send e-mail at all.
     /// </summary>
     [HttpPost("forgot-password")]
     [EnableRateLimiting(RateLimitPolicies.Auth)]
@@ -88,7 +88,20 @@ public class AuthController : ControllerBase
         return Accepted();
     }
 
-    /// <summary>Sets a new password with the token of the reset link. The token works once; a wrong, used or expired one gives 422.</summary>
+    /// <summary>
+    /// Trades the six-digit reset code for a one-time ticket that sets the new password. A wrong, used, expired or exhausted code (and an
+    /// unknown address) all give the same 422 with code <c>code_invalid</c>; a code dies after a few wrong guesses.
+    /// </summary>
+    [HttpPost("verify-reset-code")]
+    [EnableRateLimiting(RateLimitPolicies.Auth)]
+    [ProducesResponseType<ResetTicketDto>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ValidationProblemDetails>(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status422UnprocessableEntity)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status429TooManyRequests)]
+    public async Task<ActionResult<ResetTicketDto>> VerifyResetCode(VerifyResetCodeRequestDto request, CancellationToken cancellationToken)
+        => Ok(await _accountEmailService.VerifyResetCodeAsync(request, cancellationToken));
+
+    /// <summary>Sets a new password with the ticket given for a correct reset code. The ticket works once; a wrong, used or expired one gives 422.</summary>
     [HttpPost("reset-password")]
     [EnableRateLimiting(RateLimitPolicies.Auth)]
     [ProducesResponseType(StatusCodes.Status204NoContent)]

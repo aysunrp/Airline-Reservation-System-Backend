@@ -53,9 +53,10 @@ public class ProfileServiceTests
     {
         _users.Find(1)!.EmailVerifiedAt = new DateTime(2026, 10, 1, 0, 0, 0, DateTimeKind.Utc);
 
-        await CreateService().UpdateProfileAsync(1, ProfileRequest("new.address@example.com"));
+        var changed = await CreateService().UpdateProfileAsync(1, ProfileRequest("new.address@example.com"));
 
         Assert.Null(_users.Find(1)!.EmailVerifiedAt);
+        Assert.False(changed.EmailVerified);
         Assert.Equal(new[] { 1 }, _accountEmail.EmailChangedFor);
     }
 
@@ -65,9 +66,10 @@ public class ProfileServiceTests
         var verifiedAt = new DateTime(2026, 10, 1, 0, 0, 0, DateTimeKind.Utc);
         _users.Find(1)!.EmailVerifiedAt = verifiedAt;
 
-        await CreateService().UpdateProfileAsync(1, ProfileRequest(" AYSUN@example.com "));
+        var kept = await CreateService().UpdateProfileAsync(1, ProfileRequest(" AYSUN@example.com "));
 
         Assert.Equal(verifiedAt, _users.Find(1)!.EmailVerifiedAt);
+        Assert.True(kept.EmailVerified);
         Assert.Empty(_accountEmail.EmailChangedFor);
     }
 

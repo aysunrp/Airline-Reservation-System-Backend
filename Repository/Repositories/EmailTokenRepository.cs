@@ -24,6 +24,9 @@ public class EmailTokenRepository : BaseRepository<EmailToken>, IEmailTokenRepos
             .Select(t => (DateTime?)t.CreatedAt)
             .FirstOrDefaultAsync(cancellationToken);
 
+    public Task<int> CountCreatedSinceAsync(int userId, EmailTokenPurpose purpose, DateTime since, CancellationToken cancellationToken = default)
+        => Set.CountAsync(t => t.UserId == userId && t.Purpose == purpose && t.CreatedAt >= since, cancellationToken);
+
     public Task<int> DeleteExpiredAsync(DateTime before, CancellationToken cancellationToken = default)
         => Set.Where(t => t.ExpiresAt < before).ExecuteDeleteAsync(cancellationToken);
 }

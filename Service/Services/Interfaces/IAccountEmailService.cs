@@ -21,15 +21,24 @@ public interface IAccountEmailService
     /// </summary>
     Task EmailChangedAsync(User user, string? language, CancellationToken cancellationToken = default);
 
-    /// <summary>Confirms the address behind the token. A wrong, used or expired token gives the same error.</summary>
+    /// <summary>
+    /// Confirms the address behind the token. A wrong, a used and an expired link give a 422 with their own code
+    /// (link_invalid, link_expired, link_used, and link_confirmed when the address is already confirmed), so the page can say what happened.
+    /// </summary>
     Task VerifyEmailAsync(VerifyEmailRequestDto request, CancellationToken cancellationToken = default);
 
     /// <summary>Sends a new verification e-mail to the signed-in account.</summary>
     Task ResendVerificationAsync(int userId, string? language, CancellationToken cancellationToken = default);
 
-    /// <summary>Sends the reset link when the account exists; says nothing either way, so addresses cannot be probed.</summary>
+    /// <summary>Sends a six-digit reset code when the account exists; says nothing either way, so addresses cannot be probed.</summary>
     Task ForgotPasswordAsync(ForgotPasswordRequestDto request, CancellationToken cancellationToken = default);
 
-    /// <summary>Sets a new password for the token's account. The token works once.</summary>
+    /// <summary>
+    /// Trades a correct, unexpired, unused code for a one-time ticket. A wrong code counts against the code's few allowed attempts;
+    /// every kind of failure (no account, wrong, expired, used, out of attempts) gives the same error.
+    /// </summary>
+    Task<ResetTicketDto> VerifyResetCodeAsync(VerifyResetCodeRequestDto request, CancellationToken cancellationToken = default);
+
+    /// <summary>Sets a new password for the ticket's account. The ticket works once.</summary>
     Task ResetPasswordAsync(ResetPasswordRequestDto request, CancellationToken cancellationToken = default);
 }
