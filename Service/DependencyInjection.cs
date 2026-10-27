@@ -42,6 +42,7 @@ namespace Service
             services.AddScoped<IAuthService, AuthService>();
             services.AddScoped<IProfileService, ProfileService>();
             services.AddScoped<INotificationService, NotificationService>();
+            services.AddScoped<INotificationEmailService, NotificationEmailService>();
             services.AddScoped<IAirportService, AirportService>();
             services.AddScoped<IFlightSearchService, FlightSearchService>();
             services.AddScoped<ISeatService, SeatService>();
@@ -81,6 +82,7 @@ namespace Service
             services.AddHostedService<BookingExpiryWorker>();
             services.AddHostedService<FlightGenerationWorker>();
             services.AddHostedService<BookingLifecycleWorker>();
+            services.AddHostedService<NotificationEmailWorker>();
 
             return services;
         }

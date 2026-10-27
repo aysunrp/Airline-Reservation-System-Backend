@@ -58,6 +58,44 @@ public class SmtpEmailSender : IEmailSender
         }
     }
 
+    /// <summary>
+    /// Connects and signs in to the mail server without sending anything, so the operator can tell whether the settings work.
+    /// The answer names the kind of problem in plain words; it never contains the login, the password or the server's own text.
+    /// </summary>
+    public async Task<(bool Ok, string Message)> CheckAsync(CancellationToken cancellationToken = default)
+    {
+        if (!IsConfigured)
+        {
+            return (false, "E-mail is not set up: the Smtp login, the App password or the sender address is missing.");
+        }
+
+        try
+        {
+            using var client = new SmtpClient { Timeout = Math.Max(5, _settings.TimeoutSeconds) * 1000 };
+            await client.ConnectAsync(_settings.Host, _settings.Port, ParseSecurity(_settings.Security), cancellationToken);
+            await client.AuthenticateAsync(_settings.UserName, _settings.Password, cancellationToken);
+            await client.DisconnectAsync(true, cancellationToken);
+            return (true, "The mail server accepted the login. E-mail can be sent.");
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (AuthenticationException)
+        {
+            return (false, "The mail server refused the login (AuthenticationException). The login address or the App password is wrong, or App passwords are not allowed for this account (school and work accounts often block them).");
+        }
+        catch (Exception exception) when (exception is System.Net.Sockets.SocketException or TimeoutException or SslHandshakeException or IOException)
+        {
+            return (false, $"The mail server could not be reached ({exception.GetType().Name}). Check the internet connection, a firewall or antivirus that blocks port {_settings.Port}, and the Smtp host and security settings.");
+        }
+        catch (Exception exception)
+        {
+            var status = exception is SmtpCommandException command ? (int)command.StatusCode : (int?)null;
+            return (false, $"The mail server answered with an error ({exception.GetType().Name}, SMTP status {status?.ToString() ?? "none"}).");
+        }
+    }
+
     private static SecureSocketOptions ParseSecurity(string value)
         => Enum.TryParse<SecureSocketOptions>(value, ignoreCase: true, out var parsed) ? parsed : SecureSocketOptions.StartTls;
 }

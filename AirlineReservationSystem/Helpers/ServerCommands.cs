@@ -11,15 +11,28 @@ namespace AirlineReservationSystem.Helpers;
 /// </code>
 /// It makes one existing, active Admin whose e-mail address is confirmed a SuperAdmin, after the operator types the address again.
 /// "--yes" skips that question for scripts. Exit code 0 means the account was promoted.
+/// <code>
+/// dotnet run --project AirlineReservationSystem -- check-email
+/// </code>
+/// connects and signs in to the mail server with the Smtp settings (nothing is sent) and says in plain words whether e-mail works.
+/// Exit code 0 means it does. The answer never shows the login, the password or the server's own text.
 /// </summary>
 public static class ServerCommands
 {
     public const string PromoteSuperAdmin = "promote-superadmin";
+    public const string CheckEmail = "check-email";
 
-    public static bool IsCommand(string[] args) => args.Length > 0 && string.Equals(args[0], PromoteSuperAdmin, StringComparison.OrdinalIgnoreCase);
+    public static bool IsCommand(string[] args)
+        => args.Length > 0
+           && (string.Equals(args[0], PromoteSuperAdmin, StringComparison.OrdinalIgnoreCase) || string.Equals(args[0], CheckEmail, StringComparison.OrdinalIgnoreCase));
 
     public static async Task<int> RunAsync(string[] args, IServiceProvider services, TextReader input, TextWriter output, CancellationToken cancellationToken = default)
     {
+        if (string.Equals(args[0], CheckEmail, StringComparison.OrdinalIgnoreCase))
+        {
+            return await CheckEmailAsync(services, output, cancellationToken);
+        }
+
         var email = ValueOf(args, "--email");
         if (string.IsNullOrWhiteSpace(email))
         {
@@ -49,6 +62,22 @@ public static class ServerCommands
         var result = await scope.ServiceProvider.GetRequiredService<ISuperAdminProvisioningService>().PromoteAsync(email, cancellationToken);
         await output.WriteLineAsync(Describe(result.Outcome));
         return result.Outcome == SuperAdminPromotionOutcome.Promoted ? 0 : 1;
+    }
+
+    private static async Task<int> CheckEmailAsync(IServiceProvider services, TextWriter output, CancellationToken cancellationToken)
+    {
+        using var scope = services.CreateScope();
+        var sender = scope.ServiceProvider.GetRequiredService<IEmailSender>();
+
+        if (sender is not Service.Services.SmtpEmailSender smtp)
+        {
+            await output.WriteLineAsync(sender.IsConfigured ? "E-mail is set up with a sender that cannot be checked here." : "E-mail is not set up.");
+            return sender.IsConfigured ? 0 : 3;
+        }
+
+        var (ok, message) = await smtp.CheckAsync(cancellationToken);
+        await output.WriteLineAsync(message);
+        return ok ? 0 : (sender.IsConfigured ? 1 : 3);
     }
 
     private static string? ValueOf(string[] args, string name)

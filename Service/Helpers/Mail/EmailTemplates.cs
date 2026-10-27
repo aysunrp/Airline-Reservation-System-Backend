@@ -57,6 +57,29 @@ public static class EmailTemplates
         return Build(subject, intro, link, validity, ignore, name);
     }
 
+    /// <summary>
+    /// A notification of the app as an e-mail: the title and text the traveller also sees in AEROVA (they are written in English when
+    /// the event happens), with a link to the notifications page.
+    /// </summary>
+    public static (string Subject, string Text, string Html) Notification(string name, string title, string message, string link)
+    {
+        var subject = $"AEROVA: {title}";
+        var greeting = string.IsNullOrWhiteSpace(name) ? "Hello," : $"Hello {name},";
+        var text = $"{greeting}\n\n{message}\n\nSee all your notifications: {link}\n\nAEROVA";
+
+        var html =
+            "<div style=\"font-family:Arial,Helvetica,sans-serif;max-width:520px;margin:0 auto;padding:24px;color:#0b1a2c\">" +
+            "<p style=\"letter-spacing:.2em;color:#9a7844;font-size:13px;margin:0 0 18px\">AEROVA</p>" +
+            $"<p style=\"margin:0 0 6px\">{WebUtility.HtmlEncode(greeting)}</p>" +
+            $"<p style=\"font-size:18px;font-weight:bold;margin:14px 0 6px\">{WebUtility.HtmlEncode(title)}</p>" +
+            $"<p style=\"white-space:pre-line;line-height:1.55;margin:0\">{WebUtility.HtmlEncode(message)}</p>" +
+            $"<p style=\"margin:22px 0\"><a href=\"{WebUtility.HtmlEncode(link)}\" style=\"background:#c6a36a;color:#0b1a2c;text-decoration:none;padding:12px 22px;border-radius:999px;font-weight:bold\">Open notifications</a></p>" +
+            "<p style=\"font-size:12px;color:#888\">You get this message because it is also shown in your AEROVA account.</p>" +
+            "</div>";
+
+        return (subject, text, html);
+    }
+
     private static (string Subject, string Text, string Html) Build(string subject, string intro, string link, string validity, string ignore, string name)
     {
         var text = $"{intro}\n{link}\n\n{validity}\n{ignore}\n\nAEROVA";

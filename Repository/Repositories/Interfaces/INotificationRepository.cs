@@ -18,4 +18,10 @@ public interface INotificationRepository : IBaseRepository<Notification>
 
     /// <summary>The bookings among <paramref name="bookingIds"/> that already have a notification of this type.</summary>
     Task<IReadOnlySet<int>> GetBookingIdsWithTypeAsync(NotificationType type, IReadOnlyCollection<int> bookingIds, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Notifications that still have to be e-mailed (tracked, with their user): not sent yet, fewer failures than
+    /// <paramref name="maxAttempts"/>, created after <paramref name="createdAfter"/>, and for an account whose e-mail address is verified.
+    /// </summary>
+    Task<IReadOnlyList<Notification>> GetDueForEmailAsync(DateTime createdAfter, int maxAttempts, int take, CancellationToken cancellationToken = default);
 }

@@ -154,6 +154,13 @@ internal sealed class FakeNotificationRepository : FakeRepository<Notification>,
             .Where(n => n.Type == type && n.BookingId != null && bookingIds.Contains(n.BookingId.Value))
             .Select(n => n.BookingId!.Value)
             .ToHashSet());
+
+    public Task<IReadOnlyList<Notification>> GetDueForEmailAsync(DateTime createdAfter, int maxAttempts, int take, CancellationToken cancellationToken = default)
+        => Task.FromResult<IReadOnlyList<Notification>>(Items
+            .Where(n => n.EmailSentAt == null && n.EmailAttempts < maxAttempts && n.CreatedAt > createdAfter && n.User?.EmailVerifiedAt != null)
+            .OrderBy(n => n.Id)
+            .Take(take)
+            .ToList());
 }
 
 internal sealed class FakeCancellationRuleRepository : FakeRepository<CancellationRule>, ICancellationRuleRepository
