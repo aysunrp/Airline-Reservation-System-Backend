@@ -45,6 +45,9 @@ public class ApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
     /// </summary>
     public bool StripeConfigured { get; init; }
 
+    /// <summary>Most tests book as a guest; the tests of the sign-in rule turn it on.</summary>
+    public bool RequireSignInToBook { get; init; }
+
     public const string TestWebhookSecret = "whsec_api_tests_only";
 
     /// <summary>The Checkout pages the API asked "Stripe" for.</summary>
@@ -80,6 +83,7 @@ public class ApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
                 settings.RateLimitPerMinute = RateLimitPerMinute;
                 settings.LookupRateLimitPerMinute = LookupRateLimitPerMinute;
                 settings.RequireVerifiedEmailForBooking = false;
+                settings.RequireSignInToBook = RequireSignInToBook;
                 settings.FrontendBaseUrl = "https://aerova.test";
             });
 

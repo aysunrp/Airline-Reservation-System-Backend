@@ -45,4 +45,10 @@ public class AuthSettings
     /// without SMTP nobody could ever verify, and that must not lock every customer out.
     /// </summary>
     public bool RequireVerifiedEmailForBooking { get; set; } = true;
+
+    /// <summary>
+    /// A flight can only be booked while signed in to an account. Guests cannot start a booking; bookings that guests made before
+    /// this rule still open with their reference and a passenger's last name. Tests that book as a guest switch this off.
+    /// </summary>
+    public bool RequireSignInToBook { get; set; } = true;
 }

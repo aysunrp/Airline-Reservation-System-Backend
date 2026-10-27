@@ -32,12 +32,13 @@ public class BookingsController : ControllerBase
         => Ok(await _bookingService.QuoteAsync(request, cancellationToken));
 
     /// <summary>
-    /// Creates a pending booking and holds the seats until payment. Guests can book;
-    /// when a valid token is sent the booking is linked to that account.
+    /// Creates a pending booking and holds the seats until payment. Only a signed-in account can book: without a valid token the
+    /// answer is 401 and nothing is held. The booking belongs to that account.
     /// </summary>
     [HttpPost]
     [ProducesResponseType<BookingDto>(StatusCodes.Status201Created)]
     [ProducesResponseType<ValidationProblemDetails>(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status422UnprocessableEntity)]

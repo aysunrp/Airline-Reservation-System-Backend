@@ -77,6 +77,12 @@ public class BookingService : IBookingService
 
     public async Task<BookingDto> CreateBookingAsync(int? userId, CreateBookingRequestDto request, CancellationToken cancellationToken = default)
     {
+        // Before anything is read or held: a guest gets no seats and no booking.
+        if (userId is null && _authSettings.RequireSignInToBook)
+        {
+            throw new UnauthorizedException("Sign in to book a flight.");
+        }
+
         await _validator.ValidateAndThrowAsync(request, cancellationToken);
         await RequireVerifiedEmailAsync(userId, cancellationToken);
 

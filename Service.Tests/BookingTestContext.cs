@@ -33,7 +33,7 @@ internal sealed class BookingTestContext
     public FakeEmailSender EmailSender { get; } = new();
 
     /// <summary>Off here so the many booking tests need no verified account; the tests of that rule switch it on.</summary>
-    public AuthSettings AuthSettings { get; } = new() { RequireVerifiedEmailForBooking = false };
+    public AuthSettings AuthSettings { get; } = new() { RequireVerifiedEmailForBooking = false, RequireSignInToBook = false };
 
     public FakeFlightSeatRepository FlightSeats() => Data.FlightSeats();
 
