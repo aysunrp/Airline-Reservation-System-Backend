@@ -57,7 +57,7 @@ public class BookingEmailConfirmationService : IBookingEmailConfirmationService
         var now = Now();
 
         // A new link replaces the older ones of this booking.
-        foreach (var open in await _tokens.GetUnusedForBookingAsync(booking.Id, cancellationToken))
+        foreach (var open in await _tokens.GetUnusedForBookingAsync(booking.Id, EmailTokenPurpose.BookingConfirm, cancellationToken))
         {
             open.UsedAt = now;
         }
@@ -114,7 +114,7 @@ public class BookingEmailConfirmationService : IBookingEmailConfirmationService
             throw new ServiceUnavailableException(EmailUnavailableMessage);
         }
 
-        var latest = await _tokens.GetLatestCreatedAtForBookingAsync(booking.Id, cancellationToken);
+        var latest = await _tokens.GetLatestCreatedAtForBookingAsync(booking.Id, EmailTokenPurpose.BookingConfirm, cancellationToken);
         if (latest is not null)
         {
             var wait = latest.Value + TimeSpan.FromSeconds(Math.Max(0, _settings.EmailCooldownSeconds)) - Now();
@@ -162,7 +162,7 @@ public class BookingEmailConfirmationService : IBookingEmailConfirmationService
 
         stored.UsedAt = now;
         booking.ContactConfirmedAt ??= now;
-        foreach (var other in await _tokens.GetUnusedForBookingAsync(booking.Id, cancellationToken))
+        foreach (var other in await _tokens.GetUnusedForBookingAsync(booking.Id, EmailTokenPurpose.BookingConfirm, cancellationToken))
         {
             other.UsedAt = now;
         }

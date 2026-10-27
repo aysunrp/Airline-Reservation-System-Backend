@@ -562,6 +562,10 @@ namespace Repository.Migrations
                     b.Property<DateTime>("ExpiresAt")
                         .HasColumnType("datetime2");
 
+                    b.Property<string>("Payload")
+                        .HasMaxLength(700)
+                        .HasColumnType("nvarchar(700)");
+
                     b.Property<string>("Purpose")
                         .IsRequired()
                         .HasMaxLength(20)

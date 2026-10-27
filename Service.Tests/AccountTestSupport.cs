@@ -103,11 +103,11 @@ internal sealed class FakeEmailTokenRepository : FakeRepository<EmailToken>, IEm
     public Task<int> CountCreatedSinceAsync(int userId, EmailTokenPurpose purpose, DateTime since, CancellationToken cancellationToken = default)
         => Task.FromResult(Items.Count(t => t.UserId == userId && t.Purpose == purpose && t.CreatedAt >= since));
 
-    public Task<IReadOnlyList<EmailToken>> GetUnusedForBookingAsync(int bookingId, CancellationToken cancellationToken = default)
-        => Task.FromResult<IReadOnlyList<EmailToken>>(Items.Where(t => t.BookingId == bookingId && t.Purpose == EmailTokenPurpose.BookingConfirm && t.UsedAt is null).ToList());
+    public Task<IReadOnlyList<EmailToken>> GetUnusedForBookingAsync(int bookingId, EmailTokenPurpose purpose = EmailTokenPurpose.BookingConfirm, CancellationToken cancellationToken = default)
+        => Task.FromResult<IReadOnlyList<EmailToken>>(Items.Where(t => t.BookingId == bookingId && t.Purpose == purpose && t.UsedAt is null).ToList());
 
-    public Task<DateTime?> GetLatestCreatedAtForBookingAsync(int bookingId, CancellationToken cancellationToken = default)
-        => Task.FromResult(Items.Where(t => t.BookingId == bookingId && t.Purpose == EmailTokenPurpose.BookingConfirm).Select(t => (DateTime?)t.CreatedAt).OrderByDescending(d => d).FirstOrDefault());
+    public Task<DateTime?> GetLatestCreatedAtForBookingAsync(int bookingId, EmailTokenPurpose purpose = EmailTokenPurpose.BookingConfirm, CancellationToken cancellationToken = default)
+        => Task.FromResult(Items.Where(t => t.BookingId == bookingId && t.Purpose == purpose).Select(t => (DateTime?)t.CreatedAt).OrderByDescending(d => d).FirstOrDefault());
 
     public Task<int> DeleteExpiredAsync(DateTime before, CancellationToken cancellationToken = default)
         => Task.FromResult(Items.RemoveAll(t => t.ExpiresAt < before));
