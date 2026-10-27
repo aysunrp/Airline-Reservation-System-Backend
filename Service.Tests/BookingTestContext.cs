@@ -59,13 +59,47 @@ internal sealed class BookingTestContext
         EmailSender,
         Options.Create(AuthSettings));
 
+    /// <summary>Stripe is not configured unless a test sets the two secrets.</summary>
+    public StripeSettings Stripe { get; } = new();
+
+    /// <summary>The pretend payment stays usable here, as in Development.</summary>
+    public PaymentSettings PaymentSettings { get; } = new() { AllowMockPayments = true };
+
+    public FakeStripeGateway Gateway { get; } = new();
+
+    public BookingConfirmationService CreateConfirmationService() => new(Bookings, FlightSeats(), new NotificationService(Notifications));
+
     public PaymentService CreatePaymentService() => new(
         Bookings,
-        FlightSeats(),
         PromoCodes,
         CreateExpiryService(),
-        new NotificationService(Notifications),
+        CreateConfirmationService(),
         new PaymentRequestValidator(Clock),
+        Clock,
+        Options.Create(Stripe),
+        Options.Create(PaymentSettings));
+
+    public FakeStripeWebhookEventRepository WebhookEvents { get; } = new();
+
+    public StripeWebhookService CreateWebhookService() => new(
+        WebhookEvents,
+        new FakePaymentRepository(Bookings),
+        Bookings,
+        PromoCodes,
+        CreateConfirmationService(),
+        Options.Create(Stripe),
+        Clock,
+        new ListLogger<StripeWebhookService>());
+
+    public CheckoutService CreateCheckoutService() => new(
+        Bookings,
+        new FakePaymentRepository(Bookings),
+        PromoCodes,
+        CreateExpiryService(),
+        Gateway,
+        new CreateCheckoutSessionRequestValidator(),
+        Options.Create(Stripe),
+        Options.Create(new AuthSettings { FrontendBaseUrl = "https://aerova.test/" }),
         Clock);
 
     // Same bands as the booking-details page (Economy and Business).

@@ -112,6 +112,7 @@ public class BookingRepository : BaseRepository<Booking>, IBookingRepository
     public async Task<IReadOnlyList<Booking>> GetExpiredPendingAsync(DateTime now, CancellationToken cancellationToken = default)
         => await Set.AsSplitQuery()
             .Include(b => b.Passengers).ThenInclude(p => p.Tickets)
+            .Include(b => b.Payments)
             .Where(b => b.Status == BookingStatus.Pending && b.ExpiresAt != null && b.ExpiresAt <= now)
             .ToListAsync(cancellationToken);
 }

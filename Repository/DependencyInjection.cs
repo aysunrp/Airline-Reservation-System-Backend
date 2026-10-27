@@ -34,6 +34,8 @@ namespace Repository
             services.AddScoped<INotificationRepository, NotificationRepository>();
             services.AddScoped<IEmailTokenRepository, EmailTokenRepository>();
             services.AddScoped<IAuditLogRepository, AuditLogRepository>();
+            services.AddScoped<IPaymentRepository, PaymentRepository>();
+            services.AddScoped<IStripeWebhookEventRepository, StripeWebhookEventRepository>();
 
             return services;
         }

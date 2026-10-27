@@ -351,6 +351,8 @@ internal sealed class FakeBookingRepository : FakeRepository<Booking>, IBookingR
 
     public FakeBookingRepository(TestData data, params Booking[] items) : base(items) => _data = data;
 
+    public IEnumerable<Booking> All => Items;
+
     public int SaveCount { get; private set; }
 
     /// <summary>Resolves Booking.PromoCode like an EF include would.</summary>
@@ -501,4 +503,51 @@ internal sealed class FakeAccountEmail : IAccountEmailService
     public Task ForgotPasswordAsync(ForgotPasswordRequestDto request, CancellationToken cancellationToken = default) => Task.CompletedTask;
 
     public Task ResetPasswordAsync(ResetPasswordRequestDto request, CancellationToken cancellationToken = default) => Task.CompletedTask;
+}
+
+internal sealed class FakePaymentRepository : FakeRepository<Payment>, IPaymentRepository
+{
+    private readonly FakeBookingRepository _bookings;
+
+    public FakePaymentRepository(FakeBookingRepository bookings) => _bookings = bookings;
+
+    public Task<Payment?> GetWithBookingAsync(int id, CancellationToken cancellationToken = default)
+        => Task.FromResult(_bookings.All.SelectMany(b => b.Payments).FirstOrDefault(p => p.Id == id));
+
+    public Task<Payment?> GetByCheckoutSessionIdAsync(string checkoutSessionId, CancellationToken cancellationToken = default)
+        => Task.FromResult(_bookings.All.SelectMany(b => b.Payments).FirstOrDefault(p => p.StripeCheckoutSessionId == checkoutSessionId));
+}
+
+internal sealed class FakeStripeWebhookEventRepository : FakeRepository<StripeWebhookEvent>, IStripeWebhookEventRepository
+{
+    public IReadOnlyList<StripeWebhookEvent> Events => Items;
+
+    public Task<StripeWebhookEvent?> GetByEventIdAsync(string eventId, CancellationToken cancellationToken = default)
+        => Task.FromResult(Items.FirstOrDefault(e => e.EventId == eventId));
+}
+
+/// <summary>Stands in for Stripe: hands out made-up Checkout pages, or fails when told to.</summary>
+internal sealed class FakeStripeGateway : IStripeCheckoutGateway
+{
+    public List<StripeCheckoutRequest> Created { get; } = new();
+    public List<string> Expired { get; } = new();
+    public bool Fail { get; set; }
+
+    public Task<StripeCheckoutSession> CreateSessionAsync(StripeCheckoutRequest request, CancellationToken cancellationToken = default)
+    {
+        if (Fail)
+        {
+            throw new Service.Helpers.Exceptions.ServiceUnavailableException("Card payments are not available right now. Please try again later.");
+        }
+
+        Created.Add(request);
+        var id = $"cs_test_{Created.Count:D4}{Guid.NewGuid():N}";
+        return Task.FromResult(new StripeCheckoutSession(id, $"https://checkout.stripe.test/c/pay/{id}", request.ExpiresAtUtc));
+    }
+
+    public Task ExpireSessionAsync(string sessionId, CancellationToken cancellationToken = default)
+    {
+        Expired.Add(sessionId);
+        return Task.CompletedTask;
+    }
 }

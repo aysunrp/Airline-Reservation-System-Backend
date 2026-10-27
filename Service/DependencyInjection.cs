@@ -23,6 +23,8 @@ namespace Service
             services.Configure<BookingLifecycleSettings>(configuration.GetSection(BookingLifecycleSettings.SectionName));
             services.Configure<SeedSettings>(configuration.GetSection(SeedSettings.SectionName));
             services.Configure<BootstrapSettings>(configuration.GetSection(BootstrapSettings.SectionName));
+            services.Configure<StripeSettings>(configuration.GetSection(StripeSettings.SectionName));
+            services.Configure<PaymentSettings>(configuration.GetSection(PaymentSettings.SectionName));
 
             services.TryAddSingleton(TimeProvider.System);
             services.AddValidatorsFromAssembly(typeof(DependencyInjection).Assembly);
@@ -47,7 +49,11 @@ namespace Service
             services.AddScoped<IBookingExpiryService, BookingExpiryService>();
             services.AddSingleton<ITravelDocumentPolicy, TravelDocumentPolicy>();
             services.AddScoped<IBookingService, BookingService>();
+            services.AddScoped<IBookingConfirmationService, BookingConfirmationService>();
             services.AddScoped<IPaymentService, PaymentService>();
+            services.AddSingleton<IStripeCheckoutGateway, StripeCheckoutGateway>();
+            services.AddScoped<ICheckoutService, CheckoutService>();
+            services.AddScoped<IStripeWebhookService, StripeWebhookService>();
             services.AddScoped<ICancellationService, CancellationService>();
             services.AddScoped<IRefundProcessingService, RefundProcessingService>();
             services.AddScoped<ITripCompletionService, TripCompletionService>();

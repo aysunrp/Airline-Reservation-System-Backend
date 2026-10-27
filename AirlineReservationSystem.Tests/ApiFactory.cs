@@ -15,7 +15,7 @@ namespace AirlineReservationSystem.Tests;
 /// The database (AerovaDb_ApiTests_*) is created with the migrations before the tests of a class run and dropped afterwards,
 /// so the development database (AerovaDb) is never touched. Set AEROVA_TEST_SQLSERVER to use another server than .\SQLEXPRESS.
 /// </summary>
-public sealed class ApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
+public class ApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
 {
     public const string TestJwtSecret = "integration-tests-signing-key-that-is-long-enough";
     private const string DatabasePrefix = "AerovaDb_ApiTests_";
@@ -38,6 +38,17 @@ public sealed class ApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
 
     /// <summary>Anonymous look-ups (promo codes, booking reference and last name) per minute and IP address; high for the same reason.</summary>
     public int LookupRateLimitPerMinute { get; init; } = 100_000;
+
+    /// <summary>
+    /// With test secrets Stripe counts as configured (the pretend card payment is then refused). No request ever reaches Stripe:
+    /// <see cref="Stripe"/> stands in for it either way.
+    /// </summary>
+    public bool StripeConfigured { get; init; }
+
+    public const string TestWebhookSecret = "whsec_api_tests_only";
+
+    /// <summary>The Checkout pages the API asked "Stripe" for.</summary>
+    public TestStripeGateway Stripe => Services.GetRequiredService<TestStripeGateway>();
 
     /// <summary>The e-mails the API would have sent.</summary>
     public TestEmailSender Emails => Services.GetRequiredService<TestEmailSender>();
@@ -69,6 +80,17 @@ public sealed class ApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
                 settings.RequireVerifiedEmailForBooking = false;
                 settings.FrontendBaseUrl = "https://aerova.test";
             });
+
+            // No real Stripe in tests, and a developer's Stripe user-secrets never count here.
+            services.PostConfigure<StripeSettings>(settings =>
+            {
+                settings.SecretKey = StripeConfigured ? "sk_test_api_tests_only" : null;
+                settings.WebhookSecret = StripeConfigured ? TestWebhookSecret : null;
+            });
+            services.PostConfigure<PaymentSettings>(settings => settings.AllowMockPayments = true);
+            services.RemoveAll<IStripeCheckoutGateway>();
+            services.AddSingleton<TestStripeGateway>();
+            services.AddSingleton<IStripeCheckoutGateway>(provider => provider.GetRequiredService<TestStripeGateway>());
 
             // No real SMTP in tests: the messages end up in a list the tests read.
             services.RemoveAll<IEmailSender>();

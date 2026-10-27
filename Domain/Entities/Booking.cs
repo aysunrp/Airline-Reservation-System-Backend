@@ -20,6 +20,9 @@ public class Booking : BaseEntity
     public int? PromoCodeId { get; set; }
     public DateTime? ExpiresAt { get; set; }
 
+    /// <summary>Two changes to the same booking at once (a Stripe confirmation and the expiry job, say) cannot both win.</summary>
+    public byte[] RowVersion { get; set; } = Array.Empty<byte>();
+
     public User? User { get; set; }
     public PromoCode? PromoCode { get; set; }
     public ICollection<BookingFlight> Flights { get; set; } = new List<BookingFlight>();

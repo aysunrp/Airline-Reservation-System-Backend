@@ -32,6 +32,12 @@ public class BookingExpiryService : IBookingExpiryService
             booking.Status = BookingStatus.Expired;
             _bookingRepository.Update(booking);
 
+            // Its Stripe page closed before the seats were let go (the hold outlasts it), so nothing can be paid on it any more.
+            foreach (var payment in booking.Payments.Where(p => p.Status == PaymentStatus.Pending))
+            {
+                payment.Status = PaymentStatus.Cancelled;
+            }
+
             foreach (var ticket in booking.Passengers.SelectMany(p => p.Tickets))
             {
                 // A cancelled ticket no longer counts for the one-active-ticket-per-seat index.
