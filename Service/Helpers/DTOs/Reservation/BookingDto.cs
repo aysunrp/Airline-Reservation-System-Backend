@@ -64,7 +64,8 @@ public record BookingDto(
     PaymentStatus? PaymentStatus,
     IReadOnlyList<BookingLegDto> Legs,
     IReadOnlyList<BookingPassengerDto> Passengers,
-    BookingCancellationDto? Cancellation);
+    BookingCancellationDto? Cancellation,
+    bool ContactConfirmed = true);
 
 /// <summary>A row on the My Trips page.</summary>
 public record BookingSummaryDto(

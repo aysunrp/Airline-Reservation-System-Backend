@@ -36,6 +36,7 @@ public class BookingService : IBookingService
     private readonly IBookingExpiryService _expiryService;
     private readonly ITravelDocumentPolicy _documentPolicy;
     private readonly IValidator<CreateBookingRequestDto> _validator;
+    private readonly IBookingEmailConfirmationService _confirmation;
     private readonly BookingSettings _settings;
     private readonly TimeProvider _timeProvider;
 
@@ -55,8 +56,10 @@ public class BookingService : IBookingService
         TimeProvider timeProvider,
         IUserRepository userRepository,
         IEmailSender emailSender,
-        IOptions<AuthSettings> authSettings)
+        IOptions<AuthSettings> authSettings,
+        IBookingEmailConfirmationService confirmation)
     {
+        _confirmation = confirmation;
         _userRepository = userRepository;
         _emailSender = emailSender;
         _authSettings = authSettings.Value;
@@ -105,7 +108,9 @@ public class BookingService : IBookingService
             TripType = request.TripType,
             Status = BookingStatus.Pending,
             ExpiresAt = holdUntil,
-            PromoCodeId = quote.PromoCode?.Id
+            PromoCodeId = quote.PromoCode?.Id,
+            // A booking of an account waits for its own e-mail link; one that needs none is confirmed from the start.
+            ContactConfirmedAt = userId is not null && _confirmation.IsRequired ? null : now
         };
 
         var bookingFlights = quote.Legs
@@ -180,6 +185,12 @@ public class BookingService : IBookingService
             // Another booking changed one of these seats in the meantime (row version) or already holds an
             // active ticket for it (unique index). Nothing was saved.
             throw new ConflictException("One or more selected seats were just taken. Please choose other seats.");
+        }
+
+        if (booking.ContactConfirmedAt is null)
+        {
+            // Best effort: when the message does not go out the page offers to send it again.
+            await _confirmation.SendAsync(booking, request.Language, cancellationToken);
         }
 
         return await GetByPnrInternalAsync(booking.Pnr, cancellationToken);

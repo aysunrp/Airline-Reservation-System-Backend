@@ -49,6 +49,7 @@ namespace Service
             services.AddScoped<IExtraServiceOptionsService, ExtraServiceOptionsService>();
             services.AddScoped<IBookingExpiryService, BookingExpiryService>();
             services.AddSingleton<ITravelDocumentPolicy, TravelDocumentPolicy>();
+            services.AddScoped<IBookingEmailConfirmationService, BookingEmailConfirmationService>();
             services.AddScoped<IBookingService, BookingService>();
             services.AddScoped<IBookingConfirmationService, BookingConfirmationService>();
             services.AddScoped<IPaymentService, PaymentService>();

@@ -14,6 +14,9 @@ public class CreateBookingRequestDto
     public string ContactEmail { get; set; } = string.Empty;
     public string ContactPhone { get; set; } = string.Empty;
     public string? PromoCode { get; set; }
+
+    /// <summary>The page language (en, az, ru) for the e-mail that confirms the booking.</summary>
+    public string? Language { get; set; }
 }
 
 public class BookingLegRequestDto

@@ -35,6 +35,28 @@ public static class EmailTemplates
         return Build(subject, intro, link, validity, ignore, name);
     }
 
+    /// <summary>Asks the person to confirm one booking by opening the link; the seats are held until the time named.</summary>
+    public static (string Subject, string Text, string Html) BookingConfirmation(string? language, string name, string pnr, string link, int minutes)
+    {
+        var (subject, intro, validity, ignore) = NormalizeLanguage(language) switch
+        {
+            "az" => ($"AEROVA rezervasiyanızı təsdiqləyin ({pnr})",
+                $"Salam {name},\n\nYerləriniz ödəniş üçün tutulub (rezervasiya {pnr}). Ödənişə keçmək üçün rezervasiyanı bu keçidlə təsdiqləyin:",
+                $"Keçid {minutes} dəqiqə etibarlıdır və yalnız bir dəfə işləyir. Bu vaxt keçəndə yerlər buraxılır.",
+                "Bu rezervasiyanı siz etməmisinizsə, məktuba məhəl qoymayın."),
+            "ru" => ($"Подтвердите бронирование AEROVA ({pnr})",
+                $"Здравствуйте, {name}!\n\nМеста удержаны для оплаты (бронирование {pnr}). Чтобы перейти к оплате, подтвердите бронирование по ссылке:",
+                $"Ссылка действует {minutes} мин. и работает один раз. По истечении времени места освобождаются.",
+                "Если вы не делали это бронирование, просто проигнорируйте письмо."),
+            _ => ($"Confirm your AEROVA booking ({pnr})",
+                $"Hello {name},\n\nYour seats are held for payment (booking {pnr}). To go on to payment, confirm the booking with this link:",
+                $"The link is valid for {minutes} minutes and works once. When the time is up the seats are released.",
+                "If you did not make this booking, ignore this message.")
+        };
+
+        return Build(subject, intro, link, validity, ignore, name);
+    }
+
     /// <summary>Lets the person choose a new password by opening the link.</summary>
     public static (string Subject, string Text, string Html) PasswordReset(string? language, string name, string link, int minutes)
     {

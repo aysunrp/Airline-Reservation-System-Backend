@@ -63,4 +63,10 @@ public class AuthSettings
     /// this rule still open with their reference and a passenger's last name. Tests that book as a guest switch this off.
     /// </summary>
     public bool RequireSignInToBook { get; set; } = true;
+
+    /// <summary>
+    /// Every booking is confirmed by a link sent to its contact address before it can be paid. Only enforced while the API can send
+    /// e-mail at all, and only for bookings of an account.
+    /// </summary>
+    public bool RequireBookingEmailConfirmation { get; set; } = true;
 }

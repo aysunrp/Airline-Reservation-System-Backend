@@ -14,6 +14,7 @@ internal sealed class BookingTestContext
 {
     public BookingTestContext()
     {
+        Tokens = new FakeEmailTokenRepository(Users);
         Bookings = new FakeBookingRepository(Data)
         {
             PromoCodeLookup = id => PromoCodes.GetByIdAsync(id).Result
@@ -32,8 +33,24 @@ internal sealed class BookingTestContext
 
     public FakeEmailSender EmailSender { get; } = new();
 
+    public FakeEmailTokenRepository Tokens { get; }
+
     /// <summary>Off here so the many booking tests need no verified account; the tests of that rule switch it on.</summary>
-    public AuthSettings AuthSettings { get; } = new() { RequireVerifiedEmailForBooking = false, RequireSignInToBook = false };
+    public AuthSettings AuthSettings { get; } = new()
+    {
+        RequireVerifiedEmailForBooking = false,
+        RequireSignInToBook = false,
+        RequireBookingEmailConfirmation = false,
+        FrontendBaseUrl = "https://aerova.test"
+    };
+
+    public BookingEmailConfirmationService CreateBookingEmailConfirmation() => new(
+        Bookings,
+        Tokens,
+        EmailSender,
+        Options.Create(AuthSettings),
+        Clock,
+        Microsoft.Extensions.Logging.Abstractions.NullLogger<BookingEmailConfirmationService>.Instance);
 
     public FakeFlightSeatRepository FlightSeats() => Data.FlightSeats();
 
@@ -57,7 +74,8 @@ internal sealed class BookingTestContext
         Clock,
         Users,
         EmailSender,
-        Options.Create(AuthSettings));
+        Options.Create(AuthSettings),
+        CreateBookingEmailConfirmation());
 
     /// <summary>Stripe is not configured unless a test sets the two secrets.</summary>
     public StripeSettings Stripe { get; } = new();
@@ -101,7 +119,7 @@ internal sealed class BookingTestContext
         Gateway,
         new CreateCheckoutSessionRequestValidator(),
         Options.Create(Stripe),
-        Options.Create(new AuthSettings { FrontendBaseUrl = "https://aerova.test/" }),
+        Options.Create(new AuthSettings { FrontendBaseUrl = "https://aerova.test/", RequireBookingEmailConfirmation = AuthSettings.RequireBookingEmailConfirmation }),
         Clock);
 
     // Same bands as the booking-details page (Economy and Business).

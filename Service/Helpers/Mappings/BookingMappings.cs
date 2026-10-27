@@ -44,7 +44,8 @@ public static class BookingMappings
                     cancellation.FeeAmount,
                     cancellation.RefundAmount,
                     booking.LatestRefundStatus(),
-                    booking.LatestRefundIsDemo()));
+                    booking.LatestRefundIsDemo()),
+            booking.ContactConfirmedAt is not null);
     }
 
     /// <summary>Expects legs with route airports and passengers with tickets and seats to be loaded.</summary>

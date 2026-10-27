@@ -79,6 +79,12 @@ public class CheckoutService : ICheckoutService
             throw new BusinessRuleException("This booking can no longer be paid.");
         }
 
+        // Each booking of an account is paid only after its own e-mail link was opened.
+        if (_auth.RequireBookingEmailConfirmation && booking.UserId is not null && booking.ContactConfirmedAt is null)
+        {
+            throw new BusinessRuleException("Confirm this booking with the link we e-mailed before paying.", "booking_unconfirmed");
+        }
+
         var now = _timeProvider.GetUtcNow().UtcDateTime;
         if (booking.ExpiresAt is not null && booking.ExpiresAt <= now)
         {
