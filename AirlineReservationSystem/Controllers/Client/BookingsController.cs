@@ -17,10 +17,13 @@ public class BookingsController : ControllerBase
     private readonly IBookingService _bookingService;
     private readonly ICancellationService _cancellationService;
     private readonly IBookingEmailConfirmationService _confirmation;
+    private readonly ICancellationLinkService _cancellationLinks;
 
-    public BookingsController(IBookingService bookingService, ICancellationService cancellationService, IBookingEmailConfirmationService confirmation)
+    public BookingsController(IBookingService bookingService, ICancellationService cancellationService, IBookingEmailConfirmationService confirmation,
+        ICancellationLinkService cancellationLinks)
     {
         _confirmation = confirmation;
+        _cancellationLinks = cancellationLinks;
         _bookingService = bookingService;
         _cancellationService = cancellationService;
     }
@@ -115,20 +118,38 @@ public class BookingsController : ControllerBase
         => Ok(await _cancellationService.GetQuoteAsync(pnr, lastName, User.GetUserIdOrNull(), cancellationToken));
 
     /// <summary>
-    /// Cancels the booking for good, releases its seats and requests the refund the fare rules allow. A booking made under an account
-    /// needs that account's token (401 without one); a guest booking needs the last name of a passenger.
+    /// Cancelling. A paid booking of an account is not cancelled here: a confirmation link is e-mailed to the account (202 with where it
+    /// went), and the booking is cancelled when that link is confirmed. A hold that was never paid is released at once (200 with the
+    /// booking). A booking made under an account needs that account's token (401 without one); a guest booking a passenger's last name.
     /// </summary>
     [HttpPost("{pnr:length(6)}/cancel")]
     [EnableRateLimiting(RateLimitPolicies.Lookup)]
     [ProducesResponseType<BookingDto>(StatusCodes.Status200OK)]
+    [ProducesResponseType<CancellationLinkDto>(StatusCodes.Status202Accepted)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status429TooManyRequests)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status503ServiceUnavailable)]
     [ProducesResponseType<ValidationProblemDetails>(StatusCodes.Status400BadRequest)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status422UnprocessableEntity)]
-    public async Task<ActionResult<BookingDto>> Cancel(string pnr, CancelBookingRequestDto request, CancellationToken cancellationToken)
+    public async Task<IActionResult> Cancel(string pnr, CancelBookingRequestDto request, CancellationToken cancellationToken)
     {
-        // The route identifies the booking; the body carries the last name and the reason.
+        // The route identifies the booking; the body carries the last name, the reason and the page language.
         request.Pnr = pnr;
-        return Ok(await _cancellationService.CancelAsync(request, User.GetUserIdOrNull(), cancellationToken));
+        var result = await _cancellationLinks.RequestAsync(request, User.GetUserIdOrNull(), cancellationToken);
+        return result.Booking is not null ? Ok(result.Booking) : StatusCode(StatusCodes.Status202Accepted, result.Link);
     }
+
+    /// <summary>
+    /// Confirms a cancellation from the e-mailed link (no sign-in needed: the link proves the mailbox) and cancels the booking. The token
+    /// works once; a wrong, used or expired one gives 422 with a code (link_invalid, link_used, link_expired, link_confirmed).
+    /// </summary>
+    [HttpPost("cancel-confirm")]
+    [EnableRateLimiting(RateLimitPolicies.Auth)]
+    [ProducesResponseType<BookingDto>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status422UnprocessableEntity)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status429TooManyRequests)]
+    public async Task<ActionResult<BookingDto>> ConfirmCancel(ConfirmCancellationRequestDto request, CancellationToken cancellationToken)
+        => Ok(await _cancellationLinks.ConfirmAsync(request, cancellationToken));
 }
