@@ -52,7 +52,7 @@ namespace Service
             services.AddSingleton<ITravelDocumentPolicy, TravelDocumentPolicy>();
             services.AddScoped<IBookingEmailConfirmationService, BookingEmailConfirmationService>();
             // Ask AEROVA: the provider is one HttpClient, so the way it is reached (and its timeouts) is set here and nowhere else.
-            services.AddHttpClient<IAssistantProvider, AnthropicAssistantProvider>(client => client.Timeout = TimeSpan.FromMinutes(2));
+            services.AddHttpClient<IAssistantProvider, GeminiAssistantProvider>(client => client.Timeout = TimeSpan.FromMinutes(2));
             services.AddSingleton<AssistantFactsCache>();
             services.AddScoped<IAssistantKnowledge, AssistantKnowledge>();
             services.AddScoped<IAssistantService, AssistantService>();

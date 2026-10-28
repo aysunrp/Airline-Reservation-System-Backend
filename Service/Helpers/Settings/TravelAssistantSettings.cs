@@ -9,19 +9,22 @@ public class TravelAssistantSettings
 {
     public const string SectionName = "TravelAssistant";
 
-    /// <summary>Which provider answers. "Anthropic" is the one that is built in; the provider sits behind IAssistantProvider so another can be added.</summary>
-    public string Provider { get; set; } = "Anthropic";
+    /// <summary>Which provider answers. "Gemini" (Google AI Studio, the Gemini API) is the one that is built in; the provider sits behind IAssistantProvider so another can be added.</summary>
+    public string Provider { get; set; } = "Gemini";
 
-    /// <summary>The model that answers (a fast, inexpensive one is enough for travel questions).</summary>
-    public string Model { get; set; } = "claude-haiku-5-5";
+    /// <summary>The model that answers (a fast, inexpensive one is enough for travel questions). "check-assistant --models" lists the ones the key can use.</summary>
+    public string Model { get; set; } = "gemini-2.5-flash";
 
-    /// <summary>The provider's chat endpoint.</summary>
-    public string Endpoint { get; set; } = "https://api.anthropic.com/v1/messages";
+    /// <summary>The provider's API address; the model and method are added to it.</summary>
+    public string Endpoint { get; set; } = "https://generativelanguage.googleapis.com/v1beta";
 
-    /// <summary>The provider's API version header.</summary>
-    public string ApiVersion { get; set; } = "2023-06-01";
+    /// <summary>
+    /// How many tokens the model may spend thinking before it answers; 0 turns thinking off (right for short travel answers, and a model that
+    /// thinks would otherwise use up the answer limit first). Leave it empty for a model that cannot turn thinking off.
+    /// </summary>
+    public int? ThinkingBudget { get; set; } = 0;
 
-    /// <summary>The provider's key. Secret: user-secrets or environment only.</summary>
+    /// <summary>The provider's key (a Google AI Studio key). Secret: user-secrets or environment only.</summary>
     public string ApiKey { get; set; } = string.Empty;
 
     /// <summary>Seconds to wait for the provider before the request is given up (504).</summary>
@@ -45,15 +48,17 @@ public class TravelAssistantSettings
     /// <summary>Minutes the facts read from the database (fare rules, baggage, meals) are kept before they are read again.</summary>
     public int FactsCacheMinutes { get; set; } = 10;
 
-    public bool IsConfigured => !string.IsNullOrWhiteSpace(ApiKey) && string.Equals(Provider, "Anthropic", StringComparison.OrdinalIgnoreCase);
+    public bool IsConfigured => !string.IsNullOrWhiteSpace(ApiKey) && string.Equals(Provider, "Gemini", StringComparison.OrdinalIgnoreCase);
 
     /// <summary>The key as it is sent: a key pasted with a space or a new line around it still works.</summary>
     public string TrimmedApiKey => (ApiKey ?? string.Empty).Trim();
 
     /// <summary>
-    /// False when the key cannot be an API key at all: it has a character outside printable ASCII (a letter such as "Ç", a space, a quote),
-    /// which is what happens when the placeholder text of an instruction is stored instead of the key. HTTP forbids such characters in a
-    /// header, so a request with it can never be sent.
+    /// False when the key cannot be a Gemini key: it has a character outside printable ASCII (a letter such as "Ç", a space, a quote), which is
+    /// what happens when the placeholder text of an instruction is stored instead of the key, or it starts with "sk-" (a key of another provider,
+    /// which must never be sent to Google).
     /// </summary>
-    public bool HasWellFormedKey => TrimmedApiKey.Length > 0 && TrimmedApiKey.All(c => c is > ' ' and <= '~' && c is not ('"' or '\''));
+    public bool HasWellFormedKey => TrimmedApiKey.Length > 0
+                                    && TrimmedApiKey.All(c => c is > ' ' and <= '~' && c is not ('"' or '\''))
+                                    && !TrimmedApiKey.StartsWith("sk-", StringComparison.OrdinalIgnoreCase);
 }

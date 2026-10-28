@@ -38,7 +38,7 @@ public class AssistantService : IAssistantService
         if (!_provider.IsConfigured)
         {
             WarnNotConfigured();
-            throw new ServiceUnavailableException(AnthropicAssistantProvider.UnavailableMessage, AssistantErrorCodes.NotConfigured);
+            throw new ServiceUnavailableException(GeminiAssistantProvider.UnavailableMessage, AssistantErrorCodes.NotConfigured);
         }
 
         var turns = AssistantConversation.Normalize(AssistantConversation.All(request));
@@ -53,7 +53,7 @@ public class AssistantService : IAssistantService
         {
             // Whatever the provider code did wrong, the traveller gets the same safe answer; only the kind of error is logged, never its text.
             _logger.LogError("The assistant failed unexpectedly ({ErrorType}).", exception.GetType().Name);
-            throw new ServiceUnavailableException(AnthropicAssistantProvider.UnavailableMessage);
+            throw new ServiceUnavailableException(GeminiAssistantProvider.UnavailableMessage);
         }
     }
 

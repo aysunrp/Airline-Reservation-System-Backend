@@ -26,7 +26,13 @@ public sealed class TestAssistantProvider : IAssistantProvider
         IsConfigured = true;
         Throw = null;
         Answer = _ => "Economy is the most affordable cabin.";
+        Models = () => new[] { "gemini-2.5-flash", "gemini-2.0-flash" };
     }
+
+    public Func<IReadOnlyList<string>> Models { get; set; } = () => new[] { "gemini-2.5-flash", "gemini-2.0-flash" };
+
+    public Task<IReadOnlyList<string>> ListModelsAsync(CancellationToken cancellationToken = default)
+        => Throw is null ? Task.FromResult(Models()) : Task.FromException<IReadOnlyList<string>>(Throw);
 
     public Task<string> CompleteAsync(AssistantCompletionRequest request, CancellationToken cancellationToken = default)
     {

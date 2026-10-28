@@ -20,7 +20,8 @@ namespace AirlineReservationSystem.Helpers;
 /// dotnet run --project AirlineReservationSystem -- check-assistant
 /// </code>
 /// asks the AI provider one tiny question with the TravelAssistant settings and says in plain words whether Ask AEROVA works, and if not,
-/// which step failed (missing key, key refused, wrong model, no credit, unreachable). Exit code 0 means it works. The answer never shows the key.
+/// which step failed (missing key, key refused, wrong model, quota, unreachable). With "--models" it also lists the models the key can use.
+/// Exit code 0 means it works. The answer never shows the key.
 /// </summary>
 public static class ServerCommands
 {
@@ -43,7 +44,7 @@ public static class ServerCommands
 
         if (string.Equals(args[0], CheckAssistant, StringComparison.OrdinalIgnoreCase))
         {
-            return await CheckAssistantAsync(services, output, cancellationToken);
+            return await CheckAssistantAsync(args, services, output, cancellationToken);
         }
 
         var email = ValueOf(args, "--email");
@@ -78,7 +79,7 @@ public static class ServerCommands
     }
 
     /// <summary>One small question to the provider with the real settings; the answer is a plain sentence about what works or what to fix.</summary>
-    private static async Task<int> CheckAssistantAsync(IServiceProvider services, TextWriter output, CancellationToken cancellationToken)
+    private static async Task<int> CheckAssistantAsync(string[] args, IServiceProvider services, TextWriter output, CancellationToken cancellationToken)
     {
         using var scope = services.CreateScope();
         var provider = scope.ServiceProvider.GetRequiredService<Service.Services.Interfaces.IAssistantProvider>();
@@ -92,6 +93,21 @@ public static class ServerCommands
 
         try
         {
+            if (args.Contains("--models", StringComparer.OrdinalIgnoreCase))
+            {
+                // The models this key may use to write answers; the configured one is marked, so a wrong model name is seen at once.
+                var models = await provider.ListModelsAsync(cancellationToken);
+                await output.WriteLineAsync($"Models this key can use for answers ({models.Count}):");
+                foreach (var model in models.Where(m => m.StartsWith("gemini", StringComparison.OrdinalIgnoreCase)))
+                {
+                    await output.WriteLineAsync((string.Equals(model, settings.Model, StringComparison.Ordinal) ? "  * " : "    ") + model);
+                }
+
+                await output.WriteLineAsync(models.Contains(settings.Model)
+                    ? $"The configured model ({settings.Model}) is available."
+                    : $"The configured model ({settings.Model}) is NOT in the list: set TravelAssistant:Model to one of the models above.");
+            }
+
             var question = new Service.Services.Interfaces.AssistantCompletionRequest(
                 "Answer with the single word OK.",
                 new[] { new Service.Services.AssistantTurn("user", "Reply with OK.") },

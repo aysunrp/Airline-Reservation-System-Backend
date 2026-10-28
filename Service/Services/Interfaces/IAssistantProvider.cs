@@ -16,4 +16,7 @@ public interface IAssistantProvider
     bool IsConfigured { get; }
 
     Task<string> CompleteAsync(AssistantCompletionRequest request, CancellationToken cancellationToken = default);
+
+    /// <summary>The names of the models this key can use to write answers (for the check-assistant command); throws like <see cref="CompleteAsync"/>.</summary>
+    Task<IReadOnlyList<string>> ListModelsAsync(CancellationToken cancellationToken = default);
 }

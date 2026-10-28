@@ -23,6 +23,9 @@ internal sealed class FakeAssistantProvider : IAssistantProvider
     public Exception? Throw { get; set; }
     public List<AssistantCompletionRequest> Requests { get; } = new();
 
+    public Task<IReadOnlyList<string>> ListModelsAsync(CancellationToken cancellationToken = default)
+        => Throw is null ? Task.FromResult<IReadOnlyList<string>>(new[] { "gemini-2.5-flash" }) : Task.FromException<IReadOnlyList<string>>(Throw);
+
     public Task<string> CompleteAsync(AssistantCompletionRequest request, CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
@@ -61,7 +64,7 @@ internal sealed class StubHandler : HttpMessageHandler
 /// </summary>
 public class AssistantTests
 {
-    private const string SecretKey = "sk-test-NOT-A-REAL-KEY-0123456789";
+    private const string SecretKey = "AIzaTestNotARealKey_0123456789abcdefghijk";
 
     private static TravelAssistantSettings Settings(Action<TravelAssistantSettings>? change = null)
     {
@@ -298,7 +301,7 @@ public class AssistantTests
         var error = await Assert.ThrowsAsync<ServiceUnavailableException>(() => service.ChatAsync(Ask("Hello")));
 
         Assert.DoesNotContain(SecretKey, error.ToString());
-        Assert.Equal(AnthropicAssistantProvider.UnavailableMessage, error.Message);
+        Assert.Equal(GeminiAssistantProvider.UnavailableMessage, error.Message);
     }
 
     [Fact]
@@ -313,13 +316,13 @@ public class AssistantTests
         Assert.Empty(provider.Requests);
     }
 
-    // ---- the provider over HTTP -----------------------------------------------------------------------------------------
+    // ---- the provider over HTTP (Google Gemini) -------------------------------------------------------------------------
 
-    private static (AnthropicAssistantProvider Provider, StubHandler Handler, ListLogger<AnthropicAssistantProvider> Log) CreateProvider(TravelAssistantSettings? settings = null)
+    private static (GeminiAssistantProvider Provider, StubHandler Handler, ListLogger<GeminiAssistantProvider> Log) CreateProvider(TravelAssistantSettings? settings = null)
     {
         var handler = new StubHandler();
-        var log = new ListLogger<AnthropicAssistantProvider>();
-        return (new AnthropicAssistantProvider(new HttpClient(handler), Options.Create(settings ?? Settings()), log), handler, log);
+        var log = new ListLogger<GeminiAssistantProvider>();
+        return (new GeminiAssistantProvider(new HttpClient(handler), Options.Create(settings ?? Settings()), log), handler, log);
     }
 
     private static AssistantCompletionRequest Completion(string text = "Hello")
@@ -328,131 +331,189 @@ public class AssistantTests
     private static HttpResponseMessage Json(HttpStatusCode status, string body)
         => new(status) { Content = new StringContent(body, Encoding.UTF8, "application/json") };
 
+    private static string Answer(string text) => "{\"candidates\":[{\"content\":{\"role\":\"model\",\"parts\":[{\"text\":" + JsonSerializer.Serialize(text) + "}]},\"finishReason\":\"STOP\"}]}";
+
     [Fact]
-    public async Task TheProvider_IsCalledWithTheKeyInAHeaderOnly_AndTheTextIsRead()
+    public async Task TheProvider_IsCalledAtTheModelsAddress_WithTheKeyInAHeaderOnly_AndTheTextIsRead()
     {
         var (provider, handler, _) = CreateProvider(Settings(s => s.Model = "test-model"));
-        handler.Respond = (_, _) => Task.FromResult(Json(HttpStatusCode.OK, "{\"content\":[{\"type\":\"text\",\"text\":\"Hello \"},{\"type\":\"tool_use\"},{\"type\":\"text\",\"text\":\"traveller\"}]}"));
+        handler.Respond = (_, _) => Task.FromResult(Json(HttpStatusCode.OK,
+            "{\"candidates\":[{\"content\":{\"parts\":[{\"text\":\"Hello \"},{\"thought\":true,\"text\":\"private reasoning\"},{\"text\":\"traveller\"}]}}]}"));
 
-        var text = await provider.CompleteAsync(Completion("Hi there"));
+        var text = await provider.CompleteAsync(new AssistantCompletionRequest("You are a helper.",
+            new[] { new AssistantTurn("user", "Hi there"), new AssistantTurn("assistant", "Welcome!"), new AssistantTurn("user", "Baggage?") }, 400));
 
         Assert.Equal("Hello traveller", text);
         var (request, body) = Assert.Single(handler.Calls);
-        Assert.Equal("https://api.anthropic.com/v1/messages", request.RequestUri!.ToString());
-        Assert.Equal(SecretKey, request.Headers.GetValues("x-api-key").Single());
-        Assert.Equal("2023-06-01", request.Headers.GetValues("anthropic-version").Single());
+        Assert.Equal("https://generativelanguage.googleapis.com/v1beta/models/test-model:generateContent", request.RequestUri!.ToString());
+        Assert.Equal(HttpMethod.Post, request.Method);
+        Assert.Equal(SecretKey, request.Headers.GetValues("x-goog-api-key").Single());
+        // The key travels in a header, never in the address (a URL ends up in logs).
+        Assert.DoesNotContain(SecretKey, request.RequestUri!.ToString());
         Assert.DoesNotContain(SecretKey, body);
         // Sent with a known length rather than chunked, which every proxy and simple server in front of a provider handles.
         Assert.Equal(Encoding.UTF8.GetByteCount(body), request.Content!.Headers.ContentLength);
         using var document = JsonDocument.Parse(body);
-        Assert.Equal("test-model", document.RootElement.GetProperty("model").GetString());
-        Assert.Equal(400, document.RootElement.GetProperty("max_tokens").GetInt32());
-        Assert.Equal("You are a helper.", document.RootElement.GetProperty("system").GetString());
-        Assert.Equal("Hi there", document.RootElement.GetProperty("messages")[0].GetProperty("content").GetString());
+        var root = document.RootElement;
+        Assert.Equal("You are a helper.", root.GetProperty("systemInstruction").GetProperty("parts")[0].GetProperty("text").GetString());
+        Assert.Equal(new[] { "user", "model", "user" }, root.GetProperty("contents").EnumerateArray().Select(c => c.GetProperty("role").GetString()));
+        Assert.Equal("Baggage?", root.GetProperty("contents")[2].GetProperty("parts")[0].GetProperty("text").GetString());
+        Assert.Equal(400, root.GetProperty("generationConfig").GetProperty("maxOutputTokens").GetInt32());
+        // Thinking is switched off by default, or a short answer limit would be used up before the answer starts.
+        Assert.Equal(0, root.GetProperty("generationConfig").GetProperty("thinkingConfig").GetProperty("thinkingBudget").GetInt32());
+    }
+
+    [Fact]
+    public async Task ThinkingIsLeftOut_WhenTheBudgetIsEmpty()
+    {
+        var (provider, handler, _) = CreateProvider(Settings(s => s.ThinkingBudget = null));
+        handler.Respond = (_, _) => Task.FromResult(Json(HttpStatusCode.OK, Answer("OK")));
+
+        await provider.CompleteAsync(Completion());
+
+        Assert.False(JsonDocument.Parse(handler.Calls.Single().Body).RootElement.GetProperty("generationConfig").TryGetProperty("thinkingConfig", out _));
+    }
+
+    [Fact]
+    public async Task WithoutAKey_OrWithTheWrongProvider_NoRequestIsMade()
+    {
+        var (provider, handler, _) = CreateProvider(Settings(s => s.ApiKey = ""));
+        var error = await Assert.ThrowsAsync<ServiceUnavailableException>(() => provider.CompleteAsync(Completion()));
+        Assert.Equal(AssistantErrorCodes.NotConfigured, error.Code);
+        Assert.False(provider.IsConfigured);
+
+        var (other, otherHandler, _) = CreateProvider(Settings(s => s.Provider = "Somebody"));
+        await Assert.ThrowsAsync<ServiceUnavailableException>(() => other.CompleteAsync(Completion()));
+
+        Assert.Empty(handler.Calls);
+        Assert.Empty(otherHandler.Calls);
     }
 
     [Theory]
-    [InlineData("BURAYA_A\u00c7ARINIZI_YAZIN")]
-    [InlineData("sk-ant-with a space")]
-    [InlineData("sk-ant-\"quoted\"")]
-    [InlineData("sk-ant-\u0259")]
-    public async Task AKeyThatCannotBeAKey_IsNamedAsSuch_NothingIsSent_AndItIsNotLogged(string key)
+    [InlineData("BURAYA_AÇARINIZI_YAZIN")]
+    [InlineData("AIza with a space")]
+    [InlineData("AIza\"quoted\"")]
+    [InlineData("AIzaə")]
+    [InlineData("sk-ant-api03-another-providers-key-0123456789")]
+    [InlineData("SK-proj-another-providers-key-0123456789")]
+    public async Task AKeyThatCannotBeAGeminiKey_IsNamedAsSuch_NothingIsSent_AndItIsNotLogged(string key)
     {
         var (provider, handler, log) = CreateProvider(Settings(s => s.ApiKey = key));
 
         var error = await Assert.ThrowsAsync<ServiceUnavailableException>(() => provider.CompleteAsync(Completion()));
+        await Assert.ThrowsAsync<ServiceUnavailableException>(() => provider.ListModelsAsync());
 
         Assert.Equal(AssistantErrorCodes.KeyMalformed, error.Code);
+        // Another provider's key is never sent to Google.
         Assert.Empty(handler.Calls);
         Assert.Contains(log.Messages, m => m.Contains(AssistantErrorCodes.KeyMalformed));
-        Assert.DoesNotContain(log.Messages.Append(error.ToString()), m => m.Contains(key.Split(' ')[0]) && key.Length > 12);
+        Assert.DoesNotContain(log.Messages.Append(error.ToString()), m => m.Contains(key));
     }
 
     [Fact]
     public async Task APastedKey_WithSpacesOrANewLineAround_IsTrimmed_AndWorks()
     {
         var (provider, handler, _) = CreateProvider(Settings(s => s.ApiKey = "  " + SecretKey + "\r\n"));
-        handler.Respond = (_, _) => Task.FromResult(Json(HttpStatusCode.OK, "{\"content\":[{\"type\":\"text\",\"text\":\"OK\"}]}"));
+        handler.Respond = (_, _) => Task.FromResult(Json(HttpStatusCode.OK, Answer("OK")));
 
         Assert.Equal("OK", await provider.CompleteAsync(Completion()));
-        Assert.Equal(SecretKey, handler.Calls.Single().Request.Headers.GetValues("x-api-key").Single());
+        Assert.Equal(SecretKey, handler.Calls.Single().Request.Headers.GetValues("x-goog-api-key").Single());
     }
 
     [Fact]
     public void TheKeyFormat_IsJudgedBySettings()
     {
         Assert.True(Settings().HasWellFormedKey);
-        Assert.True(new TravelAssistantSettings { ApiKey = "sk-ant-api03-AbC_123-xyz" }.HasWellFormedKey);
+        Assert.True(new TravelAssistantSettings { ApiKey = "AIzaSyA-bCdEfGhIjKlMnOpQrStUvWxYz_0123456" }.HasWellFormedKey);
         Assert.False(new TravelAssistantSettings { ApiKey = "" }.HasWellFormedKey);
-        Assert.False(new TravelAssistantSettings { ApiKey = "BURAYA_A\u00c7ARINIZI_YAZIN" }.HasWellFormedKey);
-    }
-
-    [Fact]
-    public async Task WithoutAKey_NoRequestIsMade()
-    {
-        var (provider, handler, _) = CreateProvider(Settings(s => s.ApiKey = ""));
-
-        await Assert.ThrowsAsync<ServiceUnavailableException>(() => provider.CompleteAsync(Completion()));
-
-        Assert.False(provider.IsConfigured);
-        Assert.Empty(handler.Calls);
+        Assert.False(new TravelAssistantSettings { ApiKey = "BURAYA_AÇARINIZI_YAZIN" }.HasWellFormedKey);
+        Assert.False(new TravelAssistantSettings { ApiKey = "sk-ant-api03-xyz" }.HasWellFormedKey);
+        Assert.True(new TravelAssistantSettings().ThinkingBudget == 0);
+        Assert.Equal("Gemini", new TravelAssistantSettings().Provider);
     }
 
     [Theory]
-    [InlineData(HttpStatusCode.Unauthorized, AssistantErrorCodes.KeyRejected)]
-    [InlineData(HttpStatusCode.Forbidden, AssistantErrorCodes.KeyRejected)]
-    [InlineData(HttpStatusCode.NotFound, AssistantErrorCodes.ModelUnavailable)]
-    [InlineData(HttpStatusCode.TooManyRequests, AssistantErrorCodes.Busy)]
-    [InlineData(HttpStatusCode.BadRequest, AssistantErrorCodes.RequestRejected)]
-    [InlineData(HttpStatusCode.InternalServerError, AssistantErrorCodes.ProviderError)]
-    [InlineData((HttpStatusCode)529, AssistantErrorCodes.Busy)]
-    public async Task AProviderError_BecomesASafeUnavailable_WithItsCode_WithoutLeakingTheKeyTheBodyOrTheQuestion(HttpStatusCode status, string code)
+    [InlineData(HttpStatusCode.Unauthorized, "UNAUTHENTICATED", AssistantErrorCodes.KeyRejected)]
+    [InlineData(HttpStatusCode.Forbidden, "PERMISSION_DENIED", AssistantErrorCodes.KeyRejected)]
+    [InlineData(HttpStatusCode.NotFound, "NOT_FOUND", AssistantErrorCodes.ModelUnavailable)]
+    [InlineData(HttpStatusCode.TooManyRequests, "RESOURCE_EXHAUSTED", AssistantErrorCodes.Busy)]
+    [InlineData(HttpStatusCode.BadRequest, "INVALID_ARGUMENT", AssistantErrorCodes.RequestRejected)]
+    [InlineData(HttpStatusCode.InternalServerError, "INTERNAL", AssistantErrorCodes.ProviderError)]
+    [InlineData(HttpStatusCode.ServiceUnavailable, "UNAVAILABLE", AssistantErrorCodes.ProviderError)]
+    public async Task AProviderError_BecomesASafeUnavailable_WithItsCode_WithoutLeakingTheKeyTheBodyOrTheQuestion(HttpStatusCode status, string kind, string code)
     {
         var (provider, handler, log) = CreateProvider();
-        handler.Respond = (_, _) => Task.FromResult(Json(status, "{\"error\":{\"message\":\"invalid x-api-key " + SecretKey + " for question: Where do I live?\"}}"));
+        handler.Respond = (_, _) => Task.FromResult(Json(status,
+            "{\"error\":{\"code\":" + (int)status + ",\"message\":\"internal detail with " + SecretKey + " for question: Where do I live?\",\"status\":\"" + kind + "\"}}"));
 
         var error = await Assert.ThrowsAsync<ServiceUnavailableException>(() => provider.CompleteAsync(Completion("Where do I live?")));
 
-        Assert.Equal(AnthropicAssistantProvider.UnavailableMessage, error.Message);
+        Assert.Equal(GeminiAssistantProvider.UnavailableMessage, error.Message);
         Assert.Equal(code, error.Code);
-        // The log names the failing step and the status, so the cause is known without guessing.
-        Assert.Contains(log.Messages, m => m.Contains(code) && m.Contains($"provider status {(int)status}"));
+        // The log names the failing step, the status and the error kind, so the cause is known without guessing.
+        Assert.Contains(log.Messages, m => m.Contains(code) && m.Contains($"provider status {(int)status}") && m.Contains($"error kind {kind}"));
         foreach (var text in log.Messages.Append(error.ToString()))
         {
             Assert.DoesNotContain(SecretKey, text);
             Assert.DoesNotContain("Where do I live?", text);
-            Assert.DoesNotContain("invalid x-api-key", text);
+            Assert.DoesNotContain("internal detail", text);
         }
-        Assert.Contains(log.Messages, m => m.Contains(((int)status).ToString()));
     }
 
     [Fact]
-    public async Task ABillingProblem_IsRecognised_AndTheProviderTextIsNotLogged()
+    public async Task AnInvalidKey_ReportedAsABadRequest_IsRecognisedAsTheKey()
     {
         var (provider, handler, log) = CreateProvider();
         handler.Respond = (_, _) => Task.FromResult(Json(HttpStatusCode.BadRequest,
-            "{\"type\":\"error\",\"error\":{\"type\":\"invalid_request_error\",\"message\":\"Your credit balance is too low. Question was: Where do I live?\"}}"));
+            "{\"error\":{\"code\":400,\"message\":\"API key not valid. Please pass a valid API key.\",\"status\":\"INVALID_ARGUMENT\",\"details\":[{\"@type\":\"type.googleapis.com/google.rpc.ErrorInfo\",\"reason\":\"API_KEY_INVALID\"}]}}"));
 
-        var error = await Assert.ThrowsAsync<ServiceUnavailableException>(() => provider.CompleteAsync(Completion("Where do I live?")));
+        var error = await Assert.ThrowsAsync<ServiceUnavailableException>(() => provider.CompleteAsync(Completion()));
 
-        Assert.Equal(AssistantErrorCodes.Billing, error.Code);
-        Assert.Contains(log.Messages, m => m.Contains("invalid_request_error"));
-        Assert.DoesNotContain(log.Messages, m => m.Contains("credit balance") || m.Contains("Where do I live?"));
+        Assert.Equal(AssistantErrorCodes.KeyRejected, error.Code);
+        Assert.Contains(log.Messages, m => m.Contains("error kind INVALID_ARGUMENT"));
+        Assert.DoesNotContain(log.Messages, m => m.Contains("API key not valid"));
     }
 
     [Fact]
-    public async Task TheProvidersErrorKind_IsLogged_OnlyWhenItIsPlainLowercaseText()
+    public async Task AQuotaProblem_ReportedAsAnotherStatus_IsStillRecognisedAsBusy()
+    {
+        var (provider, handler, _) = CreateProvider();
+        handler.Respond = (_, _) => Task.FromResult(Json(HttpStatusCode.Forbidden,
+            "{\"error\":{\"code\":429,\"message\":\"You exceeded your current quota.\",\"status\":\"RESOURCE_EXHAUSTED\"}}"));
+        // A 403 says permission, whatever the text: the status wins over the words.
+        var error = await Assert.ThrowsAsync<ServiceUnavailableException>(() => provider.CompleteAsync(Completion()));
+        Assert.Equal(AssistantErrorCodes.KeyRejected, error.Code);
+
+        handler.Respond = (_, _) => Task.FromResult(Json(HttpStatusCode.BadRequest,
+            "{\"error\":{\"code\":400,\"message\":\"Quota exceeded for this project.\",\"status\":\"INVALID_ARGUMENT\"}}"));
+        Assert.Equal(AssistantErrorCodes.Busy, (await Assert.ThrowsAsync<ServiceUnavailableException>(() => provider.CompleteAsync(Completion()))).Code);
+    }
+
+    [Fact]
+    public async Task ASafetyBlock_IsNamed_NotShownAsAnEmptyAnswer()
     {
         var (provider, handler, log) = CreateProvider();
-        handler.Respond = (_, _) => Task.FromResult(Json(HttpStatusCode.Unauthorized,
-            "{\"error\":{\"type\":\"authentication_error\",\"message\":\"invalid x-api-key\"}}"));
-        await Assert.ThrowsAsync<ServiceUnavailableException>(() => provider.CompleteAsync(Completion()));
-        Assert.Contains(log.Messages, m => m.Contains("error kind authentication_error"));
 
-        handler.Respond = (_, _) => Task.FromResult(Json(HttpStatusCode.Unauthorized,
-            "{\"error\":{\"type\":\"Bad Type! " + SecretKey + "\"}}"));
-        await Assert.ThrowsAsync<ServiceUnavailableException>(() => provider.CompleteAsync(Completion()));
-        Assert.DoesNotContain(log.Messages, m => m.Contains(SecretKey));
+        handler.Respond = (_, _) => Task.FromResult(Json(HttpStatusCode.OK, "{\"promptFeedback\":{\"blockReason\":\"SAFETY\"}}"));
+        Assert.Equal(AssistantErrorCodes.Blocked, (await Assert.ThrowsAsync<ServiceUnavailableException>(() => provider.CompleteAsync(Completion()))).Code);
+
+        handler.Respond = (_, _) => Task.FromResult(Json(HttpStatusCode.OK, "{\"candidates\":[{\"finishReason\":\"SAFETY\"}]}"));
+        Assert.Equal(AssistantErrorCodes.Blocked, (await Assert.ThrowsAsync<ServiceUnavailableException>(() => provider.CompleteAsync(Completion()))).Code);
+
+        Assert.Contains(log.Messages, m => m.Contains(AssistantErrorCodes.Blocked) && m.Contains("SAFETY"));
+    }
+
+    [Fact]
+    public async Task AnAnswerCutShort_ByTheTokenLimit_IsStillShown_WhenItHasText()
+    {
+        var (provider, handler, _) = CreateProvider();
+        handler.Respond = (_, _) => Task.FromResult(Json(HttpStatusCode.OK,
+            "{\"candidates\":[{\"content\":{\"parts\":[{\"text\":\"Economy is the most affordable cabin and\"}]},\"finishReason\":\"MAX_TOKENS\"}]}"));
+
+        Assert.Equal("Economy is the most affordable cabin and", await provider.CompleteAsync(Completion()));
+
+        handler.Respond = (_, _) => Task.FromResult(Json(HttpStatusCode.OK, "{\"candidates\":[{\"content\":{\"role\":\"model\"},\"finishReason\":\"MAX_TOKENS\"}]}"));
+        Assert.Equal(AssistantErrorCodes.BadAnswer, (await Assert.ThrowsAsync<ServiceUnavailableException>(() => provider.CompleteAsync(Completion()))).Code);
     }
 
     [Fact]
@@ -490,27 +551,59 @@ public class AssistantTests
     public async Task ANetworkFailure_IsASafeUnavailable()
     {
         var (provider, handler, log) = CreateProvider();
-        handler.Respond = (_, _) => throw new HttpRequestException("name resolution failed for api.anthropic.com");
+        handler.Respond = (_, _) => throw new HttpRequestException("name resolution failed for generativelanguage.googleapis.com");
 
         var error = await Assert.ThrowsAsync<ServiceUnavailableException>(() => provider.CompleteAsync(Completion()));
 
-        Assert.DoesNotContain("api.anthropic.com", error.Message);
-        Assert.Contains(log.Messages, m => m.Contains(AssistantErrorCodes.Unreachable));
+        Assert.DoesNotContain("googleapis", error.Message);
         Assert.Equal(AssistantErrorCodes.Unreachable, error.Code);
-        Assert.DoesNotContain(log.Messages, m => m.Contains("api.anthropic.com") || m.Contains(SecretKey));
+        Assert.Contains(log.Messages, m => m.Contains(AssistantErrorCodes.Unreachable));
+        Assert.DoesNotContain(log.Messages, m => m.Contains("googleapis") || m.Contains(SecretKey));
     }
 
     [Theory]
     [InlineData("not json")]
     [InlineData("{}")]
-    [InlineData("{\"content\":[]}")]
-    [InlineData("{\"content\":[{\"type\":\"text\",\"text\":\"   \"}]}")]
+    [InlineData("{\"candidates\":[]}")]
+    [InlineData("{\"candidates\":[{\"content\":{\"parts\":[{\"text\":\"   \"}]}}]}")]
+    [InlineData("{\"candidates\":[{\"content\":{\"parts\":[{\"thought\":true,\"text\":\"only thinking\"}]}}]}")]
     public async Task AnAnswerWithoutUsableText_IsASafeUnavailable_NeverAnEmptyReply(string body)
     {
         var (provider, handler, _) = CreateProvider();
         handler.Respond = (_, _) => Task.FromResult(Json(HttpStatusCode.OK, body));
 
-        await Assert.ThrowsAsync<ServiceUnavailableException>(() => provider.CompleteAsync(Completion()));
+        var error = await Assert.ThrowsAsync<ServiceUnavailableException>(() => provider.CompleteAsync(Completion()));
+
+        Assert.Equal(AssistantErrorCodes.BadAnswer, error.Code);
+    }
+
+    [Fact]
+    public async Task TheModelsTheKeyCanUse_AreListed_OnlyThoseThatWriteAnswers()
+    {
+        var (provider, handler, _) = CreateProvider();
+        handler.Respond = (_, _) => Task.FromResult(Json(HttpStatusCode.OK,
+            "{\"models\":[" +
+            "{\"name\":\"models/gemini-2.5-flash\",\"supportedGenerationMethods\":[\"generateContent\",\"countTokens\"]}," +
+            "{\"name\":\"models/text-embedding-004\",\"supportedGenerationMethods\":[\"embedContent\"]}," +
+            "{\"name\":\"models/gemini-2.0-flash\",\"supportedGenerationMethods\":[\"generateContent\"]}]}"));
+
+        var models = await provider.ListModelsAsync();
+
+        Assert.Equal(new[] { "gemini-2.0-flash", "gemini-2.5-flash" }, models);
+        var (request, _) = Assert.Single(handler.Calls);
+        Assert.Equal(HttpMethod.Get, request.Method);
+        Assert.StartsWith("https://generativelanguage.googleapis.com/v1beta/models", request.RequestUri!.ToString());
+        Assert.DoesNotContain(SecretKey, request.RequestUri.ToString());
+        Assert.Equal(SecretKey, request.Headers.GetValues("x-goog-api-key").Single());
+    }
+
+    [Fact]
+    public async Task ListingModels_WithARefusedKey_NamesTheKey()
+    {
+        var (provider, handler, _) = CreateProvider();
+        handler.Respond = (_, _) => Task.FromResult(Json(HttpStatusCode.Forbidden, "{\"error\":{\"status\":\"PERMISSION_DENIED\",\"message\":\"x\"}}"));
+
+        Assert.Equal(AssistantErrorCodes.KeyRejected, (await Assert.ThrowsAsync<ServiceUnavailableException>(() => provider.ListModelsAsync())).Code);
     }
 
     // ---- the facts --------------------------------------------------------------------------------------------------------

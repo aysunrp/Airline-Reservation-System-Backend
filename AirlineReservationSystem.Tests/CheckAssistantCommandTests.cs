@@ -66,7 +66,34 @@ public class CheckAssistantCommandTests : IClassFixture<ApiFactory>
         Assert.Equal(1, exitCode);
         Assert.Contains(expected, output);
         Assert.Contains(code, output);
-        Assert.DoesNotContain("sk-api-tests-only", output);
+        Assert.DoesNotContain("api-tests-only", output);
+    }
+
+    [Fact]
+    public async Task WithModels_ItListsTheOnesTheKeyCanUse_AndMarksTheConfiguredOne()
+    {
+        var output = new StringWriter();
+
+        var code = await ServerCommands.RunAsync(new[] { "check-assistant", "--models" }, _factory.Services, new StringReader(string.Empty), output);
+
+        var text = output.ToString();
+        Assert.Equal(0, code);
+        Assert.Contains("  * gemini-2.5-flash", text);
+        Assert.Contains("    gemini-2.0-flash", text);
+        Assert.Contains("The configured model (gemini-2.5-flash) is available.", text);
+        Assert.Contains("Ask AEROVA works", text);
+    }
+
+    [Fact]
+    public async Task WithModels_AWrongModelNameIsSeenAtOnce()
+    {
+        _factory.Assistant.Models = () => new[] { "gemini-9-ultra" };
+        var output = new StringWriter();
+
+        await ServerCommands.RunAsync(new[] { "check-assistant", "--models" }, _factory.Services, new StringReader(string.Empty), output);
+
+        Assert.Contains("is NOT in the list", output.ToString());
+        Assert.Contains("gemini-9-ultra", output.ToString());
     }
 
     [Fact]

@@ -121,7 +121,7 @@ public class ApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
             // No real AI provider in tests (a developer's TravelAssistant key never counts here): the questions end up in a list the tests read.
             services.PostConfigure<TravelAssistantSettings>(settings =>
             {
-                settings.ApiKey = "sk-api-tests-only-not-a-real-key";
+                settings.ApiKey = "AIza-api-tests-only-not-a-real-key";
                 settings.RateLimitPerMinute = AssistantRateLimitPerMinute;
             });
             services.RemoveAll<IAssistantProvider>();

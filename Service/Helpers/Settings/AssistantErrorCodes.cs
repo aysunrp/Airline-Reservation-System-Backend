@@ -36,19 +36,23 @@ public static class AssistantErrorCodes
     /// <summary>The provider answered, but not with usable text.</summary>
     public const string BadAnswer = "assistant_bad_answer";
 
+    /// <summary>The provider's safety rules stopped the answer (the question or the answer was blocked).</summary>
+    public const string Blocked = "assistant_blocked";
+
     /// <summary>What an operator should check, in plain words (used by the check-assistant command; never shown to travellers).</summary>
     public static string Describe(string? code) => code switch
     {
-        NotConfigured => "Ask AEROVA is not set up: TravelAssistant:ApiKey is empty (or TravelAssistant:Provider is not \"Anthropic\"). Set the key with user-secrets or the TravelAssistant__ApiKey environment variable.",
-        KeyMalformed => "TravelAssistant:ApiKey is not a real API key: it contains characters that cannot be part of one (letters such as \u00c7 or \u018f, spaces or quotes). It looks like the placeholder text of an instruction or a bad paste. Replace it with the key copied from the provider's console (it starts with \"sk-\") and restart the API.",
-        KeyRejected => "The provider refused the key. Check that TravelAssistant:ApiKey is a current API key (not expired or revoked), copied completely, and created for an account with API access.",
-        ModelUnavailable => "The provider does not know this model or endpoint. Check TravelAssistant:Model and TravelAssistant:Endpoint, and that the key's account may use that model.",
-        Billing => "The provider account has no credit or billing is not set up. Add credit or a payment method in the provider's console.",
-        Busy => "The provider is busy or the account's rate limit is reached. Try again in a minute; check the limits in the provider's console.",
-        RequestRejected => "The provider rejected the request. Check TravelAssistant:Model, TravelAssistant:MaxOutputTokens and TravelAssistant:ApiVersion.",
+        NotConfigured => "Ask AEROVA is not set up: TravelAssistant:ApiKey is empty (or TravelAssistant:Provider is not \"Gemini\"). Set the key with user-secrets or the TravelAssistant__ApiKey environment variable.",
+        KeyMalformed => "TravelAssistant:ApiKey is not a real API key: it contains characters that cannot be part of one (letters such as \u00c7 or \u018f, spaces or quotes). It looks like the placeholder text of an instruction or a bad paste. It can also be the key of another provider (keys starting with \"sk-\" are never sent to Google). Replace it with the key from Google AI Studio (aistudio.google.com/apikey, it starts with \"AIza\") and restart the API.",
+        KeyRejected => "The provider refused the key. Check that TravelAssistant:ApiKey is a current Gemini API key from Google AI Studio (not deleted or restricted), copied completely.",
+        ModelUnavailable => "The provider does not know this model or endpoint. Run check-assistant --models to see the models this key can use, then set TravelAssistant:Model (and check TravelAssistant:Endpoint).",
+        Billing => "The provider account has no credit or billing is not set up. Check the plan and billing of the Google AI Studio project.",
+        Busy => "The provider is busy, or the free-tier rate limit or quota of the key's project is reached. Try again in a minute, or check the quota in Google AI Studio.",
+        RequestRejected => "The provider rejected the request. Check TravelAssistant:Model, TravelAssistant:MaxOutputTokens and TravelAssistant:ThinkingBudget (a model that cannot turn thinking off needs it empty).",
         ProviderError => "The provider failed on its side. Try again later and check the provider's status page.",
         Unreachable => "The provider could not be reached. Check the internet connection, a firewall or antivirus, a proxy, and TravelAssistant:Endpoint.",
-        BadAnswer => "The provider answered, but without usable text. Check TravelAssistant:Model and TravelAssistant:Endpoint.",
+        BadAnswer => "The provider answered, but without usable text. Check TravelAssistant:Model, TravelAssistant:Endpoint and, for a model that thinks, TravelAssistant:ThinkingBudget.",
+        Blocked => "The provider's safety rules stopped the answer. Try a different question; if every question is stopped, check the project's safety settings in Google AI Studio.",
         _ => "The assistant failed for a reason that is not known; see the API log."
     };
 }
