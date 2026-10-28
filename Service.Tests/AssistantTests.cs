@@ -24,7 +24,7 @@ internal sealed class FakeAssistantProvider : IAssistantProvider
     public List<AssistantCompletionRequest> Requests { get; } = new();
 
     public Task<IReadOnlyList<string>> ListModelsAsync(CancellationToken cancellationToken = default)
-        => Throw is null ? Task.FromResult<IReadOnlyList<string>>(new[] { "gemini-2.5-flash" }) : Task.FromException<IReadOnlyList<string>>(Throw);
+        => Throw is null ? Task.FromResult<IReadOnlyList<string>>(new[] { "gemini-3.5-flash" }) : Task.FromException<IReadOnlyList<string>>(Throw);
 
     public Task<string> CompleteAsync(AssistantCompletionRequest request, CancellationToken cancellationToken = default)
     {
@@ -583,13 +583,13 @@ public class AssistantTests
         var (provider, handler, _) = CreateProvider();
         handler.Respond = (_, _) => Task.FromResult(Json(HttpStatusCode.OK,
             "{\"models\":[" +
-            "{\"name\":\"models/gemini-2.5-flash\",\"supportedGenerationMethods\":[\"generateContent\",\"countTokens\"]}," +
+            "{\"name\":\"models/gemini-3.5-flash\",\"supportedGenerationMethods\":[\"generateContent\",\"countTokens\"]}," +
             "{\"name\":\"models/text-embedding-004\",\"supportedGenerationMethods\":[\"embedContent\"]}," +
-            "{\"name\":\"models/gemini-2.0-flash\",\"supportedGenerationMethods\":[\"generateContent\"]}]}"));
+            "{\"name\":\"models/gemini-3.1-flash-lite\",\"supportedGenerationMethods\":[\"generateContent\"]}]}"));
 
         var models = await provider.ListModelsAsync();
 
-        Assert.Equal(new[] { "gemini-2.0-flash", "gemini-2.5-flash" }, models);
+        Assert.Equal(new[] { "gemini-3.1-flash-lite", "gemini-3.5-flash" }, models);
         var (request, _) = Assert.Single(handler.Calls);
         Assert.Equal(HttpMethod.Get, request.Method);
         Assert.StartsWith("https://generativelanguage.googleapis.com/v1beta/models", request.RequestUri!.ToString());

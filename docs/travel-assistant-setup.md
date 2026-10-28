@@ -38,7 +38,7 @@ Response `200`:
 
 ## The key (secret)
 
-The provider key is a **Google AI Studio** key (create it at <https://aistudio.google.com/apikey>; it starts with `AIza`). Its
+The provider key is a **Google AI Studio** key (create it at <https://aistudio.google.com/apikey>). Its
 configuration name is `TravelAssistant:ApiKey`. It is never put in `appsettings.json`, the frontend, Git, the log or a response.
 Without it the API runs and the chat answers `503` ("The assistant is not available right now").
 
@@ -47,7 +47,7 @@ Local development, in PowerShell, from the API project folder
 stored in your user profile, outside the project and Git:
 
 ```powershell
-dotnet user-secrets set "TravelAssistant:ApiKey" "AIza..." --project AirlineReservationSystem
+dotnet user-secrets set "TravelAssistant:ApiKey" "<your-gemini-api-key>" --project AirlineReservationSystem
 ```
 
 Production: set the environment variable (or the secret store of the host)
@@ -75,7 +75,7 @@ Exit code 0 and "Ask AEROVA works" mean the assistant works. Without `--models` 
 | Setting | Default | Meaning |
 | --- | --- | --- |
 | `Provider` | `Gemini` | Provider that answers (built in: Gemini; others can be added behind `IAssistantProvider`) |
-| `Model` | `gemini-2.5-flash` | Model that answers; pick one from `check-assistant --models` |
+| `Model` | `gemini-3.5-flash` | Model that answers; pick one from `check-assistant --models`. Models that Google has retired (for example `gemini-2.5-*`) can still appear in that list but answer 404, so the check also asks a real question |
 | `Endpoint` | `https://generativelanguage.googleapis.com/v1beta` | Gemini API address (the model and method are added to it) |
 | `ThinkingBudget` | `0` | Tokens the model may spend thinking first; `0` turns thinking off (right for short answers). Remove the setting for a model that cannot turn thinking off |
 | `TimeoutSeconds` | `30` | Time given to the provider before the request returns 504 |

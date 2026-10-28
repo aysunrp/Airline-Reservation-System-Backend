@@ -13,7 +13,7 @@ public class TravelAssistantSettings
     public string Provider { get; set; } = "Gemini";
 
     /// <summary>The model that answers (a fast, inexpensive one is enough for travel questions). "check-assistant --models" lists the ones the key can use.</summary>
-    public string Model { get; set; } = "gemini-2.5-flash";
+    public string Model { get; set; } = "gemini-3.5-flash";
 
     /// <summary>The provider's API address; the model and method are added to it.</summary>
     public string Endpoint { get; set; } = "https://generativelanguage.googleapis.com/v1beta";

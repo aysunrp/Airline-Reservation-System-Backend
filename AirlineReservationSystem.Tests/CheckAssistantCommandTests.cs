@@ -78,9 +78,9 @@ public class CheckAssistantCommandTests : IClassFixture<ApiFactory>
 
         var text = output.ToString();
         Assert.Equal(0, code);
-        Assert.Contains("  * gemini-2.5-flash", text);
-        Assert.Contains("    gemini-2.0-flash", text);
-        Assert.Contains("The configured model (gemini-2.5-flash) is available.", text);
+        Assert.Contains("  * gemini-3.5-flash", text);
+        Assert.Contains("    gemini-3.1-flash-lite", text);
+        Assert.Contains("The configured model (gemini-3.5-flash) is available.", text);
         Assert.Contains("Ask AEROVA works", text);
     }
 

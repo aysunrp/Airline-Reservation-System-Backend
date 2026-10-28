@@ -26,10 +26,10 @@ public sealed class TestAssistantProvider : IAssistantProvider
         IsConfigured = true;
         Throw = null;
         Answer = _ => "Economy is the most affordable cabin.";
-        Models = () => new[] { "gemini-2.5-flash", "gemini-2.0-flash" };
+        Models = () => new[] { "gemini-3.5-flash", "gemini-3.1-flash-lite" };
     }
 
-    public Func<IReadOnlyList<string>> Models { get; set; } = () => new[] { "gemini-2.5-flash", "gemini-2.0-flash" };
+    public Func<IReadOnlyList<string>> Models { get; set; } = () => new[] { "gemini-3.5-flash", "gemini-3.1-flash-lite" };
 
     public Task<IReadOnlyList<string>> ListModelsAsync(CancellationToken cancellationToken = default)
         => Throw is null ? Task.FromResult(Models()) : Task.FromException<IReadOnlyList<string>>(Throw);
