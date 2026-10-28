@@ -322,6 +322,8 @@ public class AssistantTests
         Assert.Equal(SecretKey, request.Headers.GetValues("x-api-key").Single());
         Assert.Equal("2023-06-01", request.Headers.GetValues("anthropic-version").Single());
         Assert.DoesNotContain(SecretKey, body);
+        // Sent with a known length rather than chunked, which every proxy and simple server in front of a provider handles.
+        Assert.Equal(Encoding.UTF8.GetByteCount(body), request.Content!.Headers.ContentLength);
         using var document = JsonDocument.Parse(body);
         Assert.Equal("test-model", document.RootElement.GetProperty("model").GetString());
         Assert.Equal(400, document.RootElement.GetProperty("max_tokens").GetInt32());
@@ -398,12 +400,14 @@ public class AssistantTests
     [Fact]
     public async Task ANetworkFailure_IsASafeUnavailable()
     {
-        var (provider, handler, _) = CreateProvider();
+        var (provider, handler, log) = CreateProvider();
         handler.Respond = (_, _) => throw new HttpRequestException("name resolution failed for api.anthropic.com");
 
         var error = await Assert.ThrowsAsync<ServiceUnavailableException>(() => provider.CompleteAsync(Completion()));
 
         Assert.DoesNotContain("api.anthropic.com", error.Message);
+        Assert.Contains(log.Messages, m => m.Contains("could not be reached"));
+        Assert.DoesNotContain(log.Messages, m => m.Contains("api.anthropic.com") || m.Contains(SecretKey));
     }
 
     [Theory]

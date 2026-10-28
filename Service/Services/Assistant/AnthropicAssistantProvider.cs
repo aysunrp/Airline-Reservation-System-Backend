@@ -1,5 +1,4 @@
 using System.Net;
-using System.Net.Http.Json;
 using System.Text;
 using System.Text.Json;
 using Microsoft.Extensions.Logging;
@@ -47,7 +46,11 @@ public class AnthropicAssistantProvider : IAssistantProvider
             messages = request.Turns.Select(t => new { role = t.Role, content = t.Text }).ToArray()
         };
 
-        using var message = new HttpRequestMessage(HttpMethod.Post, _settings.Endpoint) { Content = JsonContent.Create(body) };
+        // Sent with a known length (not chunked): proxies and simple servers in front of the provider handle that best.
+        using var message = new HttpRequestMessage(HttpMethod.Post, _settings.Endpoint)
+        {
+            Content = new StringContent(JsonSerializer.Serialize(body), Encoding.UTF8, "application/json")
+        };
         message.Headers.Add("x-api-key", _settings.ApiKey);
         message.Headers.Add("anthropic-version", _settings.ApiVersion);
 
@@ -70,9 +73,9 @@ public class AnthropicAssistantProvider : IAssistantProvider
             _logger.LogWarning("The assistant provider did not answer within {Seconds} seconds.", _settings.TimeoutSeconds);
             throw new GatewayTimeoutException("The assistant took too long to answer. Please try again.");
         }
-        catch (HttpRequestException)
+        catch (HttpRequestException exception)
         {
-            _logger.LogWarning("The assistant provider could not be reached.");
+            _logger.LogWarning("The assistant provider could not be reached ({Error}).", exception.HttpRequestError);
             throw new ServiceUnavailableException(UnavailableMessage);
         }
 
