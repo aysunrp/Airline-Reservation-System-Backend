@@ -7,4 +7,7 @@ public static class RateLimitPolicies
 
     /// <summary>Anonymous look-ups that can be guessed at (promo codes, booking reference and last name): Auth:LookupRateLimitPerMinute.</summary>
     public const string Lookup = "lookup";
+
+    /// <summary>Questions to Ask AEROVA (each one costs money at the AI provider): TravelAssistant:RateLimitPerMinute per IP address.</summary>
+    public const string Assistant = "assistant";
 }

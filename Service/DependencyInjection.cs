@@ -16,6 +16,7 @@ namespace Service
             services.Configure<JwtSettings>(configuration.GetSection(JwtSettings.SectionName));
             services.Configure<AuthSettings>(configuration.GetSection(AuthSettings.SectionName));
             services.Configure<SmtpSettings>(configuration.GetSection(SmtpSettings.SectionName));
+            services.Configure<TravelAssistantSettings>(configuration.GetSection(TravelAssistantSettings.SectionName));
             services.Configure<BookingSettings>(configuration.GetSection(BookingSettings.SectionName));
             services.Configure<SeatLayoutSettings>(configuration.GetSection(SeatLayoutSettings.SectionName));
             services.Configure<FlightGenerationSettings>(configuration.GetSection(FlightGenerationSettings.SectionName));
@@ -50,6 +51,11 @@ namespace Service
             services.AddScoped<IBookingExpiryService, BookingExpiryService>();
             services.AddSingleton<ITravelDocumentPolicy, TravelDocumentPolicy>();
             services.AddScoped<IBookingEmailConfirmationService, BookingEmailConfirmationService>();
+            // Ask AEROVA: the provider is one HttpClient, so the way it is reached (and its timeouts) is set here and nowhere else.
+            services.AddHttpClient<IAssistantProvider, AnthropicAssistantProvider>(client => client.Timeout = TimeSpan.FromMinutes(2));
+            services.AddSingleton<AssistantFactsCache>();
+            services.AddScoped<IAssistantKnowledge, AssistantKnowledge>();
+            services.AddScoped<IAssistantService, AssistantService>();
             services.AddScoped<IBookingService, BookingService>();
             services.AddScoped<IBookingConfirmationService, BookingConfirmationService>();
             services.AddScoped<IPaymentService, PaymentService>();
