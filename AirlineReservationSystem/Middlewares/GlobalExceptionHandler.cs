@@ -7,7 +7,8 @@ namespace AirlineReservationSystem.Middlewares;
 
 /// <summary>
 /// Turns exceptions from the service layer into RFC 7807 problem responses:
-/// 400 validation, 401 unauthorized, 404 not found, 409 conflict, 422 business rule, 429 too many sign-in attempts, 500 anything else.
+/// 400 validation, 401 unauthorized, 404 not found, 409 conflict, 422 business rule, 429 too many sign-in attempts, 503 and 504 for a
+/// service the request depends on, 500 anything else.
 /// </summary>
 public sealed class GlobalExceptionHandler : IExceptionHandler
 {
@@ -35,6 +36,7 @@ public sealed class GlobalExceptionHandler : IExceptionHandler
             UnauthorizedException => Problem(StatusCodes.Status401Unauthorized, "Unauthorized", exception.Message),
             TooManyAttemptsException => Problem(StatusCodes.Status429TooManyRequests, "Too many attempts", exception.Message),
             ServiceUnavailableException => Problem(StatusCodes.Status503ServiceUnavailable, "Service unavailable", exception.Message),
+            GatewayTimeoutException => Problem(StatusCodes.Status504GatewayTimeout, "Gateway timeout", exception.Message),
             NotFoundException => Problem(StatusCodes.Status404NotFound, "Not found", exception.Message),
             ConflictException => Problem(StatusCodes.Status409Conflict, "Conflict", exception.Message),
             BusinessRuleException => Problem(StatusCodes.Status422UnprocessableEntity, "Business rule violation", exception.Message),
@@ -54,6 +56,11 @@ public sealed class GlobalExceptionHandler : IExceptionHandler
         if (exception is BusinessRuleException { Code: not null } coded)
         {
             problem.Extensions["code"] = coded.Code;
+        }
+
+        if (exception is ServiceUnavailableException { Code: not null } unavailable)
+        {
+            problem.Extensions["code"] = unavailable.Code;
         }
 
         if (exception is TooManyAttemptsException tooMany)

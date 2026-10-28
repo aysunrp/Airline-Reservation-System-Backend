@@ -49,6 +49,13 @@ builder.Services.AddRateLimiter(options =>
             "lookup:" + (httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown"),
             _ => new FixedWindowRateLimiterOptions { PermitLimit = limit, Window = TimeSpan.FromMinutes(1), QueueLimit = 0 });
     });
+    options.AddPolicy(RateLimitPolicies.Assistant, httpContext =>
+    {
+        var limit = Math.Max(1, httpContext.RequestServices.GetRequiredService<IOptions<TravelAssistantSettings>>().Value.RateLimitPerMinute);
+        return RateLimitPartition.GetFixedWindowLimiter(
+            "assistant:" + (httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown"),
+            _ => new FixedWindowRateLimiterOptions { PermitLimit = limit, Window = TimeSpan.FromMinutes(1), QueueLimit = 0 });
+    });
     options.OnRejected = async (context, cancellationToken) =>
     {
         var problem = new ProblemDetails
@@ -127,6 +134,25 @@ if (ServerCommands.IsCommand(args))
     Environment.ExitCode = await ServerCommands.RunAsync(args, app.Services, Console.In, Console.Out);
     return;
 }
+
+// Ask AEROVA needs a provider key; whether it has one is said once at start-up (never the key itself), so a missing key is not a mystery.
+app.Lifetime.ApplicationStarted.Register(() =>
+{
+    var assistant = app.Services.GetRequiredService<IOptions<TravelAssistantSettings>>().Value;
+    var startupLog = app.Services.GetRequiredService<ILoggerFactory>().CreateLogger("AskAerova");
+    if (assistant.IsConfigured && !assistant.HasWellFormedKey)
+    {
+        startupLog.LogWarning("Ask AEROVA cannot answer: {Hint}", AssistantErrorCodes.Describe(AssistantErrorCodes.KeyMalformed));
+    }
+    else if (assistant.IsConfigured)
+    {
+        startupLog.LogInformation("Ask AEROVA: provider {Provider}, model {Model}, key present. Run \"check-assistant\" to test it.", assistant.Provider, assistant.Model);
+    }
+    else
+    {
+        startupLog.LogWarning("Ask AEROVA is not set up: {Hint}", AssistantErrorCodes.Describe(AssistantErrorCodes.NotConfigured));
+    }
+});
 
 // Configure the HTTP request pipeline.
 app.UseExceptionHandler();

@@ -57,7 +57,13 @@ public class ApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
     /// <summary>Off by default so the tests that cancel paid bookings need no mailbox; the tests of the cancellation link switch it on.</summary>
     public bool RequireCancellationEmailConfirmation { get; init; }
 
+    /// <summary>Questions to Ask AEROVA per minute and IP address; high so the tests never hit it, except the test of the limit itself.</summary>
+    public int AssistantRateLimitPerMinute { get; init; } = 100_000;
+
     public const string TestWebhookSecret = "whsec_api_tests_only";
+
+    /// <summary>The questions the API asked "the AI provider".</summary>
+    public TestAssistantProvider Assistant => Services.GetRequiredService<TestAssistantProvider>();
 
     /// <summary>The Checkout pages the API asked "Stripe" for.</summary>
     public TestStripeGateway Stripe => Services.GetRequiredService<TestStripeGateway>();
@@ -111,6 +117,16 @@ public class ApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
             services.RemoveAll<IStripeRefundGateway>();
             services.AddSingleton<TestStripeRefundGateway>();
             services.AddSingleton<IStripeRefundGateway>(provider => provider.GetRequiredService<TestStripeRefundGateway>());
+
+            // No real AI provider in tests (a developer's TravelAssistant key never counts here): the questions end up in a list the tests read.
+            services.PostConfigure<TravelAssistantSettings>(settings =>
+            {
+                settings.ApiKey = "AIza-api-tests-only-not-a-real-key";
+                settings.RateLimitPerMinute = AssistantRateLimitPerMinute;
+            });
+            services.RemoveAll<IAssistantProvider>();
+            services.AddSingleton<TestAssistantProvider>();
+            services.AddSingleton<IAssistantProvider>(provider => provider.GetRequiredService<TestAssistantProvider>());
 
             // No real SMTP in tests: the messages end up in a list the tests read.
             services.RemoveAll<IEmailSender>();
