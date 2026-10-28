@@ -351,6 +351,42 @@ public class AssistantTests
         Assert.Equal("Hi there", document.RootElement.GetProperty("messages")[0].GetProperty("content").GetString());
     }
 
+    [Theory]
+    [InlineData("BURAYA_A\u00c7ARINIZI_YAZIN")]
+    [InlineData("sk-ant-with a space")]
+    [InlineData("sk-ant-\"quoted\"")]
+    [InlineData("sk-ant-\u0259")]
+    public async Task AKeyThatCannotBeAKey_IsNamedAsSuch_NothingIsSent_AndItIsNotLogged(string key)
+    {
+        var (provider, handler, log) = CreateProvider(Settings(s => s.ApiKey = key));
+
+        var error = await Assert.ThrowsAsync<ServiceUnavailableException>(() => provider.CompleteAsync(Completion()));
+
+        Assert.Equal(AssistantErrorCodes.KeyMalformed, error.Code);
+        Assert.Empty(handler.Calls);
+        Assert.Contains(log.Messages, m => m.Contains(AssistantErrorCodes.KeyMalformed));
+        Assert.DoesNotContain(log.Messages.Append(error.ToString()), m => m.Contains(key.Split(' ')[0]) && key.Length > 12);
+    }
+
+    [Fact]
+    public async Task APastedKey_WithSpacesOrANewLineAround_IsTrimmed_AndWorks()
+    {
+        var (provider, handler, _) = CreateProvider(Settings(s => s.ApiKey = "  " + SecretKey + "\r\n"));
+        handler.Respond = (_, _) => Task.FromResult(Json(HttpStatusCode.OK, "{\"content\":[{\"type\":\"text\",\"text\":\"OK\"}]}"));
+
+        Assert.Equal("OK", await provider.CompleteAsync(Completion()));
+        Assert.Equal(SecretKey, handler.Calls.Single().Request.Headers.GetValues("x-api-key").Single());
+    }
+
+    [Fact]
+    public void TheKeyFormat_IsJudgedBySettings()
+    {
+        Assert.True(Settings().HasWellFormedKey);
+        Assert.True(new TravelAssistantSettings { ApiKey = "sk-ant-api03-AbC_123-xyz" }.HasWellFormedKey);
+        Assert.False(new TravelAssistantSettings { ApiKey = "" }.HasWellFormedKey);
+        Assert.False(new TravelAssistantSettings { ApiKey = "BURAYA_A\u00c7ARINIZI_YAZIN" }.HasWellFormedKey);
+    }
+
     [Fact]
     public async Task WithoutAKey_NoRequestIsMade()
     {

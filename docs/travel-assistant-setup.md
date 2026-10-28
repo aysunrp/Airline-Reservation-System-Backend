@@ -85,6 +85,7 @@ start-up ("Ask AEROVA is not set up..." or "provider ..., key present"), and the
 | `code` | What to do |
 | --- | --- |
 | `assistant_not_configured` | Set `TravelAssistant:ApiKey` (user-secrets or `TravelAssistant__ApiKey`), then restart the API |
+| `assistant_key_malformed` | The stored key is not a key (it has letters like Ç, spaces or quotes): usually the placeholder text of an instruction was saved instead of the real key. Set the real key and restart |
 | `assistant_key_rejected` | The key is wrong, expired, revoked or has no API access: create a new one |
 | `assistant_model_unavailable` | Check `TravelAssistant:Model` and `:Endpoint`, and that the key's account may use that model |
 | `assistant_billing` | The provider account has no credit or billing: add credit in the provider's console |

@@ -9,6 +9,9 @@ public static class AssistantErrorCodes
     /// <summary>No provider key (TravelAssistant:ApiKey) or an unsupported provider name: nothing was asked.</summary>
     public const string NotConfigured = "assistant_not_configured";
 
+    /// <summary>The stored key cannot be an API key (non-ASCII letters, spaces or quotes inside it): a placeholder or a bad paste. Nothing was sent.</summary>
+    public const string KeyMalformed = "assistant_key_malformed";
+
     /// <summary>The provider refused the key (401 or 403): wrong, revoked, or without API access.</summary>
     public const string KeyRejected = "assistant_key_rejected";
 
@@ -37,6 +40,7 @@ public static class AssistantErrorCodes
     public static string Describe(string? code) => code switch
     {
         NotConfigured => "Ask AEROVA is not set up: TravelAssistant:ApiKey is empty (or TravelAssistant:Provider is not \"Anthropic\"). Set the key with user-secrets or the TravelAssistant__ApiKey environment variable.",
+        KeyMalformed => "TravelAssistant:ApiKey is not a real API key: it contains characters that cannot be part of one (letters such as \u00c7 or \u018f, spaces or quotes). It looks like the placeholder text of an instruction or a bad paste. Replace it with the key copied from the provider's console (it starts with \"sk-\") and restart the API.",
         KeyRejected => "The provider refused the key. Check that TravelAssistant:ApiKey is a current API key (not expired or revoked), copied completely, and created for an account with API access.",
         ModelUnavailable => "The provider does not know this model or endpoint. Check TravelAssistant:Model and TravelAssistant:Endpoint, and that the key's account may use that model.",
         Billing => "The provider account has no credit or billing is not set up. Add credit or a payment method in the provider's console.",

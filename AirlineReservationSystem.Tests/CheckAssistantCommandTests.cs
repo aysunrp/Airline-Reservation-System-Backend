@@ -52,6 +52,7 @@ public class CheckAssistantCommandTests : IClassFixture<ApiFactory>
     }
 
     [Theory]
+    [InlineData("assistant_key_malformed", "not a real API key")]
     [InlineData("assistant_key_rejected", "refused the key")]
     [InlineData("assistant_model_unavailable", "TravelAssistant:Model")]
     [InlineData("assistant_billing", "credit")]

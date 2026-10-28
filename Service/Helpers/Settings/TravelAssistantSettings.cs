@@ -46,4 +46,14 @@ public class TravelAssistantSettings
     public int FactsCacheMinutes { get; set; } = 10;
 
     public bool IsConfigured => !string.IsNullOrWhiteSpace(ApiKey) && string.Equals(Provider, "Anthropic", StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>The key as it is sent: a key pasted with a space or a new line around it still works.</summary>
+    public string TrimmedApiKey => (ApiKey ?? string.Empty).Trim();
+
+    /// <summary>
+    /// False when the key cannot be an API key at all: it has a character outside printable ASCII (a letter such as "Ç", a space, a quote),
+    /// which is what happens when the placeholder text of an instruction is stored instead of the key. HTTP forbids such characters in a
+    /// header, so a request with it can never be sent.
+    /// </summary>
+    public bool HasWellFormedKey => TrimmedApiKey.Length > 0 && TrimmedApiKey.All(c => c is > ' ' and <= '~' && c is not ('"' or '\''));
 }

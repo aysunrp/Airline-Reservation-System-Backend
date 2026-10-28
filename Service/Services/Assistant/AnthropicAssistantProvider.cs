@@ -38,6 +38,14 @@ public class AnthropicAssistantProvider : IAssistantProvider
             throw new ServiceUnavailableException(UnavailableMessage);
         }
 
+        // A stored placeholder or a bad paste can never be sent (HTTP forbids such characters in a header): say so, instead of a vague network error.
+        if (!_settings.HasWellFormedKey)
+        {
+            _logger.LogError("The assistant failed: {Code}. {Hint} (the stored key has {Length} characters and is not plain ASCII without spaces or quotes)",
+                AssistantErrorCodes.KeyMalformed, AssistantErrorCodes.Describe(AssistantErrorCodes.KeyMalformed), _settings.TrimmedApiKey.Length);
+            throw new ServiceUnavailableException(UnavailableMessage, AssistantErrorCodes.KeyMalformed);
+        }
+
         var body = new
         {
             model = _settings.Model,
@@ -51,7 +59,7 @@ public class AnthropicAssistantProvider : IAssistantProvider
         {
             Content = new StringContent(JsonSerializer.Serialize(body), Encoding.UTF8, "application/json")
         };
-        message.Headers.Add("x-api-key", _settings.ApiKey);
+        message.Headers.Add("x-api-key", _settings.TrimmedApiKey);
         message.Headers.Add("anthropic-version", _settings.ApiVersion);
 
         // The provider gets a fixed time; a traveller who closes the page cancels the request on top of that.

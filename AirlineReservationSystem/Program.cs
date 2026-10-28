@@ -140,7 +140,11 @@ app.Lifetime.ApplicationStarted.Register(() =>
 {
     var assistant = app.Services.GetRequiredService<IOptions<TravelAssistantSettings>>().Value;
     var startupLog = app.Services.GetRequiredService<ILoggerFactory>().CreateLogger("AskAerova");
-    if (assistant.IsConfigured)
+    if (assistant.IsConfigured && !assistant.HasWellFormedKey)
+    {
+        startupLog.LogWarning("Ask AEROVA cannot answer: {Hint}", AssistantErrorCodes.Describe(AssistantErrorCodes.KeyMalformed));
+    }
+    else if (assistant.IsConfigured)
     {
         startupLog.LogInformation("Ask AEROVA: provider {Provider}, model {Model}, key present. Run \"check-assistant\" to test it.", assistant.Provider, assistant.Model);
     }
