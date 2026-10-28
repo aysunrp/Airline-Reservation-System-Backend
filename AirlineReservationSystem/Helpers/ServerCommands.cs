@@ -16,21 +16,34 @@ namespace AirlineReservationSystem.Helpers;
 /// </code>
 /// connects and signs in to the mail server with the Smtp settings (nothing is sent) and says in plain words whether e-mail works.
 /// Exit code 0 means it does. The answer never shows the login, the password or the server's own text.
+/// <code>
+/// dotnet run --project AirlineReservationSystem -- check-assistant
+/// </code>
+/// asks the AI provider one tiny question with the TravelAssistant settings and says in plain words whether Ask AEROVA works, and if not,
+/// which step failed (missing key, key refused, wrong model, no credit, unreachable). Exit code 0 means it works. The answer never shows the key.
 /// </summary>
 public static class ServerCommands
 {
     public const string PromoteSuperAdmin = "promote-superadmin";
     public const string CheckEmail = "check-email";
+    public const string CheckAssistant = "check-assistant";
 
     public static bool IsCommand(string[] args)
         => args.Length > 0
-           && (string.Equals(args[0], PromoteSuperAdmin, StringComparison.OrdinalIgnoreCase) || string.Equals(args[0], CheckEmail, StringComparison.OrdinalIgnoreCase));
+           && (string.Equals(args[0], PromoteSuperAdmin, StringComparison.OrdinalIgnoreCase)
+               || string.Equals(args[0], CheckEmail, StringComparison.OrdinalIgnoreCase)
+               || string.Equals(args[0], CheckAssistant, StringComparison.OrdinalIgnoreCase));
 
     public static async Task<int> RunAsync(string[] args, IServiceProvider services, TextReader input, TextWriter output, CancellationToken cancellationToken = default)
     {
         if (string.Equals(args[0], CheckEmail, StringComparison.OrdinalIgnoreCase))
         {
             return await CheckEmailAsync(services, output, cancellationToken);
+        }
+
+        if (string.Equals(args[0], CheckAssistant, StringComparison.OrdinalIgnoreCase))
+        {
+            return await CheckAssistantAsync(services, output, cancellationToken);
         }
 
         var email = ValueOf(args, "--email");
@@ -62,6 +75,41 @@ public static class ServerCommands
         var result = await scope.ServiceProvider.GetRequiredService<ISuperAdminProvisioningService>().PromoteAsync(email, cancellationToken);
         await output.WriteLineAsync(Describe(result.Outcome));
         return result.Outcome == SuperAdminPromotionOutcome.Promoted ? 0 : 1;
+    }
+
+    /// <summary>One small question to the provider with the real settings; the answer is a plain sentence about what works or what to fix.</summary>
+    private static async Task<int> CheckAssistantAsync(IServiceProvider services, TextWriter output, CancellationToken cancellationToken)
+    {
+        using var scope = services.CreateScope();
+        var provider = scope.ServiceProvider.GetRequiredService<Service.Services.Interfaces.IAssistantProvider>();
+        var settings = scope.ServiceProvider.GetRequiredService<Microsoft.Extensions.Options.IOptions<Service.Helpers.Settings.TravelAssistantSettings>>().Value;
+
+        if (!provider.IsConfigured)
+        {
+            await output.WriteLineAsync(Service.Helpers.Settings.AssistantErrorCodes.Describe(Service.Helpers.Settings.AssistantErrorCodes.NotConfigured));
+            return 3;
+        }
+
+        try
+        {
+            var question = new Service.Services.Interfaces.AssistantCompletionRequest(
+                "Answer with the single word OK.",
+                new[] { new Service.Services.AssistantTurn("user", "Reply with OK.") },
+                20);
+            await provider.CompleteAsync(question, cancellationToken);
+            await output.WriteLineAsync($"The provider answered (provider {settings.Provider}, model {settings.Model}). Ask AEROVA works.");
+            return 0;
+        }
+        catch (Service.Helpers.Exceptions.ServiceUnavailableException exception)
+        {
+            await output.WriteLineAsync(Service.Helpers.Settings.AssistantErrorCodes.Describe(exception.Code) + $" ({exception.Code ?? "unknown"})");
+            return 1;
+        }
+        catch (Service.Helpers.Exceptions.GatewayTimeoutException)
+        {
+            await output.WriteLineAsync($"The provider did not answer within {settings.TimeoutSeconds} seconds. Check the internet connection and TravelAssistant:TimeoutSeconds.");
+            return 1;
+        }
     }
 
     private static async Task<int> CheckEmailAsync(IServiceProvider services, TextWriter output, CancellationToken cancellationToken)

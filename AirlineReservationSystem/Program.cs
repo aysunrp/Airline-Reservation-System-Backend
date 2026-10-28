@@ -135,6 +135,21 @@ if (ServerCommands.IsCommand(args))
     return;
 }
 
+// Ask AEROVA needs a provider key; whether it has one is said once at start-up (never the key itself), so a missing key is not a mystery.
+app.Lifetime.ApplicationStarted.Register(() =>
+{
+    var assistant = app.Services.GetRequiredService<IOptions<TravelAssistantSettings>>().Value;
+    var startupLog = app.Services.GetRequiredService<ILoggerFactory>().CreateLogger("AskAerova");
+    if (assistant.IsConfigured)
+    {
+        startupLog.LogInformation("Ask AEROVA: provider {Provider}, model {Model}, key present. Run \"check-assistant\" to test it.", assistant.Provider, assistant.Model);
+    }
+    else
+    {
+        startupLog.LogWarning("Ask AEROVA is not set up: {Hint}", AssistantErrorCodes.Describe(AssistantErrorCodes.NotConfigured));
+    }
+});
+
 // Configure the HTTP request pipeline.
 app.UseExceptionHandler();
 

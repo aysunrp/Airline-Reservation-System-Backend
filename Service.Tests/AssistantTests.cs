@@ -79,11 +79,15 @@ public class AssistantTests
     };
 
     private static (AssistantService Service, FakeAssistantProvider Provider, FakeAssistantKnowledge Knowledge) CreateService(TravelAssistantSettings? settings = null)
+        => CreateService(out _, settings);
+
+    private static (AssistantService Service, FakeAssistantProvider Provider, FakeAssistantKnowledge Knowledge) CreateService(out ListLogger<AssistantService> log, TravelAssistantSettings? settings = null)
     {
         settings ??= Settings();
         var provider = new FakeAssistantProvider();
         var knowledge = new FakeAssistantKnowledge();
-        return (new AssistantService(provider, knowledge, Validator(settings), Options.Create(settings), new ListLogger<AssistantService>()), provider, knowledge);
+        log = new ListLogger<AssistantService>();
+        return (new AssistantService(provider, knowledge, Validator(settings), Options.Create(settings), log), provider, knowledge);
     }
 
     // ---- the question -------------------------------------------------------------------------------------------------
@@ -254,7 +258,23 @@ public class AssistantTests
         var error = await Assert.ThrowsAsync<ServiceUnavailableException>(() => service.ChatAsync(Ask("Hello")));
 
         Assert.Contains("not available", error.Message);
+        Assert.Equal(AssistantErrorCodes.NotConfigured, error.Code);
         Assert.Empty(provider.Requests);
+    }
+
+    [Fact]
+    public async Task WithoutAKey_TheLogSaysWhatToSet_AndNeverTheKey()
+    {
+        var (service, provider, _) = CreateService(out var log, Settings(s => s.ApiKey = ""));
+        provider.IsConfigured = false;
+
+        await Assert.ThrowsAsync<ServiceUnavailableException>(() => service.ChatAsync(Ask("salam")));
+
+        var warning = Assert.Single(log.Messages);
+        Assert.Contains(AssistantErrorCodes.NotConfigured, warning);
+        Assert.Contains("TravelAssistant:ApiKey", warning);
+        Assert.Contains("key missing", warning);
+        Assert.DoesNotContain("salam", warning);
     }
 
     [Fact]
@@ -343,13 +363,14 @@ public class AssistantTests
     }
 
     [Theory]
-    [InlineData(HttpStatusCode.Unauthorized)]
-    [InlineData(HttpStatusCode.Forbidden)]
-    [InlineData(HttpStatusCode.TooManyRequests)]
-    [InlineData(HttpStatusCode.BadRequest)]
-    [InlineData(HttpStatusCode.InternalServerError)]
-    [InlineData((HttpStatusCode)529)]
-    public async Task AProviderError_BecomesASafeUnavailable_WithoutLeakingTheKeyTheBodyOrTheQuestion(HttpStatusCode status)
+    [InlineData(HttpStatusCode.Unauthorized, AssistantErrorCodes.KeyRejected)]
+    [InlineData(HttpStatusCode.Forbidden, AssistantErrorCodes.KeyRejected)]
+    [InlineData(HttpStatusCode.NotFound, AssistantErrorCodes.ModelUnavailable)]
+    [InlineData(HttpStatusCode.TooManyRequests, AssistantErrorCodes.Busy)]
+    [InlineData(HttpStatusCode.BadRequest, AssistantErrorCodes.RequestRejected)]
+    [InlineData(HttpStatusCode.InternalServerError, AssistantErrorCodes.ProviderError)]
+    [InlineData((HttpStatusCode)529, AssistantErrorCodes.Busy)]
+    public async Task AProviderError_BecomesASafeUnavailable_WithItsCode_WithoutLeakingTheKeyTheBodyOrTheQuestion(HttpStatusCode status, string code)
     {
         var (provider, handler, log) = CreateProvider();
         handler.Respond = (_, _) => Task.FromResult(Json(status, "{\"error\":{\"message\":\"invalid x-api-key " + SecretKey + " for question: Where do I live?\"}}"));
@@ -357,6 +378,9 @@ public class AssistantTests
         var error = await Assert.ThrowsAsync<ServiceUnavailableException>(() => provider.CompleteAsync(Completion("Where do I live?")));
 
         Assert.Equal(AnthropicAssistantProvider.UnavailableMessage, error.Message);
+        Assert.Equal(code, error.Code);
+        // The log names the failing step and the status, so the cause is known without guessing.
+        Assert.Contains(log.Messages, m => m.Contains(code) && m.Contains($"provider status {(int)status}"));
         foreach (var text in log.Messages.Append(error.ToString()))
         {
             Assert.DoesNotContain(SecretKey, text);
@@ -364,6 +388,35 @@ public class AssistantTests
             Assert.DoesNotContain("invalid x-api-key", text);
         }
         Assert.Contains(log.Messages, m => m.Contains(((int)status).ToString()));
+    }
+
+    [Fact]
+    public async Task ABillingProblem_IsRecognised_AndTheProviderTextIsNotLogged()
+    {
+        var (provider, handler, log) = CreateProvider();
+        handler.Respond = (_, _) => Task.FromResult(Json(HttpStatusCode.BadRequest,
+            "{\"type\":\"error\",\"error\":{\"type\":\"invalid_request_error\",\"message\":\"Your credit balance is too low. Question was: Where do I live?\"}}"));
+
+        var error = await Assert.ThrowsAsync<ServiceUnavailableException>(() => provider.CompleteAsync(Completion("Where do I live?")));
+
+        Assert.Equal(AssistantErrorCodes.Billing, error.Code);
+        Assert.Contains(log.Messages, m => m.Contains("invalid_request_error"));
+        Assert.DoesNotContain(log.Messages, m => m.Contains("credit balance") || m.Contains("Where do I live?"));
+    }
+
+    [Fact]
+    public async Task TheProvidersErrorKind_IsLogged_OnlyWhenItIsPlainLowercaseText()
+    {
+        var (provider, handler, log) = CreateProvider();
+        handler.Respond = (_, _) => Task.FromResult(Json(HttpStatusCode.Unauthorized,
+            "{\"error\":{\"type\":\"authentication_error\",\"message\":\"invalid x-api-key\"}}"));
+        await Assert.ThrowsAsync<ServiceUnavailableException>(() => provider.CompleteAsync(Completion()));
+        Assert.Contains(log.Messages, m => m.Contains("error kind authentication_error"));
+
+        handler.Respond = (_, _) => Task.FromResult(Json(HttpStatusCode.Unauthorized,
+            "{\"error\":{\"type\":\"Bad Type! " + SecretKey + "\"}}"));
+        await Assert.ThrowsAsync<ServiceUnavailableException>(() => provider.CompleteAsync(Completion()));
+        Assert.DoesNotContain(log.Messages, m => m.Contains(SecretKey));
     }
 
     [Fact]
@@ -406,7 +459,8 @@ public class AssistantTests
         var error = await Assert.ThrowsAsync<ServiceUnavailableException>(() => provider.CompleteAsync(Completion()));
 
         Assert.DoesNotContain("api.anthropic.com", error.Message);
-        Assert.Contains(log.Messages, m => m.Contains("could not be reached"));
+        Assert.Contains(log.Messages, m => m.Contains(AssistantErrorCodes.Unreachable));
+        Assert.Equal(AssistantErrorCodes.Unreachable, error.Code);
         Assert.DoesNotContain(log.Messages, m => m.Contains("api.anthropic.com") || m.Contains(SecretKey));
     }
 

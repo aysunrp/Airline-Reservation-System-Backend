@@ -104,14 +104,18 @@ public class AssistantEndpointTests : IClassFixture<ApiFactory>, IClassFixture<A
         Assert.Equal(HttpStatusCode.ServiceUnavailable, response.StatusCode);
         var problem = await response.ReadJsonAsync();
         Assert.Contains("not available", problem.GetProperty("detail").GetString());
+        // The reason travels with the 503, so the page and the log can tell a missing key from a refused one.
+        Assert.Equal("assistant_not_configured", problem.GetProperty("code").GetString());
         Assert.Empty(_factory.Assistant.Requests);
     }
 
     [Fact]
     public async Task AProviderFailure_Is503_AndATimeout_Is504_AndAnUnexpectedErrorIsTheSameSafeAnswer()
     {
-        _factory.Assistant.Throw = new ServiceUnavailableException("The assistant is not available right now. Please try again later.");
-        Assert.Equal(HttpStatusCode.ServiceUnavailable, (await AskAsync(Question("Hello"))).StatusCode);
+        _factory.Assistant.Throw = new ServiceUnavailableException("The assistant is not available right now. Please try again later.", "assistant_key_rejected");
+        var refused = await AskAsync(Question("Hello"));
+        Assert.Equal(HttpStatusCode.ServiceUnavailable, refused.StatusCode);
+        Assert.Equal("assistant_key_rejected", (await refused.ReadJsonAsync()).GetProperty("code").GetString());
 
         _factory.Assistant.Throw = new GatewayTimeoutException("The assistant took too long to answer. Please try again.");
         Assert.Equal(HttpStatusCode.GatewayTimeout, (await AskAsync(Question("Hello"))).StatusCode);

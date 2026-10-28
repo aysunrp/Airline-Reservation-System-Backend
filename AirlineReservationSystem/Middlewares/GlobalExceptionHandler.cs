@@ -58,6 +58,11 @@ public sealed class GlobalExceptionHandler : IExceptionHandler
             problem.Extensions["code"] = coded.Code;
         }
 
+        if (exception is ServiceUnavailableException { Code: not null } unavailable)
+        {
+            problem.Extensions["code"] = unavailable.Code;
+        }
+
         if (exception is TooManyAttemptsException tooMany)
         {
             httpContext.Response.Headers.RetryAfter = Math.Max(1, (int)Math.Ceiling(tooMany.RetryAfter.TotalSeconds)).ToString();

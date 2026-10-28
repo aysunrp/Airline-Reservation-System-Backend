@@ -37,7 +37,8 @@ public class AssistantService : IAssistantService
         // Nothing is spent on a question when the assistant cannot answer it.
         if (!_provider.IsConfigured)
         {
-            throw new ServiceUnavailableException(AnthropicAssistantProvider.UnavailableMessage);
+            WarnNotConfigured();
+            throw new ServiceUnavailableException(AnthropicAssistantProvider.UnavailableMessage, AssistantErrorCodes.NotConfigured);
         }
 
         var turns = AssistantConversation.Normalize(AssistantConversation.All(request));
@@ -54,5 +55,13 @@ public class AssistantService : IAssistantService
             _logger.LogError("The assistant failed unexpectedly ({ErrorType}).", exception.GetType().Name);
             throw new ServiceUnavailableException(AnthropicAssistantProvider.UnavailableMessage);
         }
+    }
+
+    /// <summary>Says in the log that no question can be answered and what to set (never the key itself). Questions are limited per address, so this is not a flood.</summary>
+    private void WarnNotConfigured()
+    {
+        _logger.LogWarning("The assistant failed: {Code}. {Hint} (provider \"{Provider}\", key {KeyState})",
+            AssistantErrorCodes.NotConfigured, AssistantErrorCodes.Describe(AssistantErrorCodes.NotConfigured), _settings.Provider,
+            string.IsNullOrWhiteSpace(_settings.ApiKey) ? "missing" : "present");
     }
 }

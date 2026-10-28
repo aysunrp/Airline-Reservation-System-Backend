@@ -71,6 +71,32 @@ TravelAssistant__ApiKey=<your-provider-api-key>
 
 `<your-provider-api-key>` is a placeholder: use a key created in the provider's console, with a monthly spending limit.
 
+## Checking that it works, and finding out why it does not
+
+Run this from the API project folder (it uses the same settings as the API, asks the provider one tiny question and never prints the key):
+
+```bash
+dotnet run --project AirlineReservationSystem -- check-assistant
+```
+
+Exit code 0 means Ask AEROVA works. Otherwise it says which step failed. The API log says the same on every failed question and once at
+start-up ("Ask AEROVA is not set up..." or "provider ..., key present"), and the 503 carries a `code`:
+
+| `code` | What to do |
+| --- | --- |
+| `assistant_not_configured` | Set `TravelAssistant:ApiKey` (user-secrets or `TravelAssistant__ApiKey`), then restart the API |
+| `assistant_key_rejected` | The key is wrong, expired, revoked or has no API access: create a new one |
+| `assistant_model_unavailable` | Check `TravelAssistant:Model` and `:Endpoint`, and that the key's account may use that model |
+| `assistant_billing` | The provider account has no credit or billing: add credit in the provider's console |
+| `assistant_busy` | The provider is overloaded or its rate limit is reached: try again later |
+| `assistant_request_rejected` | Check `Model`, `MaxOutputTokens` and `ApiVersion` |
+| `assistant_provider_error` | The provider failed on its side: try again later |
+| `assistant_unreachable` | No internet, a firewall, a proxy or a wrong `Endpoint` |
+| `assistant_bad_answer` | The provider answered without usable text: check `Model` and `Endpoint` |
+
+The log holds the code, the HTTP status and the provider's error kind (for example `authentication_error`), never the key, the question or
+the provider's own message. User-secrets are only read when the API starts: restart it after setting the key.
+
 ## What the assistant knows and what it never does
 
 - Server-side rules (a system instruction written in `AssistantPrompt`): travel concierge tone, replies in Azerbaijani, English or
