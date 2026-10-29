@@ -74,6 +74,11 @@ public class AdminScheduleService : IAdminScheduleService
     public async Task DeleteAsync(int id, CancellationToken cancellationToken = default)
     {
         var schedule = await GetScheduleAsync(id, cancellationToken);
+        if (await _scheduleRepository.HasFlightsAsync(id, cancellationToken))
+        {
+            throw new BusinessRuleException("This schedule has created flights, which may have bookings. Set it to inactive instead of deleting it.");
+        }
+
         _scheduleRepository.Delete(schedule);
         await _scheduleRepository.SaveChangesAsync(cancellationToken);
     }

@@ -19,6 +19,9 @@ public class FlightScheduleRepository : BaseRepository<FlightSchedule>, IFlightS
     public Task<FlightSchedule?> GetWithDetailsAsync(int id, CancellationToken cancellationToken = default)
         => WithDetails(Set).FirstOrDefaultAsync(s => s.Id == id, cancellationToken);
 
+    public Task<bool> HasFlightsAsync(int id, CancellationToken cancellationToken = default)
+        => Context.Set<Flight>().AnyAsync(f => f.FlightScheduleId == id, cancellationToken);
+
     private static IQueryable<FlightSchedule> WithDetails(IQueryable<FlightSchedule> query)
         => query
             .Include(s => s.Route).ThenInclude(r => r.Origin)

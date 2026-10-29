@@ -39,6 +39,10 @@ internal sealed class FakeFlightScheduleRepository : FakeRepository<FlightSchedu
 
     public Task<FlightSchedule?> GetWithDetailsAsync(int id, CancellationToken cancellationToken = default)
         => Task.FromResult(Items.FirstOrDefault(s => s.Id == id));
+
+    public HashSet<int> WithFlights { get; } = new();
+
+    public Task<bool> HasFlightsAsync(int id, CancellationToken cancellationToken = default) => Task.FromResult(WithFlights.Contains(id));
 }
 
 /// <summary>Reads booked passengers straight from the fake booking store.</summary>
