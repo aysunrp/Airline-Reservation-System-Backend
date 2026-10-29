@@ -110,6 +110,10 @@ public static class ScheduleTimeCalculator
     public static DateOnly LocalDate(DateTime utc, Airport airport)
         => DateOnly.FromDateTime(TimeZoneInfo.ConvertTimeFromUtc(DateTime.SpecifyKind(utc, DateTimeKind.Utc), FindZone(airport)));
 
+    /// <summary>The local clock time at the airport for a UTC instant.</summary>
+    public static TimeOnly LocalTime(DateTime utc, Airport airport)
+        => TimeOnly.FromDateTime(TimeZoneInfo.ConvertTimeFromUtc(DateTime.SpecifyKind(utc, DateTimeKind.Utc), FindZone(airport)));
+
     private static TimeZoneInfo FindZone(Airport airport)
         => TimeZoneInfo.TryFindSystemTimeZoneById(airport.TimeZoneId, out var zone)
             ? zone

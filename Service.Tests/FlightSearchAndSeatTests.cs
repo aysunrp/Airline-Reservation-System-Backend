@@ -1,7 +1,9 @@
 using Domain.Enums;
 using FluentValidation;
+using Microsoft.Extensions.Options;
 using Service.Helpers.DTOs.Flight;
 using Service.Helpers.Exceptions;
+using Service.Helpers.Settings;
 using Service.Helpers.Validators;
 using Service.Services;
 
@@ -13,7 +15,7 @@ public class FlightSearchAndSeatTests
     private readonly FixedTimeProvider _clock = new(TestData.Now);
 
     private FlightSearchService CreateSearch()
-        => new(_data.Airports(), _data.Flights(), _data.FlightSeats(), new FlightSearchRequestValidator(_clock), new LowestFaresRequestValidator(), _clock);
+        => new(_data.Airports(), _data.Flights(), _data.FlightSeats(), new FlightSearchRequestValidator(_clock), new LowestFaresRequestValidator(), new FlightRangeSearchRequestValidator(_clock, Options.Create(new VoiceSearchSettings())), Options.Create(new VoiceSearchSettings()), _clock);
 
     private static FlightSearchLegDto Leg(string from, string to, int day) => new()
     {
@@ -110,7 +112,7 @@ public class FlightSearchAndSeatTests
 
         // Later the same day the flight is gone, so it is neither listed nor priced: booking would refuse it.
         var later = new FixedTimeProvider(TestData.OutboundDeparture.AddHours(1));
-        FlightSearchService SearchLater() => new(_data.Airports(), _data.Flights(), _data.FlightSeats(), new FlightSearchRequestValidator(later), new LowestFaresRequestValidator(), later);
+        FlightSearchService SearchLater() => new(_data.Airports(), _data.Flights(), _data.FlightSeats(), new FlightSearchRequestValidator(later), new LowestFaresRequestValidator(), new FlightRangeSearchRequestValidator(later, Options.Create(new VoiceSearchSettings())), Options.Create(new VoiceSearchSettings()), later);
         Assert.Empty((await SearchLater().SearchAsync(request))[0].Flights);
         Assert.Empty(await SearchLater().GetLowestFaresAsync(Calendar("GYD", "LHR", new DateOnly(2026, 11, 1), new DateOnly(2026, 11, 30))));
     }

@@ -5,6 +5,7 @@ using Microsoft.Extensions.DependencyInjection.Extensions;
 using Service.Helpers.Settings;
 using Service.Services;
 using Service.Services.Interfaces;
+using Service.Services.VoiceSearch;
 
 namespace Service
 {
@@ -17,6 +18,7 @@ namespace Service
             services.Configure<AuthSettings>(configuration.GetSection(AuthSettings.SectionName));
             services.Configure<SmtpSettings>(configuration.GetSection(SmtpSettings.SectionName));
             services.Configure<TravelAssistantSettings>(configuration.GetSection(TravelAssistantSettings.SectionName));
+            services.Configure<VoiceSearchSettings>(configuration.GetSection(VoiceSearchSettings.SectionName));
             services.Configure<BookingSettings>(configuration.GetSection(BookingSettings.SectionName));
             services.Configure<SeatLayoutSettings>(configuration.GetSection(SeatLayoutSettings.SectionName));
             services.Configure<FlightGenerationSettings>(configuration.GetSection(FlightGenerationSettings.SectionName));
@@ -56,6 +58,7 @@ namespace Service
             services.AddSingleton<AssistantFactsCache>();
             services.AddScoped<IAssistantKnowledge, AssistantKnowledge>();
             services.AddScoped<IAssistantService, AssistantService>();
+            services.AddScoped<IVoiceSearchService, VoiceSearchService>();
             services.AddScoped<IBookingService, BookingService>();
             services.AddScoped<IBookingConfirmationService, BookingConfirmationService>();
             services.AddScoped<IPaymentService, PaymentService>();
