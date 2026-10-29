@@ -27,7 +27,7 @@ internal class FakeRepository<T> : IBaseRepository<T> where T : BaseEntity
     public Task<IReadOnlyList<T>> GetAllAsync(CancellationToken cancellationToken = default)
         => Task.FromResult<IReadOnlyList<T>>(Items.ToList());
 
-    public Task<T?> GetByIdAsync(int id, CancellationToken cancellationToken = default)
+    public virtual Task<T?> GetByIdAsync(int id, CancellationToken cancellationToken = default)
         => Task.FromResult(Items.FirstOrDefault(x => x.Id == id));
 
     public Task AddAsync(T entity, CancellationToken cancellationToken = default)

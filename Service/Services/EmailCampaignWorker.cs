@@ -15,6 +15,7 @@ public class EmailCampaignWorker : BackgroundService
     private readonly IServiceScopeFactory _scopeFactory;
     private readonly BookingLifecycleSettings _settings;
     private readonly ILogger<EmailCampaignWorker> _logger;
+    private bool _warnedAboutSetup;
 
     public EmailCampaignWorker(IServiceScopeFactory scopeFactory, IOptions<BookingLifecycleSettings> settings, ILogger<EmailCampaignWorker> logger)
     {
@@ -30,6 +31,15 @@ public class EmailCampaignWorker : BackgroundService
         {
             using var scope = _scopeFactory.CreateScope();
             await scope.ServiceProvider.GetRequiredService<ICampaignService>().ProcessDueAsync(cancellationToken);
+        }
+        catch (Exception ex) when (CampaignService.IsMissingTable(ex))
+        {
+            // The migration was not applied yet: say so once instead of an error every few seconds.
+            if (!_warnedAboutSetup)
+            {
+                _warnedAboutSetup = true;
+                _logger.LogWarning("E-mail campaigns are paused: the campaign tables are missing. Apply the migration AddEmailCampaignsAndAdminAlerts.");
+            }
         }
         catch (Exception ex) when (ex is not OperationCanceledException || !cancellationToken.IsCancellationRequested)
         {

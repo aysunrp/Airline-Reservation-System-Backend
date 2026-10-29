@@ -1,3 +1,4 @@
+using System.Data.Common;
 using System.Security.Cryptography;
 using System.Text;
 using Domain.Entities;
@@ -57,7 +58,54 @@ public class CampaignService : ICampaignService
         _logger = logger;
     }
 
-    public async Task<CampaignPreviewDto> PreviewAsync(int promoCodeId, string? language, CancellationToken cancellationToken = default)
+    /// <summary>The message an admin sees when the campaign tables are not in the database yet.</summary>
+    public const string SetupRequiredMessage = "E-mail campaigns are not set up yet: the latest database migration (AddEmailCampaignsAndAdminAlerts) has not been applied.";
+
+    /// <summary>True when the failure is a table or column that the database does not have (a migration was not applied).</summary>
+    public static bool IsMissingTable(Exception exception)
+    {
+        for (var ex = exception; ex is not null; ex = ex.InnerException)
+        {
+            if (ex is DbException && (ex.Message.Contains("Invalid object name", StringComparison.OrdinalIgnoreCase)
+                                      || ex.Message.Contains("Invalid column name", StringComparison.OrdinalIgnoreCase)))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>
+    /// Runs one admin action. A missing campaign table becomes a clear 422 with the code campaign_setup_required (the page shows what to do);
+    /// the full exception is written to the server log, never sent to the page. Any other failure goes on unchanged.
+    /// </summary>
+    private async Task<T> GuardAsync<T>(Func<Task<T>> action)
+    {
+        try
+        {
+            return await action();
+        }
+        catch (Exception ex) when (IsMissingTable(ex))
+        {
+            _logger.LogError(ex, "E-mail campaign tables are missing: apply the migration AddEmailCampaignsAndAdminAlerts.");
+            throw new BusinessRuleException(SetupRequiredMessage, "campaign_setup_required");
+        }
+    }
+
+    public Task<CampaignPreviewDto> PreviewAsync(int promoCodeId, string? language, CancellationToken cancellationToken = default)
+        => GuardAsync(() => PreviewCoreAsync(promoCodeId, language, cancellationToken));
+
+    public Task<CampaignDto> CreateAsync(int promoCodeId, CreateCampaignRequestDto request, int? adminUserId, CancellationToken cancellationToken = default)
+        => GuardAsync(() => CreateCoreAsync(promoCodeId, request, adminUserId, cancellationToken));
+
+    public Task<IReadOnlyList<CampaignDto>> GetRecentAsync(CancellationToken cancellationToken = default)
+        => GuardAsync(() => GetRecentCoreAsync(cancellationToken));
+
+    public Task<CampaignDto> GetAsync(int id, CancellationToken cancellationToken = default)
+        => GuardAsync(() => GetCoreAsync(id, cancellationToken));
+
+    private async Task<CampaignPreviewDto> PreviewCoreAsync(int promoCodeId, string? language, CancellationToken cancellationToken)
     {
         var promo = await GetPromoAsync(promoCodeId, cancellationToken);
         var recipients = await _subscribers.GetActiveAsync(cancellationToken);
@@ -72,7 +120,7 @@ public class CampaignService : ICampaignService
             recipients.Count, lang, subject, text, html, HashOf(promo), problems.Count == 0, problems);
     }
 
-    public async Task<CampaignDto> CreateAsync(int promoCodeId, CreateCampaignRequestDto request, int? adminUserId, CancellationToken cancellationToken = default)
+    private async Task<CampaignDto> CreateCoreAsync(int promoCodeId, CreateCampaignRequestDto request, int? adminUserId, CancellationToken cancellationToken)
     {
         if (!request.Confirm)
         {
@@ -128,7 +176,7 @@ public class CampaignService : ICampaignService
         return await ToDtoAsync(campaign, cancellationToken);
     }
 
-    public async Task<IReadOnlyList<CampaignDto>> GetRecentAsync(CancellationToken cancellationToken = default)
+    private async Task<IReadOnlyList<CampaignDto>> GetRecentCoreAsync(CancellationToken cancellationToken)
     {
         var list = new List<CampaignDto>();
         foreach (var campaign in await _campaigns.GetRecentAsync(50, cancellationToken))
@@ -139,7 +187,7 @@ public class CampaignService : ICampaignService
         return list;
     }
 
-    public async Task<CampaignDto> GetAsync(int id, CancellationToken cancellationToken = default)
+    private async Task<CampaignDto> GetCoreAsync(int id, CancellationToken cancellationToken)
         => await ToDtoAsync(await _campaigns.GetByIdAsync(id, cancellationToken) ?? throw new NotFoundException("Campaign not found."), cancellationToken);
 
     public async Task<int> ProcessDueAsync(CancellationToken cancellationToken = default)

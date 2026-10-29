@@ -31,7 +31,7 @@ internal sealed class FakePromoRepository : FakeRepository<PromoCode>
     public IReadOnlyList<PromoCode> All => Items;
 }
 
-internal sealed class FakeEmailCampaignRepository : FakeRepository<EmailCampaign>, IEmailCampaignRepository
+internal class FakeEmailCampaignRepository : FakeRepository<EmailCampaign>, IEmailCampaignRepository
 {
     public IReadOnlyList<EmailCampaign> All => Items;
 
@@ -46,13 +46,13 @@ internal sealed class FakeEmailCampaignRepository : FakeRepository<EmailCampaign
         return Task.FromResult(1);
     }
 
-    public Task<EmailCampaign?> GetByPromoCodeIdAsync(int promoCodeId, CancellationToken cancellationToken = default)
+    public virtual Task<EmailCampaign?> GetByPromoCodeIdAsync(int promoCodeId, CancellationToken cancellationToken = default)
         => Task.FromResult(Items.FirstOrDefault(c => c.PromoCodeId == promoCodeId));
 
     public Task<IReadOnlyList<EmailCampaign>> GetOpenAsync(CancellationToken cancellationToken = default)
         => Task.FromResult<IReadOnlyList<EmailCampaign>>(Items.Where(c => c.Status is CampaignStatus.Queued or CampaignStatus.Sending).ToList());
 
-    public Task<IReadOnlyList<EmailCampaign>> GetRecentAsync(int take, CancellationToken cancellationToken = default)
+    public virtual Task<IReadOnlyList<EmailCampaign>> GetRecentAsync(int take, CancellationToken cancellationToken = default)
         => Task.FromResult<IReadOnlyList<EmailCampaign>>(Items.OrderByDescending(c => c.Id).Take(take).ToList());
 
     public Task<IReadOnlyDictionary<CampaignRecipientStatus, int>> GetCountsAsync(int campaignId, CancellationToken cancellationToken = default)
@@ -515,6 +515,65 @@ public class CampaignAndAdminAlertTests
         var preview = await c.Service.PreviewAsync(1, "en");
         await Assert.ThrowsAsync<ConflictException>(() => c.Service.CreateAsync(1, Confirm(preview.PreviewHash), 99));
         Assert.Equal(1, (await c.Service.GetAsync(campaign.Id)).Sent);
+    }
+
+    private sealed class FakeDbException : System.Data.Common.DbException
+    {
+        public FakeDbException(string message) : base(message)
+        {
+        }
+    }
+
+    [Fact]
+    public async Task AMissingCampaignTable_BecomesAClearSetupMessage_WithTheCode_NotAGenericFailure()
+    {
+        var c = CreateCampaigns(null, Sub(1, "a@example.com"));
+        var broken = new CampaignService(c.Promos, new MissingTableCampaignRepository(), c.Subscribers, null!, CreateAlerts(), _sender,
+            Options.Create(new NewsletterSettings()), Options.Create(new AuthSettings { FrontendBaseUrl = "https://aerova.test" }), _clock, NullLogger<CampaignService>.Instance);
+
+        var preview = await Assert.ThrowsAsync<BusinessRuleException>(() => broken.PreviewAsync(1, "en"));
+        var history = await Assert.ThrowsAsync<BusinessRuleException>(() => broken.GetRecentAsync());
+        var single = await Assert.ThrowsAsync<BusinessRuleException>(() => broken.GetAsync(1));
+
+        Assert.All(new[] { preview, history, single }, e =>
+        {
+            Assert.Equal("campaign_setup_required", e.Code);
+            Assert.Equal(CampaignService.SetupRequiredMessage, e.Message);
+            Assert.DoesNotContain("EmailCampaigns'", e.Message);
+        });
+    }
+
+    [Fact]
+    public async Task AnotherFailure_IsNotMistakenForAMissingTable()
+    {
+        var c = CreateCampaigns(null, Sub(1, "a@example.com"));
+        var broken = new CampaignService(c.Promos, new ThrowingCampaignRepository(new InvalidOperationException("something else")), c.Subscribers, null!, CreateAlerts(), _sender,
+            Options.Create(new NewsletterSettings()), Options.Create(new AuthSettings { FrontendBaseUrl = "https://aerova.test" }), _clock, NullLogger<CampaignService>.Instance);
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() => broken.GetRecentAsync());
+        Assert.False(CampaignService.IsMissingTable(new InvalidOperationException("something else")));
+        Assert.True(CampaignService.IsMissingTable(new InvalidOperationException("outer", new FakeDbException("Invalid object name 'EmailCampaigns'."))));
+        Assert.True(CampaignService.IsMissingTable(new FakeDbException("Invalid column name 'Status'.")));
+    }
+
+    private class ThrowingCampaignRepository : FakeEmailCampaignRepository
+    {
+        private readonly Exception _exception;
+
+        public ThrowingCampaignRepository(Exception exception) => _exception = exception;
+
+        public override Task<EmailCampaign?> GetByPromoCodeIdAsync(int promoCodeId, CancellationToken cancellationToken = default) => throw _exception;
+
+        public override Task<IReadOnlyList<EmailCampaign>> GetRecentAsync(int take, CancellationToken cancellationToken = default) => throw _exception;
+
+        public override Task<EmailCampaign?> GetByIdAsync(int id, CancellationToken cancellationToken = default) => throw _exception;
+    }
+
+    private sealed class MissingTableCampaignRepository : ThrowingCampaignRepository
+    {
+        public MissingTableCampaignRepository() : base(new FakeDbException("Invalid object name 'EmailCampaigns'."))
+        {
+        }
     }
 
     [Fact]
