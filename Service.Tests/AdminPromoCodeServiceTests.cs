@@ -25,11 +25,28 @@ public class AdminPromoCodeServiceTests
     }
 
     [Fact]
-    public async Task UsedCode_CannotBeDeleted()
+    public async Task UsedCode_IsDeactivatedInsteadOfDeleted_AndItsHistoryStays()
     {
-        await Assert.ThrowsAsync<BusinessRuleException>(() => CreateService().DeleteAsync(1));
-        Assert.Single(await _promoCodes.GetAllAsync());
+        Assert.Equal(DeleteOutcome.Deactivated, await CreateService().DeleteAsync(1));
+
+        var kept = Assert.Single(await _promoCodes.GetAllAsync());
+        Assert.False(kept.IsActive);
+        Assert.Equal(1, kept.Id);
     }
+
+    [Fact]
+    public async Task UnusedCode_IsDeleted()
+    {
+        var service = CreateService();
+        var created = await service.CreateAsync(new PromoCodeRequestDto { Code = "TEMP10", DiscountPercent = 10 });
+
+        Assert.Equal(DeleteOutcome.Deleted, await service.DeleteAsync(created.Id));
+        Assert.DoesNotContain(await _promoCodes.GetAllAsync(), p => p.Id == created.Id);
+    }
+
+    [Fact]
+    public async Task MissingCode_IsNotFound()
+        => await Assert.ThrowsAsync<NotFoundException>(() => CreateService().DeleteAsync(999));
 
     [Fact]
     public async Task UnzonedDates_AreStoredAsUtc()

@@ -66,16 +66,21 @@ public class AdminPromoCodeService : IAdminPromoCodeService
         return promoCode.ToAdminDto();
     }
 
-    public async Task DeleteAsync(int id, CancellationToken cancellationToken = default)
+    public async Task<DeleteOutcome> DeleteAsync(int id, CancellationToken cancellationToken = default)
     {
         var promoCode = await GetPromoCodeAsync(id, cancellationToken);
         if (promoCode.UsedCount > 0 || await _promoCodeRepository.IsInUseAsync(id, cancellationToken))
         {
-            throw new BusinessRuleException("This promo code is used by bookings. Set it to inactive instead of deleting it.");
+            // Bookings were priced with the code: its history stays, the code just stops working.
+            promoCode.IsActive = false;
+            _promoCodeRepository.Update(promoCode);
+            await _promoCodeRepository.SaveChangesAsync(cancellationToken);
+            return DeleteOutcome.Deactivated;
         }
 
         _promoCodeRepository.Delete(promoCode);
         await _promoCodeRepository.SaveChangesAsync(cancellationToken);
+        return DeleteOutcome.Deleted;
     }
 
     private static string Normalize(string code) => code.Trim().ToUpperInvariant();
