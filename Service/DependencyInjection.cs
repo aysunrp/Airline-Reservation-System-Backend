@@ -19,6 +19,7 @@ namespace Service
             services.Configure<SmtpSettings>(configuration.GetSection(SmtpSettings.SectionName));
             services.Configure<TravelAssistantSettings>(configuration.GetSection(TravelAssistantSettings.SectionName));
             services.Configure<VoiceSearchSettings>(configuration.GetSection(VoiceSearchSettings.SectionName));
+            services.Configure<NewsletterSettings>(configuration.GetSection(NewsletterSettings.SectionName));
             services.Configure<BookingSettings>(configuration.GetSection(BookingSettings.SectionName));
             services.Configure<SeatLayoutSettings>(configuration.GetSection(SeatLayoutSettings.SectionName));
             services.Configure<FlightGenerationSettings>(configuration.GetSection(FlightGenerationSettings.SectionName));
@@ -59,6 +60,7 @@ namespace Service
             services.AddScoped<IAssistantKnowledge, AssistantKnowledge>();
             services.AddScoped<IAssistantService, AssistantService>();
             services.AddScoped<IVoiceSearchService, VoiceSearchService>();
+            services.AddScoped<INewsletterService, NewsletterService>();
             services.AddScoped<IBookingService, BookingService>();
             services.AddScoped<IBookingConfirmationService, BookingConfirmationService>();
             services.AddScoped<IPaymentService, PaymentService>();

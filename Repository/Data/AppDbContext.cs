@@ -36,6 +36,7 @@ public class AppDbContext : DbContext
     public DbSet<Refund> Refunds => Set<Refund>();
     public DbSet<Notification> Notifications => Set<Notification>();
     public DbSet<EmailToken> EmailTokens => Set<EmailToken>();
+    public DbSet<NewsletterSubscriber> NewsletterSubscribers => Set<NewsletterSubscriber>();
     public DbSet<AuditLog> AuditLogs => Set<AuditLog>();
     public DbSet<StripeWebhookEvent> StripeWebhookEvents => Set<StripeWebhookEvent>();
 

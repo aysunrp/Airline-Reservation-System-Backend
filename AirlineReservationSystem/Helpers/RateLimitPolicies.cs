@@ -10,4 +10,7 @@ public static class RateLimitPolicies
 
     /// <summary>Questions to Ask AEROVA (each one costs money at the AI provider): TravelAssistant:RateLimitPerMinute per IP address.</summary>
     public const string Assistant = "assistant";
+
+    /// <summary>Newsletter subscribe, confirm and unsubscribe: Newsletter:RateLimitPerMinute per IP address.</summary>
+    public const string Newsletter = "newsletter";
 }

@@ -33,6 +33,7 @@ namespace Repository
             services.AddScoped<IBookingPassengerRepository, BookingPassengerRepository>();
             services.AddScoped<INotificationRepository, NotificationRepository>();
             services.AddScoped<IEmailTokenRepository, EmailTokenRepository>();
+            services.AddScoped<INewsletterSubscriberRepository, NewsletterSubscriberRepository>();
             services.AddScoped<IAuditLogRepository, AuditLogRepository>();
             services.AddScoped<IPaymentRepository, PaymentRepository>();
             services.AddScoped<IStripeWebhookEventRepository, StripeWebhookEventRepository>();

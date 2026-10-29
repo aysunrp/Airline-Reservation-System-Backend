@@ -56,6 +56,13 @@ builder.Services.AddRateLimiter(options =>
             "assistant:" + (httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown"),
             _ => new FixedWindowRateLimiterOptions { PermitLimit = limit, Window = TimeSpan.FromMinutes(1), QueueLimit = 0 });
     });
+    options.AddPolicy(RateLimitPolicies.Newsletter, httpContext =>
+    {
+        var limit = Math.Max(1, httpContext.RequestServices.GetRequiredService<IOptions<NewsletterSettings>>().Value.RateLimitPerMinute);
+        return RateLimitPartition.GetFixedWindowLimiter(
+            "newsletter:" + (httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown"),
+            _ => new FixedWindowRateLimiterOptions { PermitLimit = limit, Window = TimeSpan.FromMinutes(1), QueueLimit = 0 });
+    });
     options.OnRejected = async (context, cancellationToken) =>
     {
         var problem = new ProblemDetails
