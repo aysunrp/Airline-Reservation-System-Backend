@@ -65,6 +65,7 @@ namespace Service
             services.AddScoped<INewsletterService, NewsletterService>();
             services.AddScoped<IAdminAlertService, AdminAlertService>();
             services.AddScoped<ICampaignService, CampaignService>();
+            services.TryAddSingleton<ISupportRealtimePublisher, NullSupportRealtimePublisher>();
             services.AddScoped<SupportService>();
             services.AddScoped<ISupportService>(sp => sp.GetRequiredService<SupportService>());
             services.AddScoped<IAdminSupportService>(sp => sp.GetRequiredService<SupportService>());

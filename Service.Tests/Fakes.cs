@@ -97,6 +97,9 @@ internal sealed class FakeUserRepository : FakeRepository<User>, IUserRepository
     public Task<int> CountActiveInRoleAsync(UserRole role, CancellationToken cancellationToken = default)
         => Task.FromResult(Items.Count(u => u.Role == role && u.IsActive));
 
+    public Task<IReadOnlyList<int>> GetActiveStaffIdsAsync(CancellationToken cancellationToken = default)
+        => Task.FromResult<IReadOnlyList<int>>(Items.Where(u => u.IsActive && u.Role is UserRole.Admin or UserRole.SuperAdmin).Select(u => u.Id).ToList());
+
     /// <summary>Ids of the accounts that have bookings.</summary>
     public HashSet<int> WithBookings { get; } = new();
 

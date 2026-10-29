@@ -3,6 +3,7 @@ using Domain.Entities;
 using Domain.Enums;
 using FluentValidation;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Repository.Repositories.Interfaces;
 using Service.Helpers.DTOs.Support;
@@ -32,6 +33,8 @@ public class SupportService : ISupportService, IAdminSupportService
     private readonly IValidator<SupportStatusRequestDto> _statusValidator;
     private readonly SupportSettings _settings;
     private readonly TimeProvider _timeProvider;
+    private readonly ISupportRealtimePublisher? _realtime;
+    private readonly ILogger<SupportService>? _logger;
 
     public SupportService(
         ISupportTicketRepository tickets,
@@ -43,8 +46,12 @@ public class SupportService : ISupportService, IAdminSupportService
         IValidator<AdminSupportReplyRequestDto> adminReplyValidator,
         IValidator<SupportStatusRequestDto> statusValidator,
         IOptions<SupportSettings> settings,
-        TimeProvider timeProvider)
+        TimeProvider timeProvider,
+        ISupportRealtimePublisher? realtime = null,
+        ILogger<SupportService>? logger = null)
     {
+        _realtime = realtime;
+        _logger = logger;
         _tickets = tickets;
         _users = users;
         _notifications = notifications;
@@ -107,7 +114,12 @@ public class SupportService : ISupportService, IAdminSupportService
         await _adminAlerts.QueueAsync($"support:{ticket.Id}:created", $"New support request {ticket.TicketNumber}",
             $"{user.FirstName} {user.LastName} ({user.Email}) opened a {request.Category} request: \"{Shorten(subject, 100)}\"" +
             (ticket.BookingPnr is null ? string.Empty : $" (booking {ticket.BookingPnr})") + ".", cancellationToken);
+        await QueueStaffNotificationsAsync($"support:{ticket.Id}:staff:{{0}}:new", $"New support request {ticket.TicketNumber}",
+            $"{Shorten(subject, 100)} ({request.Category})", cancellationToken);
         await SaveQuietlyAsync(cancellationToken);
+
+        // Published only now that the ticket and its first message are saved.
+        await PublishToStaffAsync("ticketCreated", ticket, withDetails: true, cancellationToken);
 
         return ToDetail(ticket, user, includeCanReply: true);
     }
@@ -148,7 +160,11 @@ public class SupportService : ISupportService, IAdminSupportService
 
         await _adminAlerts.QueueAsync($"support:{ticket.Id}:customer-reply:{message.Id}", $"Customer reply on {ticket.TicketNumber}",
             $"{ticket.User.FirstName} {ticket.User.LastName} replied on \"{Shorten(ticket.Subject, 100)}\".", cancellationToken);
+        await QueueStaffNotificationsAsync($"support:{ticket.Id}:staff:{{0}}:reply:{message.Id}", $"Customer reply on {ticket.TicketNumber}",
+            Shorten(ticket.Subject, 100), cancellationToken);
         await SaveQuietlyAsync(cancellationToken);
+
+        await PublishToStaffAsync("customerReplied", ticket, withDetails: true, cancellationToken);
 
         return ToDetail(ticket, ticket.User, includeCanReply: true);
     }
@@ -195,6 +211,9 @@ public class SupportService : ISupportService, IAdminSupportService
             $"Support replied to \"{Shorten(ticket.Subject, 80)}\" ({ticket.TicketNumber}): {Shorten(body, 400)} Status: {StatusText(ticket.Status)}.", cancellationToken);
         await SaveQuietlyAsync(cancellationToken);
 
+        await PublishToCustomerAsync("staffReplied", ticket, cancellationToken);
+        await PublishToStaffAsync("ticketUpdated", ticket, withDetails: true, cancellationToken);
+
         return ToAdminDetail(ticket);
     }
 
@@ -215,6 +234,9 @@ public class SupportService : ISupportService, IAdminSupportService
                 $"Support request {ticket.TicketNumber} is now {StatusText(ticket.Status)}",
                 $"The status of your request \"{Shorten(ticket.Subject, 80)}\" ({ticket.TicketNumber}) is now: {StatusText(ticket.Status)}.", cancellationToken);
             await SaveQuietlyAsync(cancellationToken);
+
+            await PublishToCustomerAsync("statusChanged", ticket, cancellationToken);
+            await PublishToStaffAsync("ticketUpdated", ticket, withDetails: true, cancellationToken);
         }
 
         return ToAdminDetail(ticket);
@@ -253,6 +275,37 @@ public class SupportService : ISupportService, IAdminSupportService
         }
 
         throw new ServiceUnavailableException("We could not create the request right now. Please try again.");
+    }
+
+    /// <summary>
+    /// A notification for every active staff account (the bell of the admin page), once per event and account. Staff notifications are
+    /// never e-mailed: the admin e-mail is the separate alert.
+    /// </summary>
+    private async Task QueueStaffNotificationsAsync(string keyFormat, string title, string message, CancellationToken cancellationToken)
+    {
+        foreach (var staffId in await _users.GetActiveStaffIdsAsync(cancellationToken))
+        {
+            await _notifications.QueueOnceAsync(string.Format(keyFormat, staffId), staffId, null, NotificationType.SupportStaff, title, message, cancellationToken);
+        }
+    }
+
+    private SupportRealtimeEvent Event(string type, SupportTicket ticket, bool withDetails)
+        => new(Guid.NewGuid(), type, ticket.Id, ticket.TicketNumber, ticket.Status.ToString(), withDetails ? ticket.Subject : null,
+            withDetails ? ticket.Category.ToString() : null, Now());
+
+    /// <summary>Real-time events are a convenience on top of the saved ticket: a failure here never loses or undoes anything.</summary>
+    private async Task PublishToStaffAsync(string type, SupportTicket ticket, bool withDetails, CancellationToken cancellationToken)
+    {
+        if (_realtime is null) return;
+        try { await _realtime.ToStaffAsync(Event(type, ticket, withDetails), cancellationToken); }
+        catch (Exception ex) when (ex is not OperationCanceledException) { _logger?.LogWarning("A real-time support event could not be published ({ErrorType}).", ex.GetType().Name); }
+    }
+
+    private async Task PublishToCustomerAsync(string type, SupportTicket ticket, CancellationToken cancellationToken)
+    {
+        if (_realtime is null) return;
+        try { await _realtime.ToCustomerAsync(ticket.UserId, Event(type, ticket, withDetails: false), cancellationToken); }
+        catch (Exception ex) when (ex is not OperationCanceledException) { _logger?.LogWarning("A real-time support event could not be published ({ErrorType}).", ex.GetType().Name); }
     }
 
     /// <summary>Saves the notification and the admin alert that were added after the ticket; they can not undo the ticket, which is already saved.</summary>
