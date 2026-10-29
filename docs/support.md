@@ -30,6 +30,25 @@ to the customer's verified account address with retries, linking to `support.htm
 `Support:DuplicateWindowSeconds`) sends nothing twice, and the page never says an e-mail was delivered. Notification e-mails are in English, as
 the other notification e-mails are.
 
+## Real-time updates (SignalR)
+
+Hub `/hubs/support` (`[Authorize]`; the JWT is read from the `access_token` query string for `/hubs` paths only, because browsers cannot send
+headers on a WebSocket). Each connection joins the group `user:{id}`; Admin and SuperAdmin accounts also join `support-staff`. The hub has no
+method a browser can call, so nobody can join a group or ask for another customer's events. A connection is closed when its token expires.
+
+Events (client method `supportEvent`) are published only after the data is saved, and a failing channel never loses or blocks a ticket:
+`ticketCreated` and `customerReplied` go to staff; `staffReplied` and `statusChanged` go to the ticket's owner; `ticketUpdated` goes to staff when
+staff change a ticket. An event carries the ticket id and number, status, and (for staff events) subject and topic. It never carries the
+message text or an e-mail address. `eventId` is unique, so a client can drop a duplicate. The page reads the ticket again through the API, which
+checks ownership.
+
+Staff also get a persisted notification (`NotificationType.SupportStaff`) for each active Admin/SuperAdmin on a new request and on a customer reply;
+it feeds the admin bell and unread count through `GET /api/notifications`, and is not e-mailed (the admin alert e-mail is separate). No
+migration is needed: the notification type is stored as text.
+
+The browser reconnects by itself, reads its data again after a reconnect, and polls every 20 seconds while there is no connection. Allow the
+page origin in `Cors:AllowedOrigins`.
+
 ## Settings (`Support`)
 
 `ContactEmail` (empty: none shown), `RateLimitPerMinute` (10), `DuplicateWindowSeconds` (120), `MaxOpenTicketsPerUser` (20).
