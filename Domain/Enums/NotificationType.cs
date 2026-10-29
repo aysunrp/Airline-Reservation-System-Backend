@@ -16,5 +16,8 @@ public enum NotificationType
     RefundFailed,
 
     /// <summary>A support request was received, answered or changed status.</summary>
-    SupportUpdate
+    SupportUpdate,
+
+    /// <summary>For support staff: a new support request or a customer reply. Shown in the staff bell, never e-mailed (staff get the admin e-mail).</summary>
+    SupportStaff
 }

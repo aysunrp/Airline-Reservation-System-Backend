@@ -17,6 +17,9 @@ public interface IUserRepository : IBaseRepository<User>
 
     Task<bool> HasBookingsAsync(int userId, CancellationToken cancellationToken = default);
 
+    /// <summary>The ids of the active Admin and SuperAdmin accounts (support staff).</summary>
+    Task<IReadOnlyList<int>> GetActiveStaffIdsAsync(CancellationToken cancellationToken = default);
+
     /// <summary>The role and the active flag only, read fresh from the database; null when the account does not exist.</summary>
     Task<UserState?> GetStateAsync(int id, CancellationToken cancellationToken = default);
 }

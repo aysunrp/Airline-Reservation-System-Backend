@@ -44,6 +44,9 @@ public class UserRepository : BaseRepository<User>, IUserRepository
     public Task<int> CountActiveInRoleAsync(UserRole role, CancellationToken cancellationToken = default)
         => Set.CountAsync(u => u.Role == role && u.IsActive, cancellationToken);
 
+    public async Task<IReadOnlyList<int>> GetActiveStaffIdsAsync(CancellationToken cancellationToken = default)
+        => await Set.AsNoTracking().Where(u => u.IsActive && (u.Role == UserRole.Admin || u.Role == UserRole.SuperAdmin)).Select(u => u.Id).ToListAsync(cancellationToken);
+
     public Task<bool> HasBookingsAsync(int userId, CancellationToken cancellationToken = default)
         => Context.Bookings.AnyAsync(b => b.UserId == userId, cancellationToken);
 
