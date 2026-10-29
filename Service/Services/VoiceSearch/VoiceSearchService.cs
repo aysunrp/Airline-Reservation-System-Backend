@@ -200,6 +200,6 @@ public class VoiceSearchService : IVoiceSearchService
 
         return new VoiceSearchInterpretationDto(
             VoiceSearchInterpretationDto.Ready, rules.Language, VoiceSearchInterpreter.ToDto(origin), VoiceSearchInterpreter.ToDto(destination),
-            single, from, to, part, cabin, passengers, specified, cheapest, defaultPeriod, "assistant", Array.Empty<VoiceIssueDto>());
+            single, from, to, part, cabin, passengers, specified, cheapest, cheapest && (!rules.Cheapest || rules.CheapestSingle), defaultPeriod, "assistant", Array.Empty<VoiceIssueDto>());
     }
 }

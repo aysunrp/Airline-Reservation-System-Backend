@@ -157,6 +157,30 @@ public class VoiceSearchEndpointTests : IClassFixture<ApiFactory>
     }
 
     [Fact]
+    public async Task ALimitOfOne_ReturnsOnlyTheCheapestFlight_AndCountsTheOthers()
+    {
+        var seed = await _factory.GetSeedAsync();
+        var today = DateOnly.FromDateTime(DateTime.UtcNow);
+
+        var response = await _client.PostAsJsonAsync("/api/flights/search-range", new
+        {
+            originCode = "GYD", destinationCode = "LHR", from = today, to = today.AddDays(30), sortBy = "price", limit = 1
+        }, Json);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var result = await response.ReadAsync<FlightRangeSearchResultDto>();
+        Assert.Equal(seed.FlightId, Assert.Single(result.Flights).Id);
+        Assert.Equal(1, result.LowestPriceCount);
+    }
+
+    [Fact]
+    public async Task ASingularCheapestRequest_IsFlaggedSingle_APluralOneIsNot()
+    {
+        Assert.True((await InterpretAsync("Bakından Londona ən ucuz uçuş nə vaxtdır?", "az")).CheapestSingle);
+        Assert.False((await InterpretAsync("Show me the cheapest flights from Baku to London", "en")).CheapestSingle);
+    }
+
+    [Fact]
     public async Task OrdinaryManualSearch_IsUnchanged()
     {
         var seed = await _factory.GetSeedAsync();

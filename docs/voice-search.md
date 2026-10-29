@@ -26,6 +26,7 @@ Answers `200` with the criteria (it only reads; it never searches or books):
 | `timeOfDay` | `Morning`, `Afternoon`, `Evening`, `Night` |
 | `cabinClass`, `passengers`, `passengersSpecified` | cabin if said; passengers default to 1 (`passengersSpecified` false) |
 | `cheapest` | the traveller asked for the cheapest flight |
+| `cheapestSingle` | the request is for the one cheapest flight ("the cheapest flight"); false for a plural request ("the cheapest flights"), which keeps several low-priced options |
 | `interpretedBy` | `rules` (fixed rules, always tried first) or `assistant` |
 | `issues` | `missing_text`, `missing_origin`, `missing_destination`, `same_airport`, `ambiguous_origin` / `ambiguous_destination` (with `options`), `unknown_origin` / `unknown_destination` (with the name), `past_date`, `invalid_date`, `ambiguous_date`, `bad_passengers` |
 
@@ -45,7 +46,7 @@ is down, or answers badly, the rules' answer stands, so voice and typed search k
 The real bookable flights of one route over a period, cheapest first (`sortBy: "price"`, default) or earliest first (`"departure"`),
 optionally one part of the day (`timeOfDay`) and one cabin. Same rules as the ordinary search (flights that have left, flights without
 enough free seats, and flights without the cabin are left out). At most `VoiceSearch:MaxRangeDays` (62) days and `VoiceSearch:MaxResults`
-(50) flights; `totalFound` is the true count.
+(50) flights; `totalFound` is the true count. `limit` (1 to `MaxResults`) cuts the list after the whole period has been compared, so `sortBy: "price"` with `limit: 1` is the one cheapest flight of the period. Equal prices are ordered by departure, then flight id, so the same flight is always chosen; `lowestPriceCount` says how many flights share the lowest price.
 
 Parts of the day, at the origin airport: morning 05:00-11:59, afternoon 12:00-17:59, evening 18:00-23:59, night 00:00-04:59.
 

@@ -97,6 +97,13 @@ internal static class VoiceLexicon
         E("дешев*", true, "ru"), E("недорог*", true, "ru"), E("дёшев*", true, "ru")
     };
 
+    /// <summary>Plural nouns (folded): with "cheapest" they ask for several low-priced options instead of the one cheapest flight.</summary>
+    public static readonly HashSet<string> PluralWords = new(new[]
+    {
+        "flights", "tickets", "fares", "options", "deals", "uçuşlar", "uçuşları", "biletlər", "biletləri", "reyslər", "reysləri", "variantlar",
+        "рейсы", "билеты", "варианты", "самые", "дешевые", "дешёвые", "недорогие"
+    }.Select(VoiceText.Fold));
+
     public static readonly Entry<DepartureTimeOfDay>[] TimesOfDay =
     {
         E("morning", DepartureTimeOfDay.Morning, "en"), E("afternoon", DepartureTimeOfDay.Afternoon, "en"),

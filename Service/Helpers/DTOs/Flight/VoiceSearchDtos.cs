@@ -58,6 +58,7 @@ public record VoiceSearchInterpretationDto(
     int Passengers,
     bool PassengersSpecified,
     bool Cheapest,
+    bool CheapestSingle,
     bool DefaultPeriod,
     string InterpretedBy,
     IReadOnlyList<VoiceIssueDto> Issues)
@@ -86,6 +87,12 @@ public class FlightRangeSearchRequestDto
 
     /// <summary>"price" (cheapest first, the default) or "departure" (earliest first).</summary>
     public string SortBy { get; set; } = "price";
+
+    /// <summary>
+    /// How many flights to return (1 to VoiceSearch:MaxResults). The whole period is still compared first, so Limit 1 with sortBy "price" is the one
+    /// cheapest flight of the period. Empty means VoiceSearch:MaxResults.
+    /// </summary>
+    public int? Limit { get; set; }
 }
 
 public record FlightRangeSearchResultDto(
@@ -96,4 +103,5 @@ public record FlightRangeSearchResultDto(
     string SortBy,
     DepartureTimeOfDay? TimeOfDay,
     int TotalFound,
+    int LowestPriceCount,
     IReadOnlyList<FlightResultDto> Flights);

@@ -107,13 +107,15 @@ public class FlightSearchService : IFlightSearchService
             .Select(f => new { Flight = f, Price = f.Fares.Where(fare => request.CabinClass is null || fare.CabinClass == request.CabinClass).Min(fare => fare.BasePrice) });
 
         var ordered = request.SortBy == "departure"
-            ? matching.OrderBy(x => x.Flight.DepartureAt).ThenBy(x => x.Price)
-            : matching.OrderBy(x => x.Price).ThenBy(x => x.Flight.DepartureAt);
-        var all = ordered.Select(x => x.Flight).ToList();
+            ? matching.OrderBy(x => x.Flight.DepartureAt).ThenBy(x => x.Price).ThenBy(x => x.Flight.Id)
+            : matching.OrderBy(x => x.Price).ThenBy(x => x.Flight.DepartureAt).ThenBy(x => x.Flight.Id);
+        var all = ordered.ToList();
 
-        var limit = Math.Max(1, _voiceSettings.MaxResults);
+        // Every flight of the whole period is compared before anything is cut: the same price always gives the same flight (the earliest, then the lowest id).
+        var limit = Math.Min(Math.Max(1, _voiceSettings.MaxResults), request.Limit ?? int.MaxValue);
+        var lowest = all.Count == 0 ? 0 : all.Min(x => x.Price);
         return new FlightRangeSearchResultDto(origin.Code, destination.Code, request.From, request.To, request.SortBy, request.TimeOfDay,
-            all.Count, all.Take(limit).Select(f => f.ToResultDto()).ToList());
+            all.Count, all.Count(x => x.Price == lowest), all.Take(limit).Select(x => x.Flight.ToResultDto()).ToList());
     }
 
     public async Task<FlightResultDto> GetFlightAsync(int flightId, CancellationToken cancellationToken = default)

@@ -59,7 +59,7 @@ public sealed class VoiceSearchInterpreter
 
         if (tokens.Length == 0 && numericDates.Count == 0)
         {
-            return Build(null, null, null, null, null, null, null, 1, false, false, false, "en",
+            return Build(null, null, null, null, null, null, null, 1, false, false, false, false, "en",
                 new List<VoiceIssueDto> { new("missing_text") });
         }
 
@@ -69,6 +69,8 @@ public sealed class VoiceSearchInterpreter
         var (passengers, passengersSpecified) = ReadPassengers(tokens, used, votes, issues);
         var cabin = ReadFirst(VoiceLexicon.Cabins, tokens, used, votes);
         var cheapest = ReadFirst(VoiceLexicon.Cheapest, tokens, used, votes) is true;
+        // "the cheapest flight" is one flight; "the cheapest flights" (a plural noun) keeps several low-priced options.
+        var single = cheapest && !tokens.Any(VoiceLexicon.PluralWords.Contains);
 
         var today = TodayAt(origin, utcNow);
         var lang = PickLanguage(votes, language);
@@ -116,7 +118,7 @@ public sealed class VoiceSearchInterpreter
             }
         }
 
-        return Build(origin, destination, date, from, to, timeOfDay, cabin, passengers, passengersSpecified, cheapest, defaultPeriod, lang, issues);
+        return Build(origin, destination, date, from, to, timeOfDay, cabin, passengers, passengersSpecified, cheapest, single, defaultPeriod, lang, issues);
     }
 
     private static string PickLanguage(Dictionary<string, int> votes, string? requested)
@@ -133,7 +135,7 @@ public sealed class VoiceSearchInterpreter
 
     private static VoiceSearchInterpretationDto Build(
         Airport? origin, Airport? destination, DateOnly? date, DateOnly? from, DateOnly? to, DepartureTimeOfDay? timeOfDay, CabinClass? cabin,
-        int passengers, bool passengersSpecified, bool cheapest, bool defaultPeriod, string detected, List<VoiceIssueDto> issues)
+        int passengers, bool passengersSpecified, bool cheapest, bool cheapestSingle, bool defaultPeriod, string detected, List<VoiceIssueDto> issues)
     {
         var told = (string code) => issues.Any(i => i.Code == code);
         if (!told("missing_text"))
@@ -151,7 +153,7 @@ public sealed class VoiceSearchInterpreter
 
         return new VoiceSearchInterpretationDto(
             issues.Count == 0 ? VoiceSearchInterpretationDto.Ready : VoiceSearchInterpretationDto.NeedsClarification,
-            detected, ToDto(origin), ToDto(destination), date, from, to, timeOfDay, cabin, passengers, passengersSpecified, cheapest, defaultPeriod,
+            detected, ToDto(origin), ToDto(destination), date, from, to, timeOfDay, cabin, passengers, passengersSpecified, cheapest, cheapestSingle, defaultPeriod,
             "rules", issues);
     }
 
