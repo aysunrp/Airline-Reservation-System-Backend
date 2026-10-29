@@ -62,6 +62,12 @@ public class ApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
 
     public int NewsletterRateLimitPerMinute { get; init; } = 100_000;
 
+    public int SupportRateLimitPerMinute { get; init; } = 100_000;
+
+    public string SupportContactEmail { get; init; } = string.Empty;
+
+    public string AdminAlertRecipient { get; init; } = string.Empty;
+
     public const string TestWebhookSecret = "whsec_api_tests_only";
 
     /// <summary>The questions the API asked "the AI provider".</summary>
@@ -131,6 +137,12 @@ public class ApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
             services.AddSingleton<IAssistantProvider>(provider => provider.GetRequiredService<TestAssistantProvider>());
 
             services.PostConfigure<NewsletterSettings>(settings => settings.RateLimitPerMinute = NewsletterRateLimitPerMinute);
+            services.PostConfigure<SupportSettings>(settings =>
+            {
+                settings.RateLimitPerMinute = SupportRateLimitPerMinute;
+                settings.ContactEmail = SupportContactEmail;
+            });
+            services.PostConfigure<AdminNotificationSettings>(settings => settings.RecipientEmail = AdminAlertRecipient);
 
             // No real SMTP in tests: the messages end up in a list the tests read.
             services.RemoveAll<IEmailSender>();

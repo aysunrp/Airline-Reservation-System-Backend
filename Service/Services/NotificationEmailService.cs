@@ -63,12 +63,14 @@ public class NotificationEmailService : INotificationEmailService
         }
 
         var link = $"{_auth.FrontendBaseUrl.TrimEnd('/')}/notifications.html";
+        var supportLink = $"{_auth.FrontendBaseUrl.TrimEnd('/')}/support.html#requests";
         int sent = 0, failed = 0;
 
         foreach (var notification in due)
         {
             var (subject, text, html) = await RefundEmailAsync(notification, cancellationToken)
-                                        ?? EmailTemplates.Notification(notification.User.FirstName, notification.Title, notification.Message, link);
+                                        ?? EmailTemplates.Notification(notification.User.FirstName, notification.Title, notification.Message,
+                                            notification.Type == NotificationType.SupportUpdate ? supportLink : link);
 
             try
             {

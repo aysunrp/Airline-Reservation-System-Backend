@@ -13,5 +13,8 @@ public enum NotificationType
     RefundPending,
 
     /// <summary>The refund did not go through; the booking stays cancelled and the amount is still owed.</summary>
-    RefundFailed
+    RefundFailed,
+
+    /// <summary>A support request was received, answered or changed status.</summary>
+    SupportUpdate
 }

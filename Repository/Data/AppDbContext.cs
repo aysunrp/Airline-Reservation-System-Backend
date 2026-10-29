@@ -38,6 +38,8 @@ public class AppDbContext : DbContext
     public DbSet<EmailToken> EmailTokens => Set<EmailToken>();
     public DbSet<NewsletterSubscriber> NewsletterSubscribers => Set<NewsletterSubscriber>();
     public DbSet<AdminAlert> AdminAlerts => Set<AdminAlert>();
+    public DbSet<SupportTicket> SupportTickets => Set<SupportTicket>();
+    public DbSet<SupportMessage> SupportMessages => Set<SupportMessage>();
     public DbSet<EmailCampaign> EmailCampaigns => Set<EmailCampaign>();
     public DbSet<EmailCampaignRecipient> EmailCampaignRecipients => Set<EmailCampaignRecipient>();
     public DbSet<AuditLog> AuditLogs => Set<AuditLog>();

@@ -63,6 +63,14 @@ builder.Services.AddRateLimiter(options =>
             "newsletter:" + (httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown"),
             _ => new FixedWindowRateLimiterOptions { PermitLimit = limit, Window = TimeSpan.FromMinutes(1), QueueLimit = 0 });
     });
+    options.AddPolicy(RateLimitPolicies.Support, httpContext =>
+    {
+        var limit = Math.Max(1, httpContext.RequestServices.GetRequiredService<IOptions<SupportSettings>>().Value.RateLimitPerMinute);
+        var who = httpContext.User.GetUserIdOrNull()?.ToString() ?? httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+        return RateLimitPartition.GetFixedWindowLimiter(
+            "support:" + who,
+            _ => new FixedWindowRateLimiterOptions { PermitLimit = limit, Window = TimeSpan.FromMinutes(1), QueueLimit = 0 });
+    });
     options.OnRejected = async (context, cancellationToken) =>
     {
         var problem = new ProblemDetails
@@ -181,9 +189,10 @@ if (!app.Environment.IsDevelopment())
 
 app.UseCors(FrontendCorsPolicy);
 
-app.UseRateLimiter();
 
 app.UseAuthentication();
+// After authentication, so a limit can be kept per signed-in customer (the support endpoints) as well as per address.
+app.UseRateLimiter();
 app.UseAuthorization();
 
 app.MapControllers();

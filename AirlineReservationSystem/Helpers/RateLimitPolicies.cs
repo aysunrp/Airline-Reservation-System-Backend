@@ -13,4 +13,7 @@ public static class RateLimitPolicies
 
     /// <summary>Newsletter subscribe, confirm and unsubscribe: Newsletter:RateLimitPerMinute per IP address.</summary>
     public const string Newsletter = "newsletter";
+
+    /// <summary>Support requests and replies: Support:RateLimitPerMinute per signed-in customer (or IP address).</summary>
+    public const string Support = "support";
 }
