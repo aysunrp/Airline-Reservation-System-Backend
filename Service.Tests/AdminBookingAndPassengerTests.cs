@@ -110,4 +110,58 @@ public class AdminBookingAndPassengerTests
         Assert.Equal(1, dashboard.Stats.Passengers);
         Assert.True(dashboard.Stats.AvailableSeats > 0);
     }
+
+    private AdminDashboardService CreateDashboard()
+        => new(_context.Bookings, _context.Data.Flights(), new FakeRouteRepository(), new FakeAircraftRepository(), _context.FlightSeats(),
+            CreatePassengerService(), _context.Clock);
+
+    [Fact]
+    public async Task Dashboard_TotalBookings_CountsOnlyPaidOnes_NotAPendingBooking()
+    {
+        await BookAsync("Aysun", 103, pay: true);
+        await BookAsync("Orkhan", 104, pay: false, lastName: "Aliyev", document: "C07654321");
+
+        var dashboard = await CreateDashboard().GetAsync();
+
+        Assert.Equal(1, dashboard.Stats.TotalBookings);
+        Assert.Equal(2, dashboard.RecentBookings.Count); // the table still lists every recent booking, whatever its status
+    }
+
+    [Fact]
+    public async Task Dashboard_PassengersAreCountedOncePerPerson_AcrossBookings()
+    {
+        await BookAsync("Aysun", 103, pay: true);
+        await BookAsync("Aysun", 104, pay: true); // the same document number: the same person
+
+        Assert.Equal(1, (await CreateDashboard().GetAsync()).Stats.Passengers);
+    }
+
+    [Fact]
+    public async Task Dashboard_AvailableSeats_NeverExceedTheSeatsOfTheFlights_AndDropWhenOneIsBooked()
+    {
+        var service = CreateDashboard();
+        var before = (await service.GetAsync()).Stats.AvailableSeats;
+        var total = (await _context.FlightSeats().GetAllAsync()).Count;
+
+        await BookAsync("Aysun", 103, pay: true);
+        var after = (await service.GetAsync()).Stats.AvailableSeats;
+
+        Assert.True(before <= total);
+        Assert.Equal(before - 1, after);
+    }
+
+    [Fact]
+    public async Task Dashboard_OnEmptyData_IsAllZeros_WithEmptyLists()
+    {
+        var empty = new BookingTestContext();
+        var service = new AdminDashboardService(
+            empty.Bookings, new FakeFlightRepository(), new FakeRouteRepository(), new FakeAircraftRepository(), new FakeFlightSeatRepository(),
+            new AdminPassengerService(new FakeBookingPassengerRepository(empty.Bookings)), empty.Clock);
+
+        var dashboard = await service.GetAsync();
+
+        Assert.Equal(new AdminDashboardStatsDto(0, 0, 0, 0, 0, 0), dashboard.Stats);
+        Assert.Empty(dashboard.RecentBookings);
+        Assert.Empty(dashboard.UpcomingFlights);
+    }
 }
