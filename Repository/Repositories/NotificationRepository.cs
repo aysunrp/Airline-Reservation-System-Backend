@@ -46,7 +46,8 @@ public class NotificationRepository : BaseRepository<Notification>, INotificatio
             .Where(n => n.EmailSentAt == null
                         && n.EmailAttempts < maxAttempts
                         && n.CreatedAt > createdAfter
-                        && n.User.EmailVerifiedAt != null)
+                        && n.User.EmailVerifiedAt != null
+                        && n.Type != NotificationType.SupportStaff)
             .OrderBy(n => n.Id)
             .Take(take)
             .ToListAsync(cancellationToken);

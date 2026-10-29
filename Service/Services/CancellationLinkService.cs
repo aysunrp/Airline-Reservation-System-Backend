@@ -34,6 +34,7 @@ public class CancellationLinkService : ICancellationLinkService
     private readonly AuthSettings _settings;
     private readonly TimeProvider _timeProvider;
     private readonly ILogger<CancellationLinkService> _logger;
+    private readonly IAdminAlertService? _adminAlerts;
 
     public CancellationLinkService(
         ICancellationService cancellations,
@@ -44,8 +45,10 @@ public class CancellationLinkService : ICancellationLinkService
         IValidator<CancelBookingRequestDto> validator,
         IOptions<AuthSettings> settings,
         TimeProvider timeProvider,
-        ILogger<CancellationLinkService> logger)
+        ILogger<CancellationLinkService> logger,
+        IAdminAlertService? adminAlerts = null)
     {
+        _adminAlerts = adminAlerts;
         _cancellations = cancellations;
         _bookings = bookings;
         _users = users;
@@ -112,6 +115,12 @@ public class CancellationLinkService : ICancellationLinkService
             Payload = JsonSerializer.Serialize(new Payload(string.IsNullOrWhiteSpace(request.Reason) ? null : request.Reason.Trim(), language))
         }, cancellationToken);
         await _tokens.SaveChangesAsync(cancellationToken);
+
+        if (_adminAlerts is not null)
+        {
+            await _adminAlerts.QueueAndSaveAsync($"booking:{booking.Id}:cancel-requested:{now.Ticks}", "Cancellation requested",
+                $"A cancellation of booking {booking.Pnr} was requested. It is cancelled only when the customer confirms the link sent by e-mail.\n\nBooking id: {booking.Id}", cancellationToken);
+        }
 
         var link = $"{_settings.FrontendBaseUrl.TrimEnd('/')}/cancel-confirm.html?token={Uri.EscapeDataString(token)}";
         var legs = booking.Flights.OrderBy(f => f.LegOrder)

@@ -5,6 +5,7 @@ using Microsoft.Extensions.DependencyInjection.Extensions;
 using Service.Helpers.Settings;
 using Service.Services;
 using Service.Services.Interfaces;
+using Service.Services.VoiceSearch;
 
 namespace Service
 {
@@ -17,6 +18,10 @@ namespace Service
             services.Configure<AuthSettings>(configuration.GetSection(AuthSettings.SectionName));
             services.Configure<SmtpSettings>(configuration.GetSection(SmtpSettings.SectionName));
             services.Configure<TravelAssistantSettings>(configuration.GetSection(TravelAssistantSettings.SectionName));
+            services.Configure<VoiceSearchSettings>(configuration.GetSection(VoiceSearchSettings.SectionName));
+            services.Configure<NewsletterSettings>(configuration.GetSection(NewsletterSettings.SectionName));
+            services.Configure<AdminNotificationSettings>(configuration.GetSection(AdminNotificationSettings.SectionName));
+            services.Configure<SupportSettings>(configuration.GetSection(SupportSettings.SectionName));
             services.Configure<BookingSettings>(configuration.GetSection(BookingSettings.SectionName));
             services.Configure<SeatLayoutSettings>(configuration.GetSection(SeatLayoutSettings.SectionName));
             services.Configure<FlightGenerationSettings>(configuration.GetSection(FlightGenerationSettings.SectionName));
@@ -56,6 +61,14 @@ namespace Service
             services.AddSingleton<AssistantFactsCache>();
             services.AddScoped<IAssistantKnowledge, AssistantKnowledge>();
             services.AddScoped<IAssistantService, AssistantService>();
+            services.AddScoped<IVoiceSearchService, VoiceSearchService>();
+            services.AddScoped<INewsletterService, NewsletterService>();
+            services.AddScoped<IAdminAlertService, AdminAlertService>();
+            services.AddScoped<ICampaignService, CampaignService>();
+            services.TryAddSingleton<ISupportRealtimePublisher, NullSupportRealtimePublisher>();
+            services.AddScoped<SupportService>();
+            services.AddScoped<ISupportService>(sp => sp.GetRequiredService<SupportService>());
+            services.AddScoped<IAdminSupportService>(sp => sp.GetRequiredService<SupportService>());
             services.AddScoped<IBookingService, BookingService>();
             services.AddScoped<IBookingConfirmationService, BookingConfirmationService>();
             services.AddScoped<IPaymentService, PaymentService>();
@@ -91,6 +104,7 @@ namespace Service
             services.AddHostedService<FlightGenerationWorker>();
             services.AddHostedService<BookingLifecycleWorker>();
             services.AddHostedService<NotificationEmailWorker>();
+            services.AddHostedService<EmailCampaignWorker>();
 
             return services;
         }

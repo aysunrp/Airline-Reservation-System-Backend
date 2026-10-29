@@ -73,9 +73,13 @@ public class AdminPromoCodeEndpointTests : IClassFixture<ApiFactory>
 
         var aerova10 = (await (await admin.GetAsync("/api/admin/promo-codes?search=AEROVA10")).ReadAsync<List<AdminPromoCodeDto>>()).Single();
         Assert.Equal(1, aerova10.UsedCount);
+        // A code with usage history is kept and switched off instead of being deleted.
         var inUse = await admin.DeleteAsync($"/api/admin/promo-codes/{aerova10.Id}");
-        Assert.Equal(HttpStatusCode.UnprocessableEntity, inUse.StatusCode);
-        Assert.Contains("Set it to inactive", await inUse.Content.ReadAsStringAsync());
+        Assert.Equal(HttpStatusCode.OK, inUse.StatusCode);
+        Assert.Equal("Deactivated", (await inUse.ReadAsync<DeleteResultDto>()).Outcome);
+        var kept = await (await admin.GetAsync($"/api/admin/promo-codes/{aerova10.Id}")).ReadAsync<AdminPromoCodeDto>();
+        Assert.False(kept.IsActive);
+        Assert.Equal(1, kept.UsedCount);
 
         Assert.Equal(HttpStatusCode.NotFound, (await admin.DeleteAsync("/api/admin/promo-codes/999999")).StatusCode);
     }

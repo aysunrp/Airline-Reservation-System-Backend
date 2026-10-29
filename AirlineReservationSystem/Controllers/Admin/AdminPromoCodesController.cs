@@ -53,15 +53,15 @@ public class AdminPromoCodesController : ControllerBase
     public async Task<ActionResult<AdminPromoCodeDto>> Update(int id, PromoCodeRequestDto request, CancellationToken cancellationToken)
         => Ok(await _promoCodeService.UpdateAsync(id, request, cancellationToken));
 
-    /// <summary>Codes used by bookings cannot be deleted; set them inactive instead (422).</summary>
+    /// <summary>An unused code is deleted (204); a code with usage history is deactivated and kept (200, outcome "Deactivated").</summary>
     [Authorize(Policy = AuthorizationPolicies.SuperAdmin)]
     [HttpDelete("{id:int}")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType<DeleteResultDto>(StatusCodes.Status200OK)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status422UnprocessableEntity)]
     public async Task<IActionResult> Delete(int id, CancellationToken cancellationToken)
     {
-        await _promoCodeService.DeleteAsync(id, cancellationToken);
-        return NoContent();
+        var outcome = await _promoCodeService.DeleteAsync(id, cancellationToken);
+        return outcome == DeleteOutcome.Deactivated ? Ok(new DeleteResultDto(outcome.ToString())) : NoContent();
     }
 }

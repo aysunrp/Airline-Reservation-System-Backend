@@ -40,6 +40,17 @@ public class FlightsController : ControllerBase
     public async Task<ActionResult<IReadOnlyList<DayFareDto>>> GetLowestFares([FromQuery] LowestFaresRequestDto request, CancellationToken cancellationToken)
         => Ok(await _flightSearchService.GetLowestFaresAsync(request, cancellationToken));
 
+    /// <summary>
+    /// All bookable flights of one route over a period of at most MaxRangeDays, cheapest first (or earliest first), optionally only one part of
+    /// the day. Used by voice search for "the cheapest flight" and for requests without a day. It reads the real schedules and fares only.
+    /// </summary>
+    [HttpPost("search-range")]
+    [ProducesResponseType<FlightRangeSearchResultDto>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ValidationProblemDetails>(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<FlightRangeSearchResultDto>> SearchRange(FlightRangeSearchRequestDto request, CancellationToken cancellationToken)
+        => Ok(await _flightSearchService.SearchRangeAsync(request, cancellationToken));
+
     [HttpGet("{id:int}")]
     [ProducesResponseType<FlightResultDto>(StatusCodes.Status200OK)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]

@@ -9,4 +9,5 @@ public record NotificationDto(
     string Message,
     int? BookingId,
     bool IsRead,
-    DateTime CreatedAt);
+    DateTime CreatedAt,
+    int? SupportTicketId = null);

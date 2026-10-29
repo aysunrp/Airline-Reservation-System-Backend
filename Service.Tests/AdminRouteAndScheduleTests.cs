@@ -105,6 +105,23 @@ public class AdminRouteAndScheduleTests
     }
 
     [Fact]
+    public async Task Schedule_WithoutFlights_CanBeDeleted_ButNotOnceItHasProducedFlights()
+    {
+        var route = await CreateRouteAsync();
+        var service = CreateScheduleService();
+        var plain = await service.CreateAsync(Schedule(route.Id));
+
+        await service.DeleteAsync(plain.Id);
+        Assert.Empty(await _schedules.GetAllAsync());
+
+        var used = await service.CreateAsync(Schedule(route.Id));
+        _schedules.WithFlights.Add(used.Id);
+        await Assert.ThrowsAsync<BusinessRuleException>(() => service.DeleteAsync(used.Id));
+        Assert.Single(await _schedules.GetAllAsync());
+        await Assert.ThrowsAsync<NotFoundException>(() => service.DeleteAsync(99999));
+    }
+
+    [Fact]
     public async Task ScheduleRules_AreEnforced()
     {
         var route = await CreateRouteAsync();
