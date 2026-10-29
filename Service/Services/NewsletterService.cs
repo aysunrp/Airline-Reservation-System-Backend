@@ -35,6 +35,7 @@ public class NewsletterService : INewsletterService
     private readonly byte[] _linkKey;
     private readonly TimeProvider _timeProvider;
     private readonly ILogger<NewsletterService> _logger;
+    private readonly IAdminAlertService? _adminAlerts;
 
     public NewsletterService(
         INewsletterSubscriberRepository subscribers,
@@ -45,8 +46,10 @@ public class NewsletterService : INewsletterService
         IOptions<AuthSettings> auth,
         IOptions<JwtSettings> jwt,
         TimeProvider timeProvider,
-        ILogger<NewsletterService> logger)
+        ILogger<NewsletterService> logger,
+        IAdminAlertService? adminAlerts = null)
     {
+        _adminAlerts = adminAlerts;
         _subscribers = subscribers;
         _sender = sender;
         _subscribeValidator = subscribeValidator;
@@ -149,6 +152,13 @@ public class NewsletterService : INewsletterService
         subscriber.ConfirmationTokenHash = null;
         subscriber.ConfirmationExpiresAt = null;
         await _subscribers.SaveChangesAsync(cancellationToken);
+
+        if (_adminAlerts is not null)
+        {
+            await _adminAlerts.QueueAndSaveAsync($"newsletter:{subscriber.Id}:confirmed:{now.Ticks}", "New newsletter subscriber",
+                $"{subscriber.Email} confirmed the newsletter subscription (language {subscriber.Language}).", cancellationToken);
+        }
+
         return new NewsletterResultDto("confirmed");
     }
 
@@ -178,6 +188,8 @@ public class NewsletterService : INewsletterService
             .ToList();
 
     /// <summary>The link every newsletter e-mail carries: the key of the subscriber and the signature of that key.</summary>
+    public string UnsubscribeLinkFor(NewsletterSubscriber subscriber) => UnsubscribeLink(subscriber);
+
     internal string UnsubscribeLink(NewsletterSubscriber subscriber)
         => $"{_auth.FrontendBaseUrl.TrimEnd('/')}/newsletter-unsubscribe.html?token={Uri.EscapeDataString(UnsubscribeToken(subscriber.UnsubscribeKey))}";
 

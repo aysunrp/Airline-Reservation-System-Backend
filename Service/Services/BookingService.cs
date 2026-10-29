@@ -37,6 +37,7 @@ public class BookingService : IBookingService
     private readonly ITravelDocumentPolicy _documentPolicy;
     private readonly IValidator<CreateBookingRequestDto> _validator;
     private readonly IBookingEmailConfirmationService _confirmation;
+    private readonly IAdminAlertService? _adminAlerts;
     private readonly BookingSettings _settings;
     private readonly TimeProvider _timeProvider;
 
@@ -57,8 +58,10 @@ public class BookingService : IBookingService
         IUserRepository userRepository,
         IEmailSender emailSender,
         IOptions<AuthSettings> authSettings,
-        IBookingEmailConfirmationService confirmation)
+        IBookingEmailConfirmationService confirmation,
+        IAdminAlertService? adminAlerts = null)
     {
+        _adminAlerts = adminAlerts;
         _confirmation = confirmation;
         _userRepository = userRepository;
         _emailSender = emailSender;
@@ -185,6 +188,12 @@ public class BookingService : IBookingService
             // Another booking changed one of these seats in the meantime (row version) or already holds an
             // active ticket for it (unique index). Nothing was saved.
             throw new ConflictException("One or more selected seats were just taken. Please choose other seats.");
+        }
+
+        if (_adminAlerts is not null)
+        {
+            await _adminAlerts.QueueAndSaveAsync($"booking:{booking.Id}:created", "New booking created",
+                $"Booking {booking.Pnr} was created for {booking.Passengers.Count} passenger(s), total {booking.TotalAmount:0.00} {Domain.Constants.AppConstants.Currency}. Payment is still pending.\n\nBooking id: {booking.Id}", cancellationToken);
         }
 
         if (booking.ContactConfirmedAt is null)

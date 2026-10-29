@@ -14,6 +14,10 @@ namespace Service.Tests;
 
 internal sealed class FakeNewsletterSubscriberRepository : FakeRepository<NewsletterSubscriber>, INewsletterSubscriberRepository
 {
+    public FakeNewsletterSubscriberRepository(params NewsletterSubscriber[] items) : base(items)
+    {
+    }
+
     public IReadOnlyList<NewsletterSubscriber> All => Items;
 
     public Task<NewsletterSubscriber?> GetByEmailAsync(string normalizedEmail, CancellationToken cancellationToken = default)

@@ -11,10 +11,41 @@ namespace Service.Services;
 public class NotificationService : INotificationService
 {
     private readonly INotificationRepository _notificationRepository;
+    private readonly IAdminAlertService? _adminAlerts;
 
-    public NotificationService(INotificationRepository notificationRepository)
+    public NotificationService(INotificationRepository notificationRepository, IAdminAlertService? adminAlerts = null)
     {
         _notificationRepository = notificationRepository;
+        _adminAlerts = adminAlerts;
+    }
+
+    /// <summary>
+    /// The events the admin is told about: a confirmed booking, a confirmed payment, a cancellation, and each stage of a refund. They are the same
+    /// events the customer is notified about, so the admin hears only what the backend (and Stripe, for payments and refunds) has confirmed.
+    /// </summary>
+    private async Task AlertAdminAsync(NotificationType type, int? bookingId, string key, string message, CancellationToken cancellationToken)
+    {
+        if (_adminAlerts is null)
+        {
+            return;
+        }
+
+        var subject = type switch
+        {
+            NotificationType.BookingConfirmed => "Booking confirmed",
+            NotificationType.PaymentSuccessful => "Payment confirmed",
+            NotificationType.BookingCancelled => "Booking cancelled",
+            NotificationType.RefundPending => "Refund processing",
+            NotificationType.RefundCompleted => "Refund succeeded",
+            NotificationType.RefundFailed => "Refund FAILED",
+            _ => null
+        };
+        if (subject is null)
+        {
+            return;
+        }
+
+        await _adminAlerts.QueueAsync("admin:" + key, subject, message + (bookingId is null ? string.Empty : $"\n\nBooking id: {bookingId}"), cancellationToken);
     }
 
     public async Task<IReadOnlyList<NotificationDto>> GetAsync(int userId, CancellationToken cancellationToken = default)
@@ -89,8 +120,9 @@ public class NotificationService : INotificationService
         await _notificationRepository.SaveChangesAsync(cancellationToken);
     }
 
-    public Task QueueAsync(int userId, int? bookingId, NotificationType type, string title, string message, CancellationToken cancellationToken = default)
-        => _notificationRepository.AddAsync(new Notification
+    public async Task QueueAsync(int userId, int? bookingId, NotificationType type, string title, string message, CancellationToken cancellationToken = default)
+    {
+        await _notificationRepository.AddAsync(new Notification
         {
             UserId = userId,
             BookingId = bookingId,
@@ -98,6 +130,12 @@ public class NotificationService : INotificationService
             Title = title,
             Message = message
         }, cancellationToken);
+
+        if (bookingId is not null)
+        {
+            await AlertAdminAsync(type, bookingId, $"booking:{bookingId}:{type}", message, cancellationToken);
+        }
+    }
 
     public async Task<bool> QueueOnceAsync(string emailKey, int userId, int? bookingId, NotificationType type, string title, string message, CancellationToken cancellationToken = default)
     {
@@ -115,6 +153,7 @@ public class NotificationService : INotificationService
             Message = message,
             EmailKey = emailKey
         }, cancellationToken);
+        await AlertAdminAsync(type, bookingId, emailKey, message, cancellationToken);
         return true;
     }
 }

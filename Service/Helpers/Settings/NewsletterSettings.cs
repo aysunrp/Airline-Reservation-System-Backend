@@ -13,4 +13,10 @@ public class NewsletterSettings
 
     /// <summary>Subscribe, confirm and unsubscribe requests one IP address may make per minute.</summary>
     public int RateLimitPerMinute { get; set; } = 10;
+
+    /// <summary>Recipients an e-mail campaign sends to per run of the background job (about every 15 seconds).</summary>
+    public int CampaignBatchSize { get; set; } = 20;
+
+    /// <summary>Delivery attempts for one campaign recipient before it is marked failed.</summary>
+    public int CampaignMaxAttempts { get; set; } = 3;
 }

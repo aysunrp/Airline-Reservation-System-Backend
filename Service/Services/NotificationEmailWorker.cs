@@ -30,6 +30,7 @@ public class NotificationEmailWorker : BackgroundService
         {
             using var scope = _scopeFactory.CreateScope();
             await scope.ServiceProvider.GetRequiredService<INotificationEmailService>().SendDueAsync(cancellationToken);
+            await scope.ServiceProvider.GetRequiredService<IAdminAlertService>().SendDueAsync(cancellationToken);
         }
         catch (Exception ex) when (ex is not OperationCanceledException || !cancellationToken.IsCancellationRequested)
         {

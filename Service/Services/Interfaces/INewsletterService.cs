@@ -13,6 +13,9 @@ public interface INewsletterService
     /// <summary>Opts the owner of the unsubscribe link out; opening it again changes nothing.</summary>
     Task<NewsletterResultDto> UnsubscribeAsync(NewsletterTokenRequestDto request, CancellationToken cancellationToken = default);
 
+    /// <summary>The link that opts this subscriber out; every marketing e-mail must carry it.</summary>
+    string UnsubscribeLinkFor(Domain.Entities.NewsletterSubscriber subscriber);
+
     /// <summary>
     /// Everyone a marketing newsletter may go to: confirmed, active subscribers only, each with an unsubscribe link. A newsletter sender
     /// must take its recipients from here and nowhere else.

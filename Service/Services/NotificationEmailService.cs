@@ -28,6 +28,7 @@ public class NotificationEmailService : INotificationEmailService
     private readonly AuthSettings _auth;
     private readonly TimeProvider _timeProvider;
     private readonly ILogger<NotificationEmailService> _logger;
+    private readonly IAdminAlertService? _adminAlerts;
 
     public NotificationEmailService(
         INotificationRepository notifications,
@@ -35,8 +36,10 @@ public class NotificationEmailService : INotificationEmailService
         IEmailSender sender,
         IOptions<AuthSettings> auth,
         TimeProvider timeProvider,
-        ILogger<NotificationEmailService> logger)
+        ILogger<NotificationEmailService> logger,
+        IAdminAlertService? adminAlerts = null)
     {
+        _adminAlerts = adminAlerts;
         _notifications = notifications;
         _bookings = bookings;
         _sender = sender;
@@ -77,6 +80,13 @@ public class NotificationEmailService : INotificationEmailService
             {
                 notification.EmailAttempts++;
                 failed++;
+
+                // After the last try the admin is told that a customer e-mail could not be delivered (no address or text in the message).
+                if (notification.EmailAttempts >= MaxAttempts && _adminAlerts is not null)
+                {
+                    await _adminAlerts.QueueAsync($"emailfail:notification:{notification.Id}", "Customer e-mail could not be delivered",
+                        $"A {notification.Type} e-mail (notification {notification.Id}, booking {notification.BookingId}) failed {MaxAttempts} times and was given up. The notification stays in the app.", cancellationToken);
+                }
             }
 
             // Saved one by one: a message that was sent is never sent again because a later one failed.
