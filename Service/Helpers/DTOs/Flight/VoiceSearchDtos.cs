@@ -89,10 +89,10 @@ public class FlightRangeSearchRequestDto
     public string SortBy { get; set; } = "price";
 
     /// <summary>
-    /// How many flights to return (1 to VoiceSearch:MaxResults). The whole period is still compared first, so Limit 1 with sortBy "price" is the one
-    /// cheapest flight of the period. Empty means VoiceSearch:MaxResults.
+    /// When true, only the flights at the lowest price of the whole period are returned (every one of them, however many tie), and no dearer flight.
+    /// Meant for sortBy "price"; it is applied after every eligible flight has been compared.
     /// </summary>
-    public int? Limit { get; set; }
+    public bool LowestOnly { get; set; }
 }
 
 public record FlightRangeSearchResultDto(
@@ -104,4 +104,5 @@ public record FlightRangeSearchResultDto(
     DepartureTimeOfDay? TimeOfDay,
     int TotalFound,
     int LowestPriceCount,
+    string Currency,
     IReadOnlyList<FlightResultDto> Flights);

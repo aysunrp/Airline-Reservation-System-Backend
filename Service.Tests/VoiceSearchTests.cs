@@ -777,57 +777,92 @@ public class VoiceSearchServiceTests
         Assert.Equal(new[] { 20, 21, 22 }, result.Flights.Select(f => f.Id));
     }
 
+    private static FlightRangeSearchRequestDto LowestOnly(DateOnly from, DateOnly to)
+    {
+        var request = Range("GYD", "LHR", from, to);
+        request.LowestOnly = true;
+        return request;
+    }
+
     [Fact]
-    public async Task LimitOne_IsTheCheapestFlightOfTheWholePeriod_NotOfTheFirstDays()
+    public async Task LowestOnly_WithOneCheapestFlight_ReturnsOnlyThatFlight_FromTheWholePeriod()
     {
         // The cheapest flight is the last one of the period: it must still be found, and be the only one returned.
         AddFlight(11, new DateTime(2026, 11, 3, 5, 0, 0, DateTimeKind.Utc), 450);
         AddFlight(12, new DateTime(2026, 11, 8, 5, 0, 0, DateTimeKind.Utc), 400);
         AddFlight(13, new DateTime(2026, 11, 26, 5, 0, 0, DateTimeKind.Utc), 250);
-        var request = Range("GYD", "LHR", new DateOnly(2026, 10, 29), new DateOnly(2026, 11, 27));
-        request.Limit = 1;
 
-        var result = await CreateSearchWithExtras().SearchRangeAsync(request);
+        var result = await CreateSearchWithExtras().SearchRangeAsync(LowestOnly(new DateOnly(2026, 10, 29), new DateOnly(2026, 11, 27)));
 
         var only = Assert.Single(result.Flights);
         Assert.Equal(13, only.Id);
         Assert.Equal(250m, only.Fares[CabinClass.Economy]);
         Assert.Equal(4, result.TotalFound);
         Assert.Equal(1, result.LowestPriceCount);
+        Assert.Equal("USD", result.Currency);
     }
 
     [Fact]
-    public async Task LimitOne_ReturnsTheLowestPriceOfTheCabinAsked()
+    public async Task LowestOnly_ReturnsEveryFlightTiedAtTheLowestPrice_AndNoDearerOne()
     {
-        AddFlight(11, new DateTime(2026, 11, 3, 5, 0, 0, DateTimeKind.Utc), 200, business: 900);
-        AddFlight(12, new DateTime(2026, 11, 4, 5, 0, 0, DateTimeKind.Utc), 500, business: 700);
-        var request = Range("GYD", "LHR", new DateOnly(2026, 10, 29), new DateOnly(2026, 11, 27));
-        request.CabinClass = CabinClass.Business;
-        request.Limit = 1;
+        // Three flights at 180 on different days (added out of order), and two dearer ones.
+        AddFlight(21, new DateTime(2026, 11, 20, 5, 0, 0, DateTimeKind.Utc), 180);
+        AddFlight(22, new DateTime(2026, 11, 4, 5, 0, 0, DateTimeKind.Utc), 180);
+        AddFlight(23, new DateTime(2026, 11, 4, 5, 0, 0, DateTimeKind.Utc), 180);
+        AddFlight(24, new DateTime(2026, 11, 6, 5, 0, 0, DateTimeKind.Utc), 220);
+        AddFlight(25, new DateTime(2026, 11, 7, 5, 0, 0, DateTimeKind.Utc), 250);
 
-        // Economy would be flight 11 (200); in Business the lowest is flight 12 (700, against 820 and 900).
-        Assert.Equal(12, Assert.Single((await CreateSearchWithExtras().SearchRangeAsync(request)).Flights).Id);
+        var result = await CreateSearchWithExtras().SearchRangeAsync(LowestOnly(new DateOnly(2026, 10, 29), new DateOnly(2026, 11, 27)));
+
+        // Earliest departure first; the same departure by flight id. The 365 flight of the test network, and 220 and 250, are not shown.
+        Assert.Equal(new[] { 22, 23, 21 }, result.Flights.Select(f => f.Id));
+        Assert.All(result.Flights, f => Assert.Equal(180m, f.Fares[CabinClass.Economy]));
+        Assert.Equal(new[] { new DateOnly(2026, 11, 4), new DateOnly(2026, 11, 4), new DateOnly(2026, 11, 20) },
+            result.Flights.Select(f => DateOnly.FromDateTime(f.DepartureAt)));
+        Assert.Equal(6, result.TotalFound);
+        Assert.Equal(3, result.LowestPriceCount);
     }
 
     [Fact]
-    public async Task EqualPrices_GiveTheSameFlightEveryTime_TheEarliestOne()
+    public async Task LowestOnly_GivesTheSameFlightsEveryTime()
     {
-        // Added in a mixed order on purpose; three share the lowest price.
         AddFlight(15, new DateTime(2026, 11, 20, 5, 0, 0, DateTimeKind.Utc), 250);
         AddFlight(14, new DateTime(2026, 11, 12, 5, 0, 0, DateTimeKind.Utc), 250);
         AddFlight(16, new DateTime(2026, 11, 12, 5, 0, 0, DateTimeKind.Utc), 250);
-        AddFlight(17, new DateTime(2026, 11, 2, 5, 0, 0, DateTimeKind.Utc), 300);
-        var request = Range("GYD", "LHR", new DateOnly(2026, 10, 29), new DateOnly(2026, 11, 27));
-        request.Limit = 1;
 
         for (var attempt = 0; attempt < 3; attempt++)
         {
-            var result = await CreateSearchWithExtras().SearchRangeAsync(request);
+            var result = await CreateSearchWithExtras().SearchRangeAsync(LowestOnly(new DateOnly(2026, 10, 29), new DateOnly(2026, 11, 27)));
 
-            // Earliest departure wins; on the same departure the lower flight id.
-            Assert.Equal(14, Assert.Single(result.Flights).Id);
-            Assert.Equal(3, result.LowestPriceCount);
+            Assert.Equal(new[] { 14, 16, 15 }, result.Flights.Select(f => f.Id));
         }
+    }
+
+    [Fact]
+    public async Task LowestOnly_UsesTheLowestPriceOfTheCabinAsked()
+    {
+        AddFlight(11, new DateTime(2026, 11, 3, 5, 0, 0, DateTimeKind.Utc), 200, business: 900);
+        AddFlight(12, new DateTime(2026, 11, 4, 5, 0, 0, DateTimeKind.Utc), 500, business: 700);
+        AddFlight(13, new DateTime(2026, 11, 5, 5, 0, 0, DateTimeKind.Utc), 100, business: 700);
+        var request = LowestOnly(new DateOnly(2026, 10, 29), new DateOnly(2026, 11, 27));
+        request.CabinClass = CabinClass.Business;
+
+        // Business: 820, 900, 700 and 700. The two flights at 700 are returned; the cheaper Economy fare of flight 13 plays no part.
+        var result = await CreateSearchWithExtras().SearchRangeAsync(request);
+
+        Assert.Equal(new[] { 12, 13 }, result.Flights.Select(f => f.Id));
+    }
+
+    [Fact]
+    public async Task LowestOnly_OnlyConsidersFlightsThatCanStillBeBooked_ForAllPassengers()
+    {
+        // The dearer flight is the only one that has been added with seats for four; the cheap one has the same three Economy seats as all others.
+        AddFlight(11, new DateTime(2026, 11, 3, 5, 0, 0, DateTimeKind.Utc), 150);
+        var request = LowestOnly(new DateOnly(2026, 10, 29), new DateOnly(2026, 11, 27));
+        request.CabinClass = CabinClass.Economy;
+        request.Passengers = 4;
+
+        Assert.Empty((await CreateSearchWithExtras().SearchRangeAsync(request)).Flights);
     }
 
     [Fact]
@@ -844,23 +879,9 @@ public class VoiceSearchServiceTests
     }
 
     [Fact]
-    public async Task ALimitOutsideTheAllowedRange_IsRefused()
+    public async Task NoFlightsAtAll_WithLowestOnly_IsEmpty_NeverInvented()
     {
-        var search = CreateSearch();
-        var zero = Range("GYD", "LHR", new DateOnly(2026, 11, 1), new DateOnly(2026, 11, 5));
-        zero.Limit = 0;
-        var tooMany = Range("GYD", "LHR", new DateOnly(2026, 11, 1), new DateOnly(2026, 11, 5));
-        tooMany.Limit = 500;
-
-        await Assert.ThrowsAsync<ValidationException>(() => search.SearchRangeAsync(zero));
-        await Assert.ThrowsAsync<ValidationException>(() => search.SearchRangeAsync(tooMany));
-    }
-
-    [Fact]
-    public async Task NoFlightsAtAll_WithALimit_IsEmpty_NeverInvented()
-    {
-        var request = Range("GYD", "LHR", new DateOnly(2026, 12, 1), new DateOnly(2026, 12, 5));
-        request.Limit = 1;
+        var request = LowestOnly(new DateOnly(2026, 12, 1), new DateOnly(2026, 12, 5));
 
         var result = await CreateSearchWithExtras().SearchRangeAsync(request);
 

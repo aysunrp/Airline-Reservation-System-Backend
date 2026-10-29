@@ -20,7 +20,6 @@ public class FlightRangeSearchRequestValidator : AbstractValidator<FlightRangeSe
         RuleFor(x => x.TimeOfDay).IsInEnum();
         RuleFor(x => x.Passengers).InclusiveBetween(1, CreateBookingRequestValidator.MaxPassengers);
         RuleFor(x => x.SortBy).Must(s => s is "price" or "departure").WithMessage("Sort by \"price\" or \"departure\".");
-        RuleFor(x => x.Limit).InclusiveBetween(1, Math.Max(1, options.Value.MaxResults)).When(x => x.Limit is not null);
         RuleFor(x => x.From)
             .Must(d => d >= DateOnly.FromDateTime(timeProvider.GetUtcNow().UtcDateTime))
             .WithMessage("The travel date cannot be in the past.");

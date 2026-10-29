@@ -157,20 +157,21 @@ public class VoiceSearchEndpointTests : IClassFixture<ApiFactory>
     }
 
     [Fact]
-    public async Task ALimitOfOne_ReturnsOnlyTheCheapestFlight_AndCountsTheOthers()
+    public async Task LowestOnly_ReturnsOnlyTheCheapestFlight_AndCountsTheOthers()
     {
         var seed = await _factory.GetSeedAsync();
         var today = DateOnly.FromDateTime(DateTime.UtcNow);
 
         var response = await _client.PostAsJsonAsync("/api/flights/search-range", new
         {
-            originCode = "GYD", destinationCode = "LHR", from = today, to = today.AddDays(30), sortBy = "price", limit = 1
+            originCode = "GYD", destinationCode = "LHR", from = today, to = today.AddDays(30), sortBy = "price", lowestOnly = true
         }, Json);
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         var result = await response.ReadAsync<FlightRangeSearchResultDto>();
         Assert.Equal(seed.FlightId, Assert.Single(result.Flights).Id);
         Assert.Equal(1, result.LowestPriceCount);
+        Assert.Equal("USD", result.Currency);
     }
 
     [Fact]

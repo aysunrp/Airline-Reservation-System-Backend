@@ -111,11 +111,14 @@ public class FlightSearchService : IFlightSearchService
             : matching.OrderBy(x => x.Price).ThenBy(x => x.Flight.DepartureAt).ThenBy(x => x.Flight.Id);
         var all = ordered.ToList();
 
-        // Every flight of the whole period is compared before anything is cut: the same price always gives the same flight (the earliest, then the lowest id).
-        var limit = Math.Min(Math.Max(1, _voiceSettings.MaxResults), request.Limit ?? int.MaxValue);
+        // Every flight of the whole period is compared first. The lowest price is the minimum of all of them, and a lowest-only search keeps
+        // every flight at that price (never just the first one) and no dearer flight. Fares are all in one currency.
         var lowest = all.Count == 0 ? 0 : all.Min(x => x.Price);
+        var lowestCount = all.Count(x => x.Price == lowest);
+        var chosen = request.LowestOnly ? all.Where(x => x.Price == lowest) : all;
+        var limit = Math.Max(1, _voiceSettings.MaxResults);
         return new FlightRangeSearchResultDto(origin.Code, destination.Code, request.From, request.To, request.SortBy, request.TimeOfDay,
-            all.Count, all.Count(x => x.Price == lowest), all.Take(limit).Select(x => x.Flight.ToResultDto()).ToList());
+            all.Count, lowestCount, Domain.Constants.AppConstants.Currency, chosen.Take(limit).Select(x => x.Flight.ToResultDto()).ToList());
     }
 
     public async Task<FlightResultDto> GetFlightAsync(int flightId, CancellationToken cancellationToken = default)
