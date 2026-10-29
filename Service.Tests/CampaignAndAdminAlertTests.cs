@@ -544,6 +544,16 @@ public class CampaignAndAdminAlertTests
     }
 
     [Fact]
+    public void ADatabaseThatLacksATable_IsRecognised_AndAnOrdinaryFailureIsNot()
+    {
+        Assert.True(Service.Helpers.DatabaseSetup.IsMissingTable(new FakeDbException("Invalid object name 'SupportTickets'.")));
+        Assert.True(Service.Helpers.DatabaseSetup.IsMissingTable(new InvalidOperationException("outer", new FakeDbException("Invalid column name 'Status'."))));
+        Assert.False(Service.Helpers.DatabaseSetup.IsMissingTable(new InvalidOperationException("Invalid object name 'x' in a message that is not a database error.")));
+        Assert.False(Service.Helpers.DatabaseSetup.IsMissingTable(new FakeDbException("Cannot insert duplicate key.")));
+        Assert.DoesNotContain("SupportTickets", Service.Helpers.DatabaseSetup.RequiredMessage);
+    }
+
+    [Fact]
     public async Task AnotherFailure_IsNotMistakenForAMissingTable()
     {
         var c = CreateCampaigns(null, Sub(1, "a@example.com"));

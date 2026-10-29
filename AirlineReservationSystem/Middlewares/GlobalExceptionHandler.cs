@@ -1,6 +1,7 @@
 using FluentValidation;
 using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.Mvc;
+using Service.Helpers;
 using Service.Helpers.Exceptions;
 
 namespace AirlineReservationSystem.Middlewares;
@@ -40,10 +41,19 @@ public sealed class GlobalExceptionHandler : IExceptionHandler
             NotFoundException => Problem(StatusCodes.Status404NotFound, "Not found", exception.Message),
             ConflictException => Problem(StatusCodes.Status409Conflict, "Conflict", exception.Message),
             BusinessRuleException => Problem(StatusCodes.Status422UnprocessableEntity, "Business rule violation", exception.Message),
+            // A migration that was not applied: the page can say what to do, and the log keeps the SQL error.
+            _ when DatabaseSetup.IsMissingTable(exception) => Problem(StatusCodes.Status422UnprocessableEntity, "Database setup required", DatabaseSetup.RequiredMessage),
             // Internal details are only shown while developing.
             _ => Problem(StatusCodes.Status500InternalServerError, "An unexpected error occurred.",
                 _environment.IsDevelopment() ? exception.Message : null)
         };
+
+        var setupRequired = exception is not BusinessRuleException && DatabaseSetup.IsMissingTable(exception);
+        if (setupRequired)
+        {
+            _logger.LogError(exception, "A database table is missing for {Method} {Path}: apply the latest migration.", httpContext.Request.Method, httpContext.Request.Path);
+            problem.Extensions["code"] = "database_setup_required";
+        }
 
         if (problem.Status == StatusCodes.Status500InternalServerError)
         {

@@ -62,19 +62,7 @@ public class CampaignService : ICampaignService
     public const string SetupRequiredMessage = "E-mail campaigns are not set up yet: the latest database migration (AddEmailCampaignsAndAdminAlerts) has not been applied.";
 
     /// <summary>True when the failure is a table or column that the database does not have (a migration was not applied).</summary>
-    public static bool IsMissingTable(Exception exception)
-    {
-        for (var ex = exception; ex is not null; ex = ex.InnerException)
-        {
-            if (ex is DbException && (ex.Message.Contains("Invalid object name", StringComparison.OrdinalIgnoreCase)
-                                      || ex.Message.Contains("Invalid column name", StringComparison.OrdinalIgnoreCase)))
-            {
-                return true;
-            }
-        }
-
-        return false;
-    }
+    public static bool IsMissingTable(Exception exception) => Service.Helpers.DatabaseSetup.IsMissingTable(exception);
 
     /// <summary>
     /// Runs one admin action. A missing campaign table becomes a clear 422 with the code campaign_setup_required (the page shows what to do);

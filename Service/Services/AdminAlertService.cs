@@ -17,6 +17,7 @@ namespace Service.Services;
 public class AdminAlertService : IAdminAlertService
 {
     private const int BatchSize = 20;
+    private static bool _warnedAboutRecipient;
 
     private readonly IAdminAlertRepository _alerts;
     private readonly IEmailSender _sender;
@@ -48,8 +49,19 @@ public class AdminAlertService : IAdminAlertService
 
     public async Task QueueAsync(string eventKey, string subject, string body, CancellationToken cancellationToken = default)
     {
-        if (!_settings.Enabled || string.IsNullOrWhiteSpace(Recipient))
+        if (!_settings.Enabled)
         {
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(Recipient))
+        {
+            if (!_warnedAboutRecipient)
+            {
+                _warnedAboutRecipient = true;
+                _logger.LogWarning("Admin e-mails are not sent: set AdminNotifications:RecipientEmail (or Smtp:SenderEmail).");
+            }
+
             return;
         }
 
