@@ -2,6 +2,7 @@ using System.Text;
 using System.Text.Json.Serialization;
 using System.Threading.RateLimiting;
 using AirlineReservationSystem.Helpers;
+using AirlineReservationSystem.Hubs;
 using AirlineReservationSystem.Middlewares;
 using Domain.Enums;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -14,6 +15,7 @@ using Microsoft.OpenApi.Models;
 using Repository;
 using Service;
 using Service.Helpers.Settings;
+using Service.Services.Interfaces;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -91,6 +93,10 @@ var connectionString = builder.Configuration.GetConnectionString("DefaultConnect
 builder.Services.AddRepositoryLayer(connectionString);
 builder.Services.AddServiceLayer(builder.Configuration);
 
+// Real-time support events (SignalR). The publisher replaces the do-nothing one of the service layer.
+builder.Services.AddSignalR();
+builder.Services.AddSingleton<ISupportRealtimePublisher, SupportRealtimePublisher>();
+
 // The signing key lives in user-secrets (development) or the environment; refuse to start without a usable one.
 builder.Services.AddOptions<JwtSettings>()
     .Validate(settings => Encoding.UTF8.GetByteCount(settings.Secret ?? string.Empty) >= 32,
@@ -115,7 +121,21 @@ builder.Services.AddOptions<JwtBearerOptions>(JwtBearerDefaults.AuthenticationSc
         };
 
         // A valid signature is not enough: the account must still exist, be active and have the role the token says.
-        options.Events = new JwtBearerEvents { OnTokenValidated = TokenStateValidator.ValidateAsync };
+        options.Events = new JwtBearerEvents
+        {
+            OnTokenValidated = TokenStateValidator.ValidateAsync,
+            // Browsers cannot set an Authorization header on a WebSocket: the hub accepts the token as access_token in the query, for the hub path only.
+            OnMessageReceived = context =>
+            {
+                var token = context.Request.Query["access_token"];
+                if (!string.IsNullOrEmpty(token) && context.HttpContext.Request.Path.StartsWithSegments(SupportHub.Path))
+                {
+                    context.Token = token;
+                }
+
+                return Task.CompletedTask;
+            }
+        };
     });
 
 builder.Services.AddAuthorization(options =>
@@ -196,6 +216,7 @@ app.UseRateLimiter();
 app.UseAuthorization();
 
 app.MapControllers();
+app.MapHub<SupportHub>(SupportHub.Path);
 
 // Development admin account (Seed:CreateAdmin) and demo data (Seed:Enabled): Development only, off by default (see DemoSeedStartup).
 await app.SeedDemoDataIfEnabledAsync();
