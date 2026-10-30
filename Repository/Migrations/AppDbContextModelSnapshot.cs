@@ -1875,7 +1875,7 @@ namespace Repository.Migrations
 
                     b.HasIndex("FlightSeatId")
                         .IsUnique()
-                        .HasFilter("[FlightSeatId] IS NOT NULL AND [Status] <> 'Cancelled'");
+                        .HasFilter("[FlightSeatId] IS NOT NULL AND [Status] <> 'Cancelled' AND [Status] <> 'Pending'");
 
                     b.HasIndex("MealOptionId");
 
