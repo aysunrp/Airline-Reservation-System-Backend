@@ -37,7 +37,7 @@ public class DestinationCatalogDataTests
         }
 
         Assert.Equal(37, Cities.Count());
-        Assert.Equal(38, Airports.Count());
+        Assert.Equal(39, Airports.Count());
     }
 
     [Fact]
@@ -63,6 +63,28 @@ public class DestinationCatalogDataTests
 
         Assert.Equal(20, DestinationCatalogData.Countries.Select(c => c.ImageFile).Distinct().Count()); // no photograph twice
         Assert.Equal(20, DestinationCatalogData.Countries.Select(c => c.Name).Distinct().Count());
+    }
+
+    [Fact]
+    public void EveryCity_HasItsOwnPhotograph_AndADescriptionInAllThreeLanguages_AndNoPhotographIsUsedTwice()
+    {
+        Assert.All(Cities, c =>
+        {
+            Assert.Matches("^[a-z0-9-]+\\.jpg$", c.ImageFile);
+            Assert.All(new[] { c.Description, c.DescriptionAz, c.DescriptionRu }, text => Assert.InRange(text.Length, 20, 400));
+        });
+        Assert.Equal(Cities.Count(), Cities.Select(c => c.ImageFile).Distinct().Count());
+        // The photograph of a country is the one of its first city, so a country card and its city card agree.
+        Assert.All(DestinationCatalogData.Countries, c => Assert.Equal(c.ImageFile, c.Cities[0].ImageFile));
+    }
+
+    [Fact]
+    public void IstanbulHasTwoAirports_AndEveryOtherCityOfTurkeyItsOwn()
+    {
+        var turkey = DestinationCatalogData.Countries.Single(c => c.Code == "TR");
+        Assert.Equal(new[] { "IST", "SAW" }, turkey.Cities.Single(c => c.Name == "Istanbul").Airports.Select(a => a.Code));
+        Assert.Equal(new[] { "ESB" }, turkey.Cities.Single(c => c.Name == "Ankara").Airports.Select(a => a.Code));
+        Assert.Equal(new[] { "AYT" }, turkey.Cities.Single(c => c.Name == "Antalya").Airports.Select(a => a.Code));
     }
 
     [Fact]
