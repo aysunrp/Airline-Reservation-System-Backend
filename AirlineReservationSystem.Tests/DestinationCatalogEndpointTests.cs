@@ -143,6 +143,65 @@ public class DestinationCatalogEndpointTests : IClassFixture<ApiFactory>
         Assert.Equal(HttpStatusCode.NotFound, (await admin.PutAsJsonAsync("/api/admin/destinations/cities/999999/active", new { isActive = false }, Json)).StatusCode);
     }
 
+    [Fact]
+    public async Task ADestinationIsFoundByItsId_ButNotTheHomeBase_ASwitchedOffCountryOrAnUnknownId()
+    {
+        await SeedAsync();
+        var client = _factory.CreateClient();
+        var catalog = await PublicAsync();
+        var turkey = catalog.Single(c => c.Code == "TR");
+        var azerbaijan = catalog.Single(c => c.Code == "AZ");
+
+        var found = await (await client.GetAsync($"/api/destinations/{turkey.Id}")).ReadAsync<DestinationCountryDto>();
+        Assert.Equal(new[] { "Istanbul", "Ankara", "Antalya" }, found.Cities.Select(c => c.Name));
+        Assert.Equal(turkey.ImageFile, found.ImageFile); // the same record, the same photograph, as the list
+
+        Assert.Equal(HttpStatusCode.NotFound, (await client.GetAsync($"/api/destinations/{azerbaijan.Id}")).StatusCode); // Baku's country: a place to fly from
+        Assert.Equal(HttpStatusCode.NotFound, (await client.GetAsync("/api/destinations/999999")).StatusCode);
+
+        var admin = (await _factory.CreateAccountAsync(UserRole.Admin)).Client;
+        var japan = catalog.Single(c => c.Code == "JP");
+        await admin.PutAsJsonAsync($"/api/admin/destinations/countries/{japan.Id}/active", new { isActive = false }, Json);
+        Assert.Equal(HttpStatusCode.NotFound, (await client.GetAsync($"/api/destinations/{japan.Id}")).StatusCode);
+        await admin.PutAsJsonAsync($"/api/admin/destinations/countries/{japan.Id}/active", new { isActive = true }, Json);
+        Assert.Equal(HttpStatusCode.OK, (await client.GetAsync($"/api/destinations/{japan.Id}")).StatusCode);
+    }
+
+    [Fact]
+    public async Task AnAdminEdit_ShowsEverywhere_KeepsTheAirports_AndIsValidated()
+    {
+        await SeedAsync();
+        var catalog = await PublicAsync();
+        var france = catalog.Single(c => c.Code == "FR");
+        var customer = _factory.CreateClient();
+        customer.WithToken((await customer.RegisterAsync()).AccessToken);
+        var edit = new { name = "France", nameAz = "Fransa", nameRu = "Франция", description = "A new line about France.", descriptionAz = "Fransa haqqında yeni cümlə.", descriptionRu = "Новая строка о Франции." };
+
+        Assert.Equal(HttpStatusCode.Forbidden, (await customer.PutAsJsonAsync($"/api/admin/destinations/countries/{france.Id}", edit, Json)).StatusCode);
+
+        var admin = (await _factory.CreateAccountAsync(UserRole.Admin)).Client;
+        var saved = await admin.PutAsJsonAsync($"/api/admin/destinations/countries/{france.Id}", edit, Json);
+        Assert.Equal(HttpStatusCode.OK, saved.StatusCode);
+
+        // The list and the details page read the same edited record, and its image and airports are as they were.
+        var inList = (await PublicAsync()).Single(c => c.Code == "FR");
+        var byId = await (await _factory.CreateClient().GetAsync($"/api/destinations/{france.Id}")).ReadAsync<DestinationCountryDto>();
+        Assert.Equal("A new line about France.", inList.Description);
+        Assert.Equal(inList.Description, byId.Description);
+        Assert.Equal(france.ImageFile, byId.ImageFile);
+        Assert.Equal(france.Cities.SelectMany(c => c.Airports).Select(a => a.Code), byId.Cities.SelectMany(c => c.Airports).Select(a => a.Code));
+
+        var paris = france.Cities.Single(c => c.Name == "Paris");
+        var city = await admin.PutAsJsonAsync($"/api/admin/destinations/cities/{paris.Id}", new { nameAz = "Paris", nameRu = "Париж", aliases = "Pariz; Paree " }, Json);
+        Assert.Equal(HttpStatusCode.OK, city.StatusCode);
+        Assert.Equal(new[] { "Pariz", "Paree" }, (await PublicAsync()).Single(c => c.Code == "FR").Cities.Single(c => c.Name == "Paris").Aliases);
+
+        Assert.Equal(HttpStatusCode.BadRequest, (await admin.PutAsJsonAsync($"/api/admin/destinations/countries/{france.Id}", new { name = "", nameAz = "x", nameRu = "x", description = "d", descriptionAz = "d", descriptionRu = "d" }, Json)).StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest, (await admin.PutAsJsonAsync($"/api/admin/destinations/countries/{france.Id}", new { name = "France", nameAz = "x", nameRu = "x", description = new string('x', 401), descriptionAz = "d", descriptionRu = "d" }, Json)).StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, (await admin.PutAsJsonAsync("/api/admin/destinations/countries/999999", edit, Json)).StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, (await admin.PutAsJsonAsync("/api/admin/destinations/cities/999999", new { nameAz = "a", nameRu = "b" }, Json)).StatusCode);
+    }
+
     [Theory]
     [InlineData("Osaka'dan Barselonaya uçuşları göstər.", "az")]
     [InlineData("Show flights from Osaka to Barcelona.", "en")]
