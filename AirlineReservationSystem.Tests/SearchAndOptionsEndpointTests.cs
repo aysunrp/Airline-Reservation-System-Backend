@@ -137,7 +137,7 @@ public class SearchAndOptionsEndpointTests : IClassFixture<ApiFactory>
 
         var expired = await _client.GetAsync("/api/promo-codes/EXPIRED");
         Assert.Equal(HttpStatusCode.UnprocessableEntity, expired.StatusCode);
-        Assert.Equal("This promo code is not valid at the moment.", (await expired.ReadJsonAsync()).GetProperty("detail").GetString());
+        Assert.Equal("Bu promo kod hazırda etibarlı deyil.", (await expired.ReadJsonAsync()).GetProperty("detail").GetString());
 
         Assert.Equal(HttpStatusCode.UnprocessableEntity, (await _client.GetAsync("/api/promo-codes/NOPE")).StatusCode);
     }

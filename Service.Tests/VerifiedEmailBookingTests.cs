@@ -31,7 +31,7 @@ public class VerifiedEmailBookingTests
         var user = await AddUserAsync();
 
         var error = await Assert.ThrowsAsync<BusinessRuleException>(() => _context.CreateBookingService().CreateBookingAsync(1, Request.Create()));
-        Assert.Contains("confirm your email", error.Message);
+        Assert.Contains("e-poçt ünvanınızı təsdiqləyin", error.Message);
         Assert.Empty(await _context.Bookings.GetAllAsync());
         Assert.Equal(SeatStatus.Available, _context.Data.Seat(103).Status);
 

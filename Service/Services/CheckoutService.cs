@@ -16,8 +16,8 @@ namespace Service.Services;
 
 public class CheckoutService : ICheckoutService
 {
-    internal const string UnavailableMessage = "Card payments are not available right now. Please try again later.";
-    private const string PaymentNotFoundMessage = "Payment not found.";
+    internal const string UnavailableMessage = "Kartla ödəniş hazırda əlçatan deyil. Bir az sonra yenidən cəhd edin.";
+    private const string PaymentNotFoundMessage = "Ödəniş tapılmadı.";
 
     // Stripe's page may close at its own pace; the seats stay held a little longer so a payment made in its last second still finds them.
     private static readonly TimeSpan HoldMargin = TimeSpan.FromMinutes(2);
@@ -71,25 +71,25 @@ public class CheckoutService : ICheckoutService
 
         if (booking.Status == BookingStatus.Confirmed || booking.Payments.Any(p => p.Status == PaymentStatus.Paid))
         {
-            throw new ConflictException("This booking has already been paid.");
+            throw new ConflictException("Bu bron artıq ödənilib.");
         }
 
         if (booking.Status != BookingStatus.Pending)
         {
-            throw new BusinessRuleException("This booking can no longer be paid.");
+            throw new BusinessRuleException("Bu bronu artıq ödəmək mümkün deyil.");
         }
 
         // Each booking of an account is paid only after its own e-mail link was opened.
         if (_auth.RequireBookingEmailConfirmation && booking.UserId is not null && booking.ContactConfirmedAt is null)
         {
-            throw new BusinessRuleException("Confirm this booking with the link we e-mailed before paying.", "booking_unconfirmed");
+            throw new BusinessRuleException("Ödəniş etməzdən əvvəl bronu e-poçtla göndərdiyimiz keçidlə təsdiqləyin.", "booking_unconfirmed");
         }
 
         var now = _timeProvider.GetUtcNow().UtcDateTime;
         if (booking.ExpiresAt is not null && booking.ExpiresAt <= now)
         {
             await _expiryService.ReleaseExpiredAsync(cancellationToken);
-            throw new BusinessRuleException("The time to pay for this booking has run out and the seats were released. Please book again.");
+            throw new BusinessRuleException("Bu bronun ödəniş vaxtı bitib və oturacaqlar azad edilib. Yenidən bron edin.");
         }
 
         var waiting = booking.Payments
@@ -186,7 +186,7 @@ public class CheckoutService : ICheckoutService
         var minor = amount * 100m;
         if (amount <= 0 || minor != decimal.Truncate(minor))
         {
-            throw new BusinessRuleException("This booking has no amount that can be charged.");
+            throw new BusinessRuleException("Bu bron üzrə ödənilə biləcək məbləğ yoxdur.");
         }
 
         return (long)minor;
@@ -219,7 +219,7 @@ public class CheckoutService : ICheckoutService
         var promoCode = await _promoCodeRepository.GetByIdAsync(promoCodeId, cancellationToken);
         if (promoCode is { MaxUses: not null } && promoCode.UsedCount >= promoCode.MaxUses)
         {
-            throw new BusinessRuleException("This promo code has reached its usage limit. Please book again without it.");
+            throw new BusinessRuleException("Bu promo kodun istifadə limiti dolub. Onsuz yenidən bron edin.");
         }
     }
 
@@ -231,7 +231,7 @@ public class CheckoutService : ICheckoutService
         }
         catch (DbUpdateConcurrencyException)
         {
-            throw new ConflictException("This booking was changed at the same moment, for example in another window. Please refresh and try again.");
+            throw new ConflictException("Bu bron eyni anda, məsələn başqa pəncərədə dəyişdirilib. Səhifəni yeniləyib yenidən cəhd edin.");
         }
     }
 

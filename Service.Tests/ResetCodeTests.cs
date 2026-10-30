@@ -61,7 +61,7 @@ public class ResetCodeTests
         var (context, service, user) = await CustomerAsync();
 
         var none = await Assert.ThrowsAsync<NotFoundException>(() => service.ForgotPasswordAsync(Forgot("nobody@example.com")));
-        Assert.Equal("No account was found for this email address.", none.Message);
+        Assert.Equal("Bu e-poçt ünvanı üçün hesab tapılmadı.", none.Message);
         Assert.Empty(context.Sender.Sent);
         Assert.Empty(context.Tokens.All);
 
@@ -380,7 +380,7 @@ public class ResetCodeTests
 
         var used = await Assert.ThrowsAsync<BusinessRuleException>(() => service.VerifyEmailAsync(new VerifyEmailRequestDto { Token = fresh }));
         Assert.Equal("link_confirmed", used.Code);
-        Assert.Contains("confirmed", used.Message);
+        Assert.Contains("təsdiqlənib", used.Message);
     }
 
     [Fact]

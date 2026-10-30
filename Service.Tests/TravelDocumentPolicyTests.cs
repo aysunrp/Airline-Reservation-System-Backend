@@ -83,12 +83,12 @@ public class TravelDocumentPolicyTests
 
         var idCard = Assert.Throws<BusinessRuleException>(() =>
             _policy.Check(new[] { Flight(Baku, London) }, new[] { Passenger("AZ", DocumentType.NationalIdCard, new DateOnly(2030, 1, 1)) }, lastDay));
-        Assert.Contains("Use a passport", idCard.Message);
+        Assert.Contains("pasport təqdim edin", idCard.Message);
 
         _policy.Check(new[] { Flight(Baku, Dubai) }, new[] { Passenger("AZ", DocumentType.Passport, lastDay.AddDays(180)) }, lastDay);
         var shortPassport = Assert.Throws<BusinessRuleException>(() =>
             _policy.Check(new[] { Flight(Baku, Dubai) }, new[] { Passenger("AZ", DocumentType.Passport, lastDay.AddDays(179)) }, lastDay));
-        Assert.Contains("180 days after the trip", shortPassport.Message);
+        Assert.Contains("səyahətdən 180 gün sonra", shortPassport.Message);
 
         Assert.Throws<BusinessRuleException>(() =>
             _policy.Check(new[] { Flight(Baku, London) }, new[] { Passenger("AZ", DocumentType.Passport, lastDay.AddDays(-1)) }, lastDay));

@@ -68,13 +68,13 @@ public class DestinationCatalogService : IDestinationCatalogService
             }
         }
 
-        throw new NotFoundException("Destination not found.");
+        throw new NotFoundException("İstiqamət tapılmadı.");
     }
 
     public async Task<DestinationCountryDto> UpdateCountryAsync(int id, DestinationCountryRequestDto request, CancellationToken cancellationToken = default)
     {
         await _countryValidator.ValidateAndThrowAsync(request, cancellationToken);
-        var country = await _catalog.GetCountryAsync(id, cancellationToken) ?? throw new NotFoundException("Country not found.");
+        var country = await _catalog.GetCountryAsync(id, cancellationToken) ?? throw new NotFoundException("Ölkə tapılmadı.");
 
         country.Name = request.Name.Trim();
         country.NameAz = request.NameAz.Trim();
@@ -90,7 +90,7 @@ public class DestinationCatalogService : IDestinationCatalogService
     public async Task<DestinationCountryDto> UpdateCityAsync(int id, DestinationCityRequestDto request, CancellationToken cancellationToken = default)
     {
         await _cityValidator.ValidateAndThrowAsync(request, cancellationToken);
-        var city = await _catalog.GetCityAsync(id, cancellationToken) ?? throw new NotFoundException("City not found.");
+        var city = await _catalog.GetCityAsync(id, cancellationToken) ?? throw new NotFoundException("Şəhər tapılmadı.");
 
         city.NameAz = request.NameAz.Trim();
         city.NameRu = request.NameRu.Trim();
@@ -107,7 +107,7 @@ public class DestinationCatalogService : IDestinationCatalogService
 
     public async Task<DestinationCountryDto> SetCountryActiveAsync(int id, bool isActive, CancellationToken cancellationToken = default)
     {
-        var country = await _catalog.GetCountryAsync(id, cancellationToken) ?? throw new NotFoundException("Country not found.");
+        var country = await _catalog.GetCountryAsync(id, cancellationToken) ?? throw new NotFoundException("Ölkə tapılmadı.");
         country.IsActive = isActive;
         _catalog.Update(country);
         await _catalog.SaveChangesAsync(cancellationToken);
@@ -116,7 +116,7 @@ public class DestinationCatalogService : IDestinationCatalogService
 
     public async Task<DestinationCountryDto> SetCityActiveAsync(int id, bool isActive, CancellationToken cancellationToken = default)
     {
-        var city = await _catalog.GetCityAsync(id, cancellationToken) ?? throw new NotFoundException("City not found.");
+        var city = await _catalog.GetCityAsync(id, cancellationToken) ?? throw new NotFoundException("Şəhər tapılmadı.");
         city.IsActive = isActive;
         city.UpdatedAt = DateTime.UtcNow;
         await _catalog.SaveChangesAsync(cancellationToken);

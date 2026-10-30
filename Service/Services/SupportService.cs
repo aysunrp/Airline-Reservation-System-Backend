@@ -74,7 +74,7 @@ public class SupportService : ISupportService, IAdminSupportService
     public async Task<SupportTicketDetailDto> CreateAsync(int userId, CreateSupportTicketRequestDto request, CancellationToken cancellationToken = default)
     {
         await _createValidator.ValidateAndThrowAsync(request, cancellationToken);
-        var user = await _users.GetByIdAsync(userId, cancellationToken) ?? throw new UnauthorizedException("Please sign in again.");
+        var user = await _users.GetByIdAsync(userId, cancellationToken) ?? throw new UnauthorizedException("Zəhmət olmasa, yenidən daxil olun.");
         var now = Now();
         var subject = request.Subject.Trim();
         var message = request.Message.Trim();
@@ -88,7 +88,7 @@ public class SupportService : ISupportService, IAdminSupportService
 
         if (await _tickets.CountOpenForUserAsync(userId, cancellationToken) >= Math.Max(1, _settings.MaxOpenTicketsPerUser))
         {
-            throw new BusinessRuleException("You have too many open support requests. Please wait for some of them to be resolved.", "too_many_open_tickets");
+            throw new BusinessRuleException("Çox sayda açıq dəstək sorğunuz var. Bəzilərinin həllini gözləyin.", "too_many_open_tickets");
         }
 
         var ticket = new SupportTicket
@@ -137,7 +137,7 @@ public class SupportService : ISupportService, IAdminSupportService
 
         if (ticket.Status == SupportStatus.Resolved)
         {
-            throw new ConflictException("This request is resolved. Please open a new request if you still need help.");
+            throw new ConflictException("Bu sorğu həll olunub. Hələ də köməyə ehtiyacınız varsa, yeni sorğu açın.");
         }
 
         var now = Now();
@@ -182,12 +182,12 @@ public class SupportService : ISupportService, IAdminSupportService
     }
 
     async Task<AdminSupportTicketDetailDto> IAdminSupportService.GetAsync(int ticketId, CancellationToken cancellationToken)
-        => ToAdminDetail(await _tickets.GetDetailsAsync(ticketId, cancellationToken) ?? throw new NotFoundException("Support request not found."));
+        => ToAdminDetail(await _tickets.GetDetailsAsync(ticketId, cancellationToken) ?? throw new NotFoundException("Dəstək sorğusu tapılmadı."));
 
     public async Task<AdminSupportTicketDetailDto> ReplyAsync(int staffUserId, int ticketId, AdminSupportReplyRequestDto request, CancellationToken cancellationToken = default)
     {
         await _adminReplyValidator.ValidateAndThrowAsync(request, cancellationToken);
-        var ticket = await _tickets.GetDetailsAsync(ticketId, cancellationToken) ?? throw new NotFoundException("Support request not found.");
+        var ticket = await _tickets.GetDetailsAsync(ticketId, cancellationToken) ?? throw new NotFoundException("Dəstək sorğusu tapılmadı.");
 
         var now = Now();
         var body = request.Message.Trim();
@@ -220,7 +220,7 @@ public class SupportService : ISupportService, IAdminSupportService
     public async Task<AdminSupportTicketDetailDto> SetStatusAsync(int ticketId, SupportStatusRequestDto request, CancellationToken cancellationToken = default)
     {
         await _statusValidator.ValidateAndThrowAsync(request, cancellationToken);
-        var ticket = await _tickets.GetDetailsAsync(ticketId, cancellationToken) ?? throw new NotFoundException("Support request not found.");
+        var ticket = await _tickets.GetDetailsAsync(ticketId, cancellationToken) ?? throw new NotFoundException("Dəstək sorğusu tapılmadı.");
 
         // The same status again changes nothing and tells nobody.
         if (ticket.Status != request.Status)
@@ -248,7 +248,7 @@ public class SupportService : ISupportService, IAdminSupportService
     {
         var ticket = await _tickets.GetDetailsAsync(ticketId, cancellationToken);
         // Somebody else's ticket looks exactly like one that does not exist.
-        return ticket is not null && ticket.UserId == userId ? ticket : throw new NotFoundException("Support request not found.");
+        return ticket is not null && ticket.UserId == userId ? ticket : throw new NotFoundException("Dəstək sorğusu tapılmadı.");
     }
 
     private async Task<SupportTicketDetailDto> DetailAsync(int userId, int ticketId, CancellationToken cancellationToken)
@@ -274,7 +274,7 @@ public class SupportService : ISupportService, IAdminSupportService
             }
         }
 
-        throw new ServiceUnavailableException("We could not create the request right now. Please try again.");
+        throw new ServiceUnavailableException("Sorğunu hazırda yaratmaq mümkün olmadı. Yenidən cəhd edin.");
     }
 
     /// <summary>

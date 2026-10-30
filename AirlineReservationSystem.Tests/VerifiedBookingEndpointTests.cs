@@ -52,7 +52,7 @@ public class VerifiedBookingEndpointTests : IClassFixture<ConfirmedAccountApiFac
         Assert.Single(_factory.Emails.Sent, m => m.To == email);
         var blocked = await BookAsync(customer, "11A");
         Assert.Equal(HttpStatusCode.UnprocessableEntity, blocked.StatusCode);
-        Assert.Contains("confirm your email", (await blocked.ReadJsonAsync()).GetProperty("detail").GetString());
+        Assert.Contains("e-poçt ünvanınızı təsdiqləyin", (await blocked.ReadJsonAsync()).GetProperty("detail").GetString());
 
         // Opening the link records the confirmation in the database.
         var token = _factory.Emails.TokenFor(email);

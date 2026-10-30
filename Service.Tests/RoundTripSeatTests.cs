@@ -76,7 +76,7 @@ public class RoundTripSeatTests
     {
         var error = await Assert.ThrowsAsync<BusinessRuleException>(() => BookAsync(RoundTrip(Passenger("Aysun", (1, 103), (2, 104)))));
 
-        Assert.Contains("does not belong to flight AV 102", error.Message);
+        Assert.Contains("AV 102 nömrəli uçuşa aid deyil", error.Message);
         Assert.Empty(await _context.Bookings.GetAllAsync());
     }
 
@@ -97,7 +97,7 @@ public class RoundTripSeatTests
         await BookAsync(RoundTrip(Passenger("Orkhan", (1, 105), (2, 203))));
 
         var taken = await Assert.ThrowsAsync<ConflictException>(() => BookAsync(RoundTrip(Passenger("Aysun", (1, 103), (2, 203)))));
-        Assert.Contains("11A on flight AV 102", taken.Message);
+        Assert.Contains("AV 102 nömrəli uçuşda 11A", taken.Message);
 
         // The refused booking held nothing: the outbound seat it asked for is still free.
         Assert.Equal(SeatStatus.Available, _context.Data.Seat(103).Status);

@@ -124,7 +124,7 @@ public class FlightSearchService : IFlightSearchService
     public async Task<FlightResultDto> GetFlightAsync(int flightId, CancellationToken cancellationToken = default)
     {
         var flight = await _flightRepository.GetDetailsAsync(flightId, cancellationToken)
-                     ?? throw new NotFoundException("Flight not found.");
+                     ?? throw new NotFoundException("Uçuş tapılmadı.");
         return flight.ToResultDto();
     }
 

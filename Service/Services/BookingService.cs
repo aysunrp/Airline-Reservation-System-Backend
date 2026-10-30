@@ -20,7 +20,7 @@ public class BookingService : IBookingService
     // No 0/O or 1/I so references are easy to read out.
     private const string PnrAlphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
     private const int TicketNumberLength = 13;
-    private const string NotFoundMessage = "We could not find a reservation matching that reference and last name.";
+    private const string NotFoundMessage = "Bu kod və soyada uyğun rezervasiya tapılmadı.";
 
     private readonly IUserRepository _userRepository;
     private readonly IEmailSender _emailSender;
@@ -86,7 +86,7 @@ public class BookingService : IBookingService
         // Before anything is read or held: a guest gets no seats and no booking.
         if (userId is null && _authSettings.RequireSignInToBook)
         {
-            throw new UnauthorizedException("Sign in to book a flight.");
+            throw new UnauthorizedException("Uçuşu bron etmək üçün daxil olun.");
         }
 
         await _validator.ValidateAndThrowAsync(request, cancellationToken);
@@ -187,7 +187,7 @@ public class BookingService : IBookingService
         {
             // Another booking changed one of these seats in the meantime (row version) or already holds an
             // active ticket for it (unique index). Nothing was saved.
-            throw new ConflictException("One or more selected seats were just taken. Please choose other seats.");
+            throw new ConflictException("Seçilmiş oturacaqlardan bir və ya bir neçəsi indicə tutuldu. Başqa oturacaqlar seçin.");
         }
 
         if (_adminAlerts is not null)
@@ -246,7 +246,7 @@ public class BookingService : IBookingService
         // Someone else's booking is reported exactly like a missing one.
         if (booking is null || booking.UserId != userId)
         {
-            throw new NotFoundException("Booking not found.");
+            throw new NotFoundException("Bron tapılmadı.");
         }
 
         return booking.ToDto();
@@ -265,19 +265,19 @@ public class BookingService : IBookingService
         foreach (var leg in request.Legs)
         {
             var flight = await _flightRepository.GetDetailsAsync(leg.FlightId, cancellationToken)
-                         ?? throw new NotFoundException("Flight not found.");
+                         ?? throw new NotFoundException("Uçuş tapılmadı.");
 
             if (flight.Status == FlightStatus.Cancelled || flight.DepartureAt <= now)
             {
-                throw new BusinessRuleException($"Flight {flight.FlightNumber} can no longer be booked.");
+                throw new BusinessRuleException($"{flight.FlightNumber} nömrəli uçuşu artıq bron etmək mümkün deyil.");
             }
 
             var fare = flight.Fares.FirstOrDefault(f => f.CabinClass == leg.CabinClass)
-                       ?? throw new BusinessRuleException($"{leg.CabinClass} is not offered on flight {flight.FlightNumber}.");
+                       ?? throw new BusinessRuleException($"{flight.FlightNumber} nömrəli uçuşda {leg.CabinClass} sinfi təklif olunmur.");
 
             if (legs.Count > 0 && flight.DepartureAt <= legs[^1].Flight.ArrivalAt)
             {
-                throw new BusinessRuleException("Each flight must depart after the previous flight arrives.");
+                throw new BusinessRuleException("Hər uçuş əvvəlki uçuş enəndən sonra yola düşməlidir.");
             }
 
             legs.Add((leg, flight, fare.BasePrice));
@@ -287,7 +287,7 @@ public class BookingService : IBookingService
             && (legs[1].Flight.Route.OriginAirportId != legs[0].Flight.Route.DestinationAirportId
                 || legs[1].Flight.Route.DestinationAirportId != legs[0].Flight.Route.OriginAirportId))
         {
-            throw new BusinessRuleException("The return flight must fly back on the same route.");
+            throw new BusinessRuleException("Qayıdış uçuşu eyni marşrutla geri uçmalıdır.");
         }
 
         return legs;
@@ -340,12 +340,12 @@ public class BookingService : IBookingService
         var adults = types.Count(t => t == PassengerType.Adult);
         if (adults == 0)
         {
-            throw new BusinessRuleException("At least one adult must travel on the booking.");
+            throw new BusinessRuleException("Bronda ən azı bir böyük sərnişin olmalıdır.");
         }
 
         if (types.Count(t => t == PassengerType.Infant) > adults)
         {
-            throw new BusinessRuleException("Each infant must travel on the lap of an adult, so there cannot be more infants than adults.");
+            throw new BusinessRuleException("Hər körpə böyüyün qucağında səyahət etməlidir, ona görə körpələrin sayı böyüklərin sayından çox ola bilməz.");
         }
 
         // Accepted document types and minimum validity depend on the countries of every flight.
@@ -368,7 +368,7 @@ public class BookingService : IBookingService
         var user = await _userRepository.GetByIdAsync(userId.Value, cancellationToken);
         if (user is not null && user.Role == UserRole.User && user.EmailVerifiedAt is null)
         {
-            throw new BusinessRuleException("Please confirm your email address before booking. Open the link we sent you, or ask for a new one in your profile.");
+            throw new BusinessRuleException("Bron etməzdən əvvəl e-poçt ünvanınızı təsdiqləyin. Göndərdiyimiz keçidi açın və ya profilinizdən yenisini istəyin.");
         }
     }
 
@@ -379,7 +379,7 @@ public class BookingService : IBookingService
             var saved = userId is null ? null : await _savedPassengerRepository.GetByIdAsync(savedPassengerId, cancellationToken);
             if (saved is null || saved.UserId != userId)
             {
-                throw new NotFoundException("Saved passenger not found.");
+                throw new NotFoundException("Saxlanılmış sərnişin tapılmadı.");
             }
         }
     }
@@ -401,14 +401,14 @@ public class BookingService : IBookingService
             var passenger = request.Passengers[p];
             if (passenger.Seats.Any(s => !legFlightIds.Contains(s.FlightId)))
             {
-                throw new BusinessRuleException("A seat was selected on a flight that is not part of this booking.");
+                throw new BusinessRuleException("Bu bronun tərkibində olmayan uçuş üçün oturacaq seçilib.");
             }
 
             if (passengerTypes[p] == PassengerType.Infant)
             {
                 if (passenger.Seats.Count > 0)
                 {
-                    throw new BusinessRuleException("Infants travel on an adult's lap and cannot have their own seat.");
+                    throw new BusinessRuleException("Körpələr böyüyün qucağında səyahət edir və ayrıca oturacaq seçə bilməz.");
                 }
 
                 continue;
@@ -419,7 +419,7 @@ public class BookingService : IBookingService
                 var seatsOnFlight = passenger.Seats.Where(s => s.FlightId == leg.Flight.Id).ToList();
                 if (seatsOnFlight.Count != 1)
                 {
-                    throw new BusinessRuleException($"Select one seat for {passenger.FirstName} {passenger.LastName} on flight {leg.Flight.FlightNumber}.");
+                    throw new BusinessRuleException($"{leg.Flight.FlightNumber} nömrəli uçuşda {passenger.FirstName} {passenger.LastName} üçün bir oturacaq seçin.");
                 }
 
                 requested[(p, leg.Flight.Id)] = seatsOnFlight[0].FlightSeatId;
@@ -435,13 +435,13 @@ public class BookingService : IBookingService
             var seatIds = requested.Where(r => r.Key.FlightId == leg.Flight.Id).Select(r => r.Value).ToList();
             if (seatIds.Distinct().Count() != seatIds.Count)
             {
-                throw new BusinessRuleException("The same seat cannot be selected for two passengers.");
+                throw new BusinessRuleException("Eyni oturacaq iki sərnişin üçün seçilə bilməz.");
             }
 
             var seats = (await _flightSeatRepository.GetTrackedByIdsAsync(leg.Flight.Id, seatIds, cancellationToken)).ToDictionary(s => s.Id);
             if (seats.Count != seatIds.Count)
             {
-                throw new BusinessRuleException($"A selected seat does not belong to flight {leg.Flight.FlightNumber}.");
+                throw new BusinessRuleException($"Seçilmiş oturacaq {leg.Flight.FlightNumber} nömrəli uçuşa aid deyil.");
             }
 
             foreach (var seat in seats.Values)
@@ -449,12 +449,12 @@ public class BookingService : IBookingService
                 var label = SeatService.Label(seat.AircraftSeat);
                 if (seat.AircraftSeat.CabinClass != leg.Request.CabinClass)
                 {
-                    throw new BusinessRuleException($"Seat {label} is not in {leg.Request.CabinClass}.");
+                    throw new BusinessRuleException($"{label} oturacağı {leg.Request.CabinClass} sinfində deyil.");
                 }
 
                 if (!SeatService.IsFree(seat, now))
                 {
-                    throw new ConflictException($"Seat {label} on flight {leg.Flight.FlightNumber} is no longer available.");
+                    throw new ConflictException($"{leg.Flight.FlightNumber} nömrəli uçuşda {label} oturacağı artıq əlçatan deyil.");
                 }
 
                 checkedSeats.Add(seat);
@@ -485,7 +485,7 @@ public class BookingService : IBookingService
 
         return options.TryGetValue(id.Value, out var option)
             ? option
-            : throw new BusinessRuleException($"The selected {kind} option is not available.");
+            : throw new BusinessRuleException($"Seçilmiş {kind} variantı əlçatan deyil.");
     }
 
     private async Task<string> GeneratePnrAsync(CancellationToken cancellationToken)

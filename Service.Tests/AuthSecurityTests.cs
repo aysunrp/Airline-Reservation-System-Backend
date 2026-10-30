@@ -30,7 +30,7 @@ public class AuthSecurityTests
 
         var locked = await Assert.ThrowsAsync<TooManyAttemptsException>(() => service.LoginAsync(Login("AYSUN@example.com", "secret1")));
         Assert.Equal(TimeSpan.FromMinutes(15), locked.RetryAfter);
-        Assert.Contains("15 minutes", locked.Message);
+        Assert.Contains("15 dəqiqə", locked.Message);
 
         context.Clock.Advance(TimeSpan.FromMinutes(14));
         await Assert.ThrowsAsync<TooManyAttemptsException>(() => service.LoginAsync(Login("aysun@example.com", "secret1")));

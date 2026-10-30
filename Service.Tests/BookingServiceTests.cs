@@ -241,7 +241,7 @@ public class BookingServiceTests
         // A well-formed ID card number passes validation, but the route to London only accepts a passport.
         passenger.DocumentNumber = "aa1234567";
         var error = await Assert.ThrowsAsync<BusinessRuleException>(() => CreateService().CreateBookingAsync(null, OneWay(passenger)));
-        Assert.Contains("national ID card is not accepted", error.Message);
+        Assert.Contains("şəxsiyyət vəsiqəsi qəbul edilmir", error.Message);
     }
 
     [Fact]

@@ -18,7 +18,7 @@ namespace Service.Services;
 /// </summary>
 public class BookingEmailConfirmationService : IBookingEmailConfirmationService
 {
-    private const string EmailUnavailableMessage = "We cannot send e-mail right now. Please try again later.";
+    private const string EmailUnavailableMessage = "Hazırda e-poçt göndərə bilmirik. Bir az sonra yenidən cəhd edin.";
 
     private static readonly TimeSpan DefaultHold = TimeSpan.FromMinutes(15);
 
@@ -101,12 +101,12 @@ public class BookingEmailConfirmationService : IBookingEmailConfirmationService
 
         if (booking.ContactConfirmedAt is not null)
         {
-            throw new ConflictException("This booking is already confirmed.");
+            throw new ConflictException("Bu bron artıq təsdiqlənib.");
         }
 
         if (booking.Status != BookingStatus.Pending || booking.ExpiresAt <= Now())
         {
-            throw new BusinessRuleException("The time to confirm this booking has run out and the seats were released. Please book again.", "booking_closed");
+            throw new BusinessRuleException("Bu bronu təsdiqləmək vaxtı bitib və oturacaqlar azad edilib. Yenidən bron edin.", "booking_closed");
         }
 
         if (!_sender.IsConfigured)
@@ -120,7 +120,7 @@ public class BookingEmailConfirmationService : IBookingEmailConfirmationService
             var wait = latest.Value + TimeSpan.FromSeconds(Math.Max(0, _settings.EmailCooldownSeconds)) - Now();
             if (wait > TimeSpan.Zero)
             {
-                throw new TooManyAttemptsException("A message was sent a moment ago. Please wait before asking for another.", wait);
+                throw new TooManyAttemptsException("Mesaj bir az əvvəl göndərilib. Yenisini istəməzdən əvvəl gözləyin.", wait);
             }
         }
 
@@ -139,25 +139,25 @@ public class BookingEmailConfirmationService : IBookingEmailConfirmationService
             : await _tokens.GetByHashAsync(Hash(value), EmailTokenPurpose.BookingConfirm, cancellationToken);
         if (stored is null || stored.BookingId is null)
         {
-            throw new BusinessRuleException("This link is not valid.", "link_invalid");
+            throw new BusinessRuleException("Bu keçid etibarsızdır.", "link_invalid");
         }
 
         var booking = await _bookings.GetByIdAsync(stored.BookingId.Value, cancellationToken);
         if (booking is null)
         {
-            throw new BusinessRuleException("This link is not valid.", "link_invalid");
+            throw new BusinessRuleException("Bu keçid etibarsızdır.", "link_invalid");
         }
 
         if (stored.UsedAt is not null)
         {
             throw booking.ContactConfirmedAt is null
-                ? new BusinessRuleException("This link was already used. Ask for a new one.", "link_used")
-                : new BusinessRuleException("This link was already used. Your booking is confirmed.", "link_confirmed");
+                ? new BusinessRuleException("Bu keçid artıq istifadə olunub. Yenisini istəyin.", "link_used")
+                : new BusinessRuleException("Bu keçid artıq istifadə olunub. Bronunuz təsdiqlənib.", "link_confirmed");
         }
 
         if (stored.ExpiresAt <= now || booking.Status != BookingStatus.Pending)
         {
-            throw new BusinessRuleException("This link has expired and the seats were released. Please book again.", "link_expired");
+            throw new BusinessRuleException("Bu keçidin vaxtı bitib və oturacaqlar azad edilib. Yenidən bron edin.", "link_expired");
         }
 
         stored.UsedAt = now;

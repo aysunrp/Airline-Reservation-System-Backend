@@ -14,7 +14,7 @@ namespace Service.Services;
 
 public class AuthService : IAuthService
 {
-    private const string InvalidCredentialsMessage = "Invalid email or password.";
+    private const string InvalidCredentialsMessage = "E-poçt və ya şifrə yanlışdır.";
 
     private readonly IUserRepository _userRepository;
     private readonly IPasswordHasher _passwordHasher;
@@ -55,7 +55,7 @@ public class AuthService : IAuthService
         var email = NormalizeEmail(request.Email);
         if (await _userRepository.EmailExistsAsync(email, cancellationToken))
         {
-            throw new ConflictException("An account with this email already exists.");
+            throw new ConflictException("Bu e-poçt ünvanı ilə hesab artıq mövcuddur.");
         }
 
         var user = new User
@@ -119,7 +119,7 @@ public class AuthService : IAuthService
     internal static string NormalizeEmail(string email) => email.Trim().ToLowerInvariant();
 
     private static string LockedMessage(TimeSpan retryAfter)
-        => $"Too many failed sign-in attempts. Try again in {Math.Max(1, (int)Math.Ceiling(retryAfter.TotalMinutes))} minutes.";
+        => $"Çox sayda uğursuz giriş cəhdi. {Math.Max(1, (int)Math.Ceiling(retryAfter.TotalMinutes))} dəqiqədən sonra yenidən cəhd edin.";
 
     private AuthResponseDto CreateResponse(User user)
     {

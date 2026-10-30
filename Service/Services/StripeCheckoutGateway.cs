@@ -14,7 +14,7 @@ namespace Service.Services;
 /// </summary>
 public class StripeCheckoutGateway : IStripeCheckoutGateway
 {
-    private const string UnavailableMessage = "Card payments are not available right now. Please try again later.";
+    private const string UnavailableMessage = "Kartla ödəniş hazırda əlçatan deyil. Bir az sonra yenidən cəhd edin.";
 
     private readonly StripeSettings _settings;
     private readonly ILogger<StripeCheckoutGateway> _logger;

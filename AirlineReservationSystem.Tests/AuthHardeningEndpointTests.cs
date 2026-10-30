@@ -59,7 +59,7 @@ public class AuthHardeningEndpointTests : IClassFixture<ApiFactory>
         Assert.Equal(HttpStatusCode.TooManyRequests, paused.StatusCode);
         Assert.Equal("application/problem+json", paused.Content.Headers.ContentType?.MediaType);
         Assert.Equal(900, int.Parse(paused.Headers.GetValues("Retry-After").Single()));
-        Assert.Contains("Try again", (await paused.ReadJsonAsync()).GetProperty("detail").GetString());
+        Assert.Contains("yenidən cəhd edin", (await paused.ReadJsonAsync()).GetProperty("detail").GetString());
     }
 
     [Fact]

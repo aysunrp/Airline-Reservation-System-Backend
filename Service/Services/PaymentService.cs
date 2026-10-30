@@ -54,7 +54,7 @@ public class PaymentService : IPaymentService
         // Card details must never reach this server once real payments exist.
         if (_stripe.IsConfigured)
         {
-            throw new BusinessRuleException("Card payments go through the secure Stripe checkout. Please pay there.");
+            throw new BusinessRuleException("Kartla ödəniş təhlükəsiz Stripe səhifəsi vasitəsilə aparılır. Ödənişi orada edin.");
         }
 
         if (!_payments.AllowMockPayments)
@@ -65,23 +65,23 @@ public class PaymentService : IPaymentService
         await _validator.ValidateAndThrowAsync(request, cancellationToken);
 
         var booking = await _bookingRepository.GetByPnrAsync(BookingService.NormalizePnr(request.Pnr), cancellationToken)
-                      ?? throw new NotFoundException("Booking not found.");
+                      ?? throw new NotFoundException("Bron tapılmadı.");
 
         if (booking.Status == BookingStatus.Confirmed)
         {
-            throw new ConflictException("This booking has already been paid.");
+            throw new ConflictException("Bu bron artıq ödənilib.");
         }
 
         if (booking.Status != BookingStatus.Pending)
         {
-            throw new BusinessRuleException("This booking can no longer be paid.");
+            throw new BusinessRuleException("Bu bronu artıq ödəmək mümkün deyil.");
         }
 
         var now = _timeProvider.GetUtcNow().UtcDateTime;
         if (booking.ExpiresAt is not null && booking.ExpiresAt <= now)
         {
             await _expiryService.ReleaseExpiredAsync(cancellationToken);
-            throw new BusinessRuleException("The time to pay for this booking has run out and the seats were released. Please book again.");
+            throw new BusinessRuleException("Bu bronun ödəniş vaxtı bitib və oturacaqlar azad edilib. Yenidən bron edin.");
         }
 
         await UsePromoCodeAsync(booking, cancellationToken);
@@ -108,7 +108,7 @@ public class PaymentService : IPaymentService
         }
         catch (DbUpdateException)
         {
-            throw new ConflictException("The booking was changed while the payment was processed. Please check the booking and try again.");
+            throw new ConflictException("Ödəniş emal olunarkən bron dəyişdirilib. Bronu yoxlayıb yenidən cəhd edin.");
         }
 
         return booking.ToDto();
@@ -130,7 +130,7 @@ public class PaymentService : IPaymentService
         // The discount was granted when the booking was priced; the use is counted once it is paid.
         if (promoCode.MaxUses is not null && promoCode.UsedCount >= promoCode.MaxUses)
         {
-            throw new BusinessRuleException("This promo code has reached its usage limit. Please book again without it.");
+            throw new BusinessRuleException("Bu promo kodun istifadə limiti dolub. Onsuz yenidən bron edin.");
         }
 
         promoCode.UsedCount++;

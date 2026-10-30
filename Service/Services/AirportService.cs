@@ -28,16 +28,16 @@ public class AirportService : IAirportService
         var destination = (destinationCode ?? string.Empty).Trim().ToUpperInvariant();
         if (origin.Length != 3 || destination.Length != 3)
         {
-            throw new BusinessRuleException("Use three-letter airport codes.");
+            throw new BusinessRuleException("Üç hərfli hava limanı kodlarından istifadə edin.");
         }
 
         if (origin == destination)
         {
-            throw new BusinessRuleException("The departure and the destination are the same.");
+            throw new BusinessRuleException("Gediş və təyinat eynidir.");
         }
 
-        var first = await _airportRepository.GetByCodeAsync(origin, cancellationToken) ?? throw new NotFoundException($"Airport '{origin}' was not found.");
-        var second = await _airportRepository.GetByCodeAsync(destination, cancellationToken) ?? throw new NotFoundException($"Airport '{destination}' was not found.");
+        var first = await _airportRepository.GetByCodeAsync(origin, cancellationToken) ?? throw new NotFoundException($"'{origin}' hava limanı tapılmadı.");
+        var second = await _airportRepository.GetByCodeAsync(destination, cancellationToken) ?? throw new NotFoundException($"'{destination}' hava limanı tapılmadı.");
         return new RouteCheckDto(first.Code, second.Code, await _airportRepository.HasActiveRouteAsync(first.Code, second.Code, cancellationToken));
     }
 }

@@ -102,7 +102,7 @@ public class AdminFlightService : IAdminFlightService
     {
         await _validator.ValidateAndThrowAsync(request, cancellationToken);
         var flight = await _flightRepository.GetForUpdateAsync(id, cancellationToken)
-                     ?? throw new NotFoundException("Flight not found.");
+                     ?? throw new NotFoundException("Uçuş tapılmadı.");
 
         var flightNumber = FlightNumber.Normalize(request.FlightNumber);
         var departureAt = AsUtc(request.DepartureAt);
@@ -182,7 +182,7 @@ public class AdminFlightService : IAdminFlightService
     public async Task DeleteAsync(int id, CancellationToken cancellationToken = default)
     {
         var flight = await _flightRepository.GetByIdAsync(id, cancellationToken)
-                     ?? throw new NotFoundException("Flight not found.");
+                     ?? throw new NotFoundException("Uçuş tapılmadı.");
 
         if (await _flightRepository.HasBookingsAsync(id, cancellationToken))
         {
@@ -196,7 +196,7 @@ public class AdminFlightService : IAdminFlightService
     public async Task<SeatInventoryDto> GetSeatInventoryAsync(int flightId, CabinClass? cabinClass = null, CancellationToken cancellationToken = default)
     {
         var flight = await _flightRepository.GetByIdAsync(flightId, cancellationToken)
-                     ?? throw new NotFoundException("Flight not found.");
+                     ?? throw new NotFoundException("Uçuş tapılmadı.");
 
         var now = _timeProvider.GetUtcNow().UtcDateTime;
         var seats = (await _flightSeatRepository.GetByFlightIdAsync(flightId, cancellationToken))
@@ -407,5 +407,5 @@ public class AdminFlightService : IAdminFlightService
 
     private async Task<FlightResultDto> GetResultAsync(int id, CancellationToken cancellationToken)
         => (await _flightRepository.GetDetailsAsync(id, cancellationToken))?.ToResultDto()
-           ?? throw new NotFoundException("Flight not found.");
+           ?? throw new NotFoundException("Uçuş tapılmadı.");
 }

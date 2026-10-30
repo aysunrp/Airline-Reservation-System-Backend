@@ -24,7 +24,7 @@ public class SeatService : ISeatService
     {
         if (await _flightRepository.GetByIdAsync(flightId, cancellationToken) is null)
         {
-            throw new NotFoundException("Flight not found.");
+            throw new NotFoundException("Uçuş tapılmadı.");
         }
 
         var now = _timeProvider.GetUtcNow().UtcDateTime;
