@@ -49,8 +49,19 @@ public class TravelDocumentPolicy : ITravelDocumentPolicy
                     $"{name} üçün bu səyahətdə {Describe(passenger.DocumentType)} qəbul edilmir. {string.Join(" və ya ", requirement.Documents.Select(Describe))} təqdim edin.");
             }
 
+            if (passenger.DocumentType == DocumentType.NationalIdCard
+                && !string.Equals(passenger.DocumentIssuingCountry?.Trim(), "AZ", StringComparison.OrdinalIgnoreCase))
+            {
+                throw new BusinessRuleException($"{name} üçün şəxsiyyət vəsiqəsi yalnız Azərbaycan tərəfindən verilmiş ola bilər.");
+            }
+
+            if (passenger.DocumentExpiryDate is not DateOnly expiry)
+            {
+                throw new BusinessRuleException($"{name} üçün sənədin etibarlılıq müddətini daxil edin.");
+            }
+
             var validUntil = lastTravelDate.AddDays(requirement.MinValidityDays);
-            if (passenger.DocumentExpiryDate is DateOnly expiry && expiry < validUntil)
+            if (expiry < validUntil)
             {
                 throw new BusinessRuleException(requirement.MinValidityDays == 0
                     ? $"{name} adlı sərnişinin səyahət sənədinin müddəti səyahət bitməmiş başa çatır."
