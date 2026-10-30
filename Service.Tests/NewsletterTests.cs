@@ -135,7 +135,7 @@ public class NewsletterTests
 
         Assert.Equal("AEROVA abunəliyinizi təsdiqləyin", _sender.Sent[0].Subject);
         Assert.Equal("Подтвердите подписку на AEROVA", _sender.Sent[1].Subject);
-        Assert.Equal("Confirm your AEROVA subscription", _sender.Sent[2].Subject);
+        Assert.Equal("AEROVA abunəliyinizi təsdiqləyin", _sender.Sent[2].Subject);
     }
 
     [Theory]

@@ -15,7 +15,7 @@ public class NewsletterSubscriber : BaseEntity
     public NewsletterStatus Status { get; set; } = NewsletterStatus.Pending;
 
     /// <summary>"az", "en" or "ru": the language of the messages sent to this address.</summary>
-    public string Language { get; set; } = "en";
+    public string Language { get; set; } = "az";
 
     /// <summary>Hex SHA-256 of the open confirmation token; empty once it is used, expired links are replaced by a new request.</summary>
     public string? ConfirmationTokenHash { get; set; }

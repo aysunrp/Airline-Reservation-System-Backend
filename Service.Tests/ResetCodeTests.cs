@@ -76,10 +76,10 @@ public class ResetCodeTests
     }
 
     [Theory]
-    [InlineData(null, "Your AEROVA password reset code")]
+    [InlineData(null, "AEROVA şifrə sıfırlama kodu")]
     [InlineData("az", "AEROVA şifrə sıfırlama kodu")]
     [InlineData("ru", "Код для сброса пароля AEROVA")]
-    [InlineData("fr", "Your AEROVA password reset code")]
+    [InlineData("fr", "AEROVA şifrə sıfırlama kodu")]
     public async Task TheCodeEmail_IsInTheChosenLanguage(string? language, string subject)
     {
         var (context, service, _) = await CustomerAsync();

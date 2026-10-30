@@ -62,8 +62,8 @@ public class AccountEmailTests
     [InlineData("az", "təsdiqləyin")]
     [InlineData("ru", "Подтвердите")]
     [InlineData("en", "Confirm your AEROVA")]
-    [InlineData("xx", "Confirm your AEROVA")]
-    [InlineData(null, "Confirm your AEROVA")]
+    [InlineData("xx", "AEROVA e-poçt ünvanınızı")]
+    [InlineData(null, "AEROVA e-poçt ünvanınızı")]
     public async Task TheVerificationEmail_IsInTheChosenLanguage(string? language, string expectedInSubject)
     {
         var (context, _) = await RegisteredAsync(language);
