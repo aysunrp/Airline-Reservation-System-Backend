@@ -100,7 +100,10 @@ public class PaymentService : IPaymentService
             PaidAt = now
         });
 
-        await _confirmation.ConfirmAsync(booking, booking.TotalAmount, cancellationToken);
+        if (!await _confirmation.ConfirmAsync(booking, booking.TotalAmount, cancellationToken))
+        {
+            throw new ConflictException("Seçilmiş oturacaqlardan bir və ya bir neçəsi indicə tutuldu. Başqa oturacaqlar seçin.");
+        }
 
         try
         {

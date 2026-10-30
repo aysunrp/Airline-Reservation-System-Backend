@@ -6,8 +6,10 @@ namespace Service.Services.Interfaces;
 public interface IBookingConfirmationService
 {
     /// <summary>
-    /// Confirms the booking, issues its tickets, books its seats and tells the account holder. Changes are tracked, not saved:
-    /// the caller saves them together with the payment.
+    /// Claims the booking's seats and, only if every one is still free, confirms the booking, issues its tickets and tells the account holder.
+    /// Returns false, changing nothing, when a seat was taken by someone else in the meantime. Changes are tracked, not saved: the caller
+    /// saves them together with the payment, and the seat's row version plus the unique index on paid tickets stop two payments claiming
+    /// the same seat even at the same instant.
     /// </summary>
-    Task ConfirmAsync(Booking booking, decimal amountPaid, CancellationToken cancellationToken = default);
+    Task<bool> ConfirmAsync(Booking booking, decimal amountPaid, CancellationToken cancellationToken = default);
 }

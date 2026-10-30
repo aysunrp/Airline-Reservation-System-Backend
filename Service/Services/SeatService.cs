@@ -45,7 +45,7 @@ public class SeatService : ISeatService
         return new SeatMapDto(flightId, result);
     }
 
-    public async Task ReleaseSeatsAsync(IReadOnlyCollection<int> flightSeatIds, CancellationToken cancellationToken = default)
+    public async Task ReleaseSeatsAsync(IReadOnlyCollection<int> flightSeatIds, bool includeBooked = true, CancellationToken cancellationToken = default)
     {
         if (flightSeatIds.Count == 0)
         {
@@ -55,7 +55,7 @@ public class SeatService : ISeatService
         var seats = await _flightSeatRepository.GetTrackedByIdsAsync(flightSeatIds, cancellationToken);
 
         // Blocked seats were closed by an admin and stay blocked.
-        foreach (var seat in seats.Where(s => s.Status is SeatStatus.Held or SeatStatus.Booked))
+        foreach (var seat in seats.Where(s => s.Status == SeatStatus.Held || (includeBooked && s.Status == SeatStatus.Booked)))
         {
             seat.Status = SeatStatus.Available;
             seat.HeldUntil = null;

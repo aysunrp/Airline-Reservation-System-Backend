@@ -96,11 +96,13 @@ public class BookingService : IBookingService
         await _expiryService.ReleaseExpiredAsync(cancellationToken);
 
         var now = _timeProvider.GetUtcNow().UtcDateTime;
+        // How long the unpaid booking waits for its payment; no seat is held meanwhile.
         var holdUntil = now.AddMinutes(_settings.SeatHoldMinutes);
 
         var quote = await PrepareAsync(request, now, cancellationToken);
         await CheckSavedPassengersAsync(userId, request, cancellationToken);
-        var seats = await HoldSeatsAsync(request, quote.Legs, quote.PassengerTypes, now, holdUntil, cancellationToken);
+        // Seats are only checked here: choosing one reserves nothing. They are claimed when the payment is confirmed.
+        var seats = await CheckSeatsAsync(request, quote.Legs, quote.PassengerTypes, now, cancellationToken);
 
         var booking = new Booking
         {
@@ -384,13 +386,12 @@ public class BookingService : IBookingService
         }
     }
 
-    /// <summary>Checks every seat request and holds the seats. Key: (passenger index, flight id).</summary>
-    private async Task<Dictionary<(int Passenger, int FlightId), FlightSeat>> HoldSeatsAsync(
+    /// <summary>Checks every seat request (the seat exists on the flight, is in the cabin and is free right now). Holds nothing. Key: (passenger index, flight id).</summary>
+    private async Task<Dictionary<(int Passenger, int FlightId), FlightSeat>> CheckSeatsAsync(
         CreateBookingRequestDto request,
         List<(BookingLegRequestDto Request, Flight Flight, decimal Fare)> legs,
         List<PassengerType> passengerTypes,
         DateTime now,
-        DateTime holdUntil,
         CancellationToken cancellationToken)
     {
         var legFlightIds = legs.Select(l => l.Flight.Id).ToHashSet();
@@ -426,9 +427,6 @@ public class BookingService : IBookingService
             }
         }
 
-        // Every flight is checked before any seat is held: a seat that is taken on the return flight must not leave the outbound
-        // seats marked as held.
-        var checkedSeats = new List<FlightSeat>();
         var held = new Dictionary<(int Passenger, int FlightId), FlightSeat>();
         foreach (var leg in legs)
         {
@@ -457,20 +455,12 @@ public class BookingService : IBookingService
                     throw new ConflictException($"{leg.Flight.FlightNumber} nömrəli uçuşda {label} oturacağı artıq əlçatan deyil.");
                 }
 
-                checkedSeats.Add(seat);
             }
 
             foreach (var entry in requested.Where(r => r.Key.FlightId == leg.Flight.Id))
             {
                 held[entry.Key] = seats[entry.Value];
             }
-        }
-
-        foreach (var seat in checkedSeats)
-        {
-            seat.Status = SeatStatus.Held;
-            seat.HeldUntil = holdUntil;
-            _flightSeatRepository.Update(seat);
         }
 
         return held;

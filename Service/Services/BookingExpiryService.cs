@@ -49,7 +49,8 @@ public class BookingExpiryService : IBookingExpiryService
             }
         }
 
-        await _seatService.ReleaseSeatsAsync(seatIds, cancellationToken);
+        // An unpaid booking holds no seat any more (only bookings made before seats stopped being held may still have one marked Held).
+        await _seatService.ReleaseSeatsAsync(seatIds, includeBooked: false, cancellationToken);
         await _bookingRepository.SaveChangesAsync(cancellationToken);
 
         return expired.Count;

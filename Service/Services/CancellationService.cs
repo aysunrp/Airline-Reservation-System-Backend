@@ -106,12 +106,14 @@ public class CancellationService : ICancellationService
         _bookingRepository.Update(booking);
 
         var tickets = booking.Passengers.SelectMany(p => p.Tickets).ToList();
+        var wasPaid = tickets.Any(t => t.Status != TicketStatus.Pending);
         foreach (var ticket in tickets)
         {
             ticket.Status = TicketStatus.Cancelled;
         }
 
-        await _seatService.ReleaseSeatsAsync(tickets.Select(t => t.FlightSeatId).OfType<int>().ToList(), cancellationToken);
+        // Only a paid booking owns its seats; an unpaid one only pointed at them.
+        await _seatService.ReleaseSeatsAsync(tickets.Select(t => t.FlightSeatId).OfType<int>().ToList(), includeBooked: wasPaid, cancellationToken);
 
         // A hold that was never paid is not a trip: releasing it (for example when the traveller changes seats) is not news.
         if (booking.UserId is int userId && payment is not null)
