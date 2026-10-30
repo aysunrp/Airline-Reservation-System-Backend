@@ -241,7 +241,7 @@ public class AdminFlightServiceTests
         var service = CreateService();
 
         var inventory = await service.GetSeatInventoryAsync(1);
-        Assert.Equal((3, 1, 1, 0), (inventory.Available, inventory.Held, inventory.Booked, inventory.Blocked));
+        Assert.Equal((4, 0, 1, 0), (inventory.Available, inventory.Held, inventory.Booked, inventory.Blocked));
 
         var blocked = await service.SetSeatBlockedAsync(1, 105, blocked: true);
         Assert.Equal(SeatStatus.Blocked, blocked.Status);

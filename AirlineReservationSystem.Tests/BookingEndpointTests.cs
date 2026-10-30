@@ -1,6 +1,7 @@
 using System.Net;
 using System.Net.Http.Json;
 using Domain.Enums;
+using Service.Helpers.DTOs.Payment;
 using Service.Helpers.DTOs.Reservation;
 using Service.Helpers.DTOs.Seat;
 using static AirlineReservationSystem.Tests.ApiTestHelpers;
@@ -59,7 +60,7 @@ public class BookingEndpointTests : IClassFixture<ApiFactory>
     }
 
     [Fact]
-    public async Task GuestBooking_Returns201_HoldsTheSeat_AndCanBeManagedByPnr()
+    public async Task GuestBooking_Returns201_LeavesTheSeatFree_AndCanBeManagedByPnr()
     {
         var seed = await _factory.GetSeedAsync();
 
@@ -71,7 +72,7 @@ public class BookingEndpointTests : IClassFixture<ApiFactory>
         var pnr = json.GetProperty("pnr").GetString()!;
 
         var seats = await (await _client.GetAsync($"/api/flights/{seed.FlightId}/seats")).ReadAsync<SeatMapDto>();
-        Assert.False(seats.Seats.Single(s => s.Label == "11A").IsAvailable);
+        Assert.True(seats.Seats.Single(s => s.Label == "11A").IsAvailable); // chosen, not reserved
 
         var managed = await _client.GetAsync($"/api/bookings/{pnr.ToLowerInvariant()}?lastName=PANAHLI");
         Assert.Equal(HttpStatusCode.OK, managed.StatusCode);
@@ -118,12 +119,36 @@ public class BookingEndpointTests : IClassFixture<ApiFactory>
     public async Task TakenSeat_Returns409()
     {
         var seed = await _factory.GetSeedAsync();
-        Assert.Equal(HttpStatusCode.Created, (await _client.PostAsJsonAsync("/api/bookings", Request(seed, "1A"), Json)).StatusCode);
+        var owner = _factory.CreateClient();
+        owner.WithToken((await owner.RegisterAsync()).AccessToken);
+        var created = await owner.PostAsJsonAsync("/api/bookings", Request(seed, "1A"), Json);
+        Assert.Equal(HttpStatusCode.Created, created.StatusCode);
+
+        // An unpaid booking owns nothing; once it is paid the seat is sold.
+        var paid = await owner.PostAsJsonAsync("/api/payments", new PaymentRequestDto { Pnr = (await created.ReadAsync<BookingDto>()).Pnr, Method = PaymentMethod.ApplePay }, Json);
+        Assert.Equal(HttpStatusCode.OK, paid.StatusCode);
 
         var second = await _client.PostAsJsonAsync("/api/bookings", Request(seed, "1A"), Json);
 
         Assert.Equal(HttpStatusCode.Conflict, second.StatusCode);
         Assert.Contains("1A", (await second.ReadJsonAsync()).GetProperty("detail").GetString());
+    }
+
+    [Fact]
+    public async Task InternationalFlight_RefusesTheIdCard_AndTheDocumentNumberIsNeverEchoed()
+    {
+        var seed = await _factory.GetSeedAsync();
+        var request = Request(seed, "11C");
+        request.Passengers[0].DocumentType = DocumentType.NationalIdCard;
+        request.Passengers[0].DocumentNumber = "AA7654321";
+
+        // The frontend would have hidden this option; the API refuses it on its own, whatever the form did.
+        var response = await _client.PostAsJsonAsync("/api/bookings", request, Json);
+
+        Assert.Equal(HttpStatusCode.UnprocessableEntity, response.StatusCode);
+        var body = await response.Content.ReadAsStringAsync();
+        Assert.Contains("pasport", body);
+        Assert.DoesNotContain("AA7654321", body);
     }
 
     [Fact]

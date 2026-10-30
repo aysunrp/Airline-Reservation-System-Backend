@@ -34,7 +34,7 @@ public class TravelDocumentPolicyTests
     private static BookingPassengerRequestDto Passenger(string nationality, DocumentType document, DateOnly expiry) => new()
     {
         Title = "Ms", FirstName = "Aysun", LastName = "Panahli", NationalityCode = nationality,
-        DocumentType = document, DocumentExpiryDate = expiry
+        DocumentType = document, DocumentIssuingCountry = "AZ", DocumentExpiryDate = expiry
     };
 
     [Theory]
@@ -48,13 +48,65 @@ public class TravelDocumentPolicyTests
         Assert.Equal(0, requirement.MinValidityDays);
     }
 
-    [Fact]
-    public void DirectToTurkey_AzerbaijaniIdCardIsAccepted_ButNotViaTurkeyToLondon()
+    [Theory]
+    [InlineData("GB")]
+    [InlineData("FR")]
+    [InlineData("TR")]
+    [InlineData("AE")]
+    [InlineData("GE")]
+    public void EveryFlightOutOfAzerbaijan_NeedsAPassport_AndNeverOffersTheIdCard(string destinationCountry)
     {
-        Assert.Contains(DocumentType.NationalIdCard, _policy.GetRequirement(new[] { Flight(Baku, Istanbul) }, "az").Documents);
+        var destination = new Airport { Id = 50, Code = "XXX", CountryCode = destinationCountry };
 
-        // Every country after the departure one must accept the document: Turkey would, Britain does not.
-        Assert.Equal(new[] { DocumentType.Passport }, _policy.GetRequirement(new[] { Flight(Baku, Istanbul, London) }, "AZ").Documents);
+        Assert.Equal(new[] { DocumentType.Passport }, _policy.GetRequirement(new[] { Flight(Baku, destination) }, "AZ").Documents);
+        Assert.Equal(new[] { DocumentType.Passport }, _policy.GetRequirement(new[] { Flight(Baku, destination) }, "az").Documents);
+    }
+
+    [Fact]
+    public void ADomesticFlightIsDecidedByTheAirportsCountries_NotByTheirNames()
+    {
+        // A foreign airport that carries a Baku-sounding name is still foreign; an Azerbaijani airport is domestic whatever it is called.
+        var disguised = new Airport { Id = 60, Code = "LHR", City = "Baku", Name = "Baku", CountryCode = "GB" };
+        var ganja = new Airport { Id = 61, Code = "GNJ", City = "Ganja", CountryCode = "AZ" };
+
+        Assert.Equal(new[] { DocumentType.Passport }, _policy.GetRequirement(new[] { Flight(Baku, disguised) }, "AZ").Documents);
+        Assert.Equal(new[] { DocumentType.NationalIdCard, DocumentType.Passport }, _policy.GetRequirement(new[] { Flight(Baku, ganja) }, "AZ").Documents);
+        Assert.Equal(new[] { DocumentType.NationalIdCard, DocumentType.Passport }, _policy.GetRequirement(new[] { Flight(ganja, Baku) }, "AZ").Documents);
+    }
+
+    [Fact]
+    public void Check_JudgesEveryPassengerOnTheirOwn()
+    {
+        var lastDay = new DateOnly(2026, 11, 10);
+        var withIdCard = Passenger("AZ", DocumentType.NationalIdCard, new DateOnly(2030, 1, 1));
+        withIdCard.FirstName = "Nigar";
+        var withPassport = Passenger("AZ", DocumentType.Passport, new DateOnly(2030, 1, 1));
+
+        // Domestic: each may use their own document.
+        _policy.Check(new[] { Flight(Baku, Nakhchivan) }, new[] { withPassport, withIdCard }, lastDay);
+
+        // International: the second passenger's ID card is refused, and the message names that passenger.
+        var refused = Assert.Throws<BusinessRuleException>(() => _policy.Check(new[] { Flight(Baku, London) }, new[] { withPassport, withIdCard }, lastDay));
+        Assert.Contains("Nigar", refused.Message);
+        Assert.DoesNotContain("Aysun", refused.Message);
+    }
+
+    [Fact]
+    public void Check_RequiresTheExpiryDate_AndAnAzerbaijaniIssuedIdCard_WithoutRevealingNumbers()
+    {
+        var lastDay = new DateOnly(2026, 11, 10);
+        var noExpiry = Passenger("AZ", DocumentType.Passport, lastDay);
+        noExpiry.DocumentExpiryDate = null;
+        noExpiry.DocumentNumber = "C01234567";
+        var foreignIdCard = Passenger("AZ", DocumentType.NationalIdCard, new DateOnly(2030, 1, 1));
+        foreignIdCard.DocumentIssuingCountry = "TR";
+        foreignIdCard.DocumentNumber = "AA1234567";
+
+        var missing = Assert.Throws<BusinessRuleException>(() => _policy.Check(new[] { Flight(Baku, London) }, new[] { noExpiry }, lastDay));
+        var wrongIssuer = Assert.Throws<BusinessRuleException>(() => _policy.Check(new[] { Flight(Baku, Nakhchivan) }, new[] { foreignIdCard }, lastDay));
+
+        Assert.DoesNotContain("C01234567", missing.Message);
+        Assert.DoesNotContain("AA1234567", wrongIssuer.Message);
     }
 
     [Fact]
@@ -67,7 +119,7 @@ public class TravelDocumentPolicyTests
     [Fact]
     public void ATripCombinesItsFlights()
     {
-        // Out to Istanbul (ID card fine) and on to Dubai (passport, 180 days): the whole trip needs a passport valid 180 days.
+        // Out to Istanbul and on to Dubai (180 days): the whole trip needs a passport valid 180 days.
         var requirement = _policy.GetRequirement(new[] { Flight(Baku, Istanbul), Flight(Istanbul, Dubai) }, "AZ");
 
         Assert.Equal(new[] { DocumentType.Passport }, requirement.Documents);

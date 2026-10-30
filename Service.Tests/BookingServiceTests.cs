@@ -23,7 +23,7 @@ public class BookingServiceTests
         => BookingTestContext.OneWay(passengers);
 
     [Fact]
-    public async Task OneWay_WithInfant_HoldsSeatsAndPricesBooking()
+    public async Task OneWay_WithInfant_LeavesSeatsFreeAndPricesBooking()
     {
         var adult = Passenger("Aysun", 1990, (1, 103));
         adult.BaggageOptionId = 1;
@@ -55,8 +55,9 @@ public class BookingServiceTests
         Assert.All(result.Passengers.SelectMany(p => p.Tickets), t => Assert.Equal(TicketStatus.Pending, t.Status));
         Assert.Equal("*****4565", result.Passengers[0].DocumentNumberMasked);
 
-        Assert.Equal(SeatStatus.Held, _data.Seat(103).Status);
-        Assert.Equal(TestData.Now.AddMinutes(15), _data.Seat(103).HeldUntil);
+        // Choosing a seat reserves nothing: it stays free for everybody until a payment is confirmed.
+        Assert.Equal(SeatStatus.Available, _data.Seat(103).Status);
+        Assert.Null(_data.Seat(103).HeldUntil);
         Assert.Equal(SeatStatus.Available, _data.Seat(105).Status);
     }
 

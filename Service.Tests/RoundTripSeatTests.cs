@@ -42,10 +42,10 @@ public class RoundTripSeatTests
         Assert.Equal(new[] { "11A", "11B" }, seats[0]);
         Assert.Equal(new[] { "11B", "11A" }, seats[1]);
 
-        // Held on the flight they belong to, and nothing else.
+        // Chosen, not reserved: every seat stays available until a payment is confirmed.
         foreach (var id in new[] { 103, 104, 203, 204 })
         {
-            Assert.Equal(SeatStatus.Held, _context.Data.Seat(id).Status);
+            Assert.Equal(SeatStatus.Available, _context.Data.Seat(id).Status);
         }
         Assert.Equal(SeatStatus.Available, _context.Data.Seat(105).Status);
         Assert.Equal(SeatStatus.Available, _context.Data.Seat(205).Status);
@@ -57,8 +57,8 @@ public class RoundTripSeatTests
         var booking = await BookAsync(RoundTrip(Passenger("Aysun", (1, 103), (2, 203))));
 
         Assert.Equal(new[] { "11A", "11A" }, booking.Passengers.Single().Tickets.OrderBy(t => t.LegOrder).Select(t => t.Seat));
-        Assert.Equal(SeatStatus.Held, _context.Data.Seat(103).Status);
-        Assert.Equal(SeatStatus.Held, _context.Data.Seat(203).Status);
+        Assert.Equal(SeatStatus.Available, _context.Data.Seat(103).Status);
+        Assert.Equal(SeatStatus.Available, _context.Data.Seat(203).Status);
     }
 
     [Fact]
@@ -91,17 +91,17 @@ public class RoundTripSeatTests
     }
 
     [Fact]
-    public async Task ASeatTakenOnTheReturnFlight_IsRefused_WhileTheSameNumberOnTheOutboundFlightStaysBookable()
+    public async Task ASeatAlreadyBookedOnTheReturnFlight_IsRefused_WhileTheSameNumberOnTheOutboundFlightStaysBookable()
     {
-        // Somebody else holds 11A on the way back (203) but not on the way out.
-        await BookAsync(RoundTrip(Passenger("Orkhan", (1, 105), (2, 203))));
+        // Somebody else has paid for 11A on the way back (203) but not on the way out.
+        _context.Data.Seat(203).Status = SeatStatus.Booked;
 
         var taken = await Assert.ThrowsAsync<ConflictException>(() => BookAsync(RoundTrip(Passenger("Aysun", (1, 103), (2, 203)))));
         Assert.Contains("AV 102 nömrəli uçuşda 11A", taken.Message);
 
         // The refused booking held nothing: the outbound seat it asked for is still free.
         Assert.Equal(SeatStatus.Available, _context.Data.Seat(103).Status);
-        Assert.Single(await _context.Bookings.GetAllAsync());
+        Assert.Empty(await _context.Bookings.GetAllAsync());
 
         // 11A outbound is still free, so with another return seat the same traveller books.
         var booking = await BookAsync(RoundTrip(Passenger("Aysun", (1, 103), (2, 204))));

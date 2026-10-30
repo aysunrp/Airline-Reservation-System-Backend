@@ -39,4 +39,6 @@ public sealed class TestStripeGateway : IStripeCheckoutGateway
     }
 
     public Task ExpireSessionAsync(string sessionId, CancellationToken cancellationToken = default) => Task.CompletedTask;
+
+    public Task<Stripe.Checkout.Session?> GetSessionAsync(string sessionId, CancellationToken cancellationToken = default) => Task.FromResult<Stripe.Checkout.Session?>(null);
 }

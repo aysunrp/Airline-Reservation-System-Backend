@@ -67,7 +67,7 @@ public class PassengerTypeBookingTests
         Assert.Equal(PassengerType.Infant, result.Passengers[1].PassengerType);
         Assert.Null(result.Passengers[1].Tickets.Single().Seat);
         Assert.Equal(365m + 36.50m, result.Price.BaseFare);
-        Assert.Equal(SeatStatus.Held, _context.Data.Seat(103).Status);
+        Assert.Equal(SeatStatus.Available, _context.Data.Seat(103).Status);
         Assert.Equal(SeatStatus.Available, _context.Data.Seat(104).Status);
     }
 

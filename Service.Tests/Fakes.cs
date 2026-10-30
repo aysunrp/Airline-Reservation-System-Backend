@@ -551,7 +551,15 @@ internal sealed class FakePaymentRepository : FakeRepository<Payment>, IPaymentR
 
 internal sealed class FakeStripeWebhookEventRepository : FakeRepository<StripeWebhookEvent>, IStripeWebhookEventRepository
 {
+    private readonly FakeBookingRepository? _bookings;
+
+    public FakeStripeWebhookEventRepository(FakeBookingRepository? bookings = null) => _bookings = bookings;
+
     public IReadOnlyList<StripeWebhookEvent> Events => Items;
+
+    /// <summary>The webhook saves through one DbContext shared with the bookings; here the booking store is saved with it.</summary>
+    public override Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
+        => _bookings is null ? base.SaveChangesAsync(cancellationToken) : _bookings.SaveChangesAsync(cancellationToken);
 
     public Task<StripeWebhookEvent?> GetByEventIdAsync(string eventId, CancellationToken cancellationToken = default)
         => Task.FromResult(Items.FirstOrDefault(e => e.EventId == eventId));
@@ -581,6 +589,12 @@ internal sealed class FakeStripeGateway : IStripeCheckoutGateway
         Expired.Add(sessionId);
         return Task.CompletedTask;
     }
+
+    /// <summary>What Stripe would answer about a page; a page that is not listed is unknown to it.</summary>
+    public Dictionary<string, Stripe.Checkout.Session> Known { get; } = new();
+
+    public Task<Stripe.Checkout.Session?> GetSessionAsync(string sessionId, CancellationToken cancellationToken = default)
+        => Task.FromResult(Known.TryGetValue(sessionId, out var session) ? session : null);
 }
 
 /// <summary>Refunds live on the bookings' cancellations, so this reads them from there like an EF query would.</summary>
