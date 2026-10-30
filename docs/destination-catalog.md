@@ -32,6 +32,16 @@ Every IATA code was checked against the infobox of the airport's English Wikiped
 3. Start the API: the log says how many countries, cities and airports were added. Start it again: all counts are 0.
 4. Apply the migration **before** the new backend serves traffic. Without the new `Airports.CityId` column the airport list (search suggestions, voice search) and `GET /api/destinations` answer the 422 `database_setup_required` error, because the code already reads that column.
 
+## Seeding by hand (if the API did not do it)
+
+`docs/sql/seed-destination-catalog.sql` is the same seed as T-SQL: idempotent, one transaction, never overwrites, only links existing airports. It was generated from `DestinationCatalogData`. Run it after the migration:
+
+```
+sqlcmd -S .\SQLEXPRESS -E -d AerovaDb -b -f 65001 -i docs\sql\seed-destination-catalog.sql
+```
+
+It prints the totals (20 countries, 37 cities) at the end; running it again changes nothing.
+
 ## API
 
 | Endpoint | Who | What |
