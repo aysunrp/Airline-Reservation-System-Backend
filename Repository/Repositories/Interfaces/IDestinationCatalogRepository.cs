@@ -22,6 +22,9 @@ public interface IDestinationCatalogRepository : IBaseRepository<Country>
     /// <summary>The ids of airports that at least one active route starts or ends at.</summary>
     Task<IReadOnlySet<int>> GetAirportIdsWithActiveRoutesAsync(CancellationToken cancellationToken = default);
 
+    /// <summary>Upcoming, not cancelled flights from one airport to any of the given airports (one query), earliest first.</summary>
+    Task<IReadOnlyList<Flight>> GetUpcomingFlightsAsync(int originAirportId, IReadOnlyCollection<int> destinationAirportIds, DateTime from, int take, CancellationToken cancellationToken = default);
+
     /// <summary>The catalog city with this name in the country (case-insensitive), or null.</summary>
     Task<DestinationCity?> FindCityAsync(string countryCode, string cityName, CancellationToken cancellationToken = default);
 }

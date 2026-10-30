@@ -28,6 +28,10 @@ public class DestinationCityConfiguration : IEntityTypeConfiguration<Destination
         builder.Property(x => x.NameAz).IsRequired().HasMaxLength(100);
         builder.Property(x => x.NameRu).IsRequired().HasMaxLength(100);
         builder.Property(x => x.Aliases).HasMaxLength(300);
+        builder.Property(x => x.ImageFile).IsRequired().HasMaxLength(100);
+        builder.Property(x => x.Description).IsRequired().HasMaxLength(400);
+        builder.Property(x => x.DescriptionAz).IsRequired().HasMaxLength(400);
+        builder.Property(x => x.DescriptionRu).IsRequired().HasMaxLength(400);
         builder.HasIndex(x => new { x.CountryId, x.Name }).IsUnique();
         // Countries are switched off, not deleted, so a country with cities cannot be removed.
         builder.HasOne(x => x.Country).WithMany(c => c.Cities).HasForeignKey(x => x.CountryId).OnDelete(DeleteBehavior.Restrict);

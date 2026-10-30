@@ -13,6 +13,14 @@ public class DestinationCity : BaseEntity
     /// <summary>Other spellings people say or type (transliterations, local names), separated by semicolons. The voice search reads them.</summary>
     public string? Aliases { get; set; }
 
+    /// <summary>The city's own photograph: a file name in the frontend's assets/images folder.</summary>
+    public string ImageFile { get; set; } = string.Empty;
+
+    /// <summary>A short description of the city in the three site languages (the city page and its card show it).</summary>
+    public string Description { get; set; } = string.Empty;
+    public string DescriptionAz { get; set; } = string.Empty;
+    public string DescriptionRu { get; set; } = string.Empty;
+
     public int SortOrder { get; set; }
     public bool IsActive { get; set; } = true;
 

@@ -40,6 +40,19 @@ public class DestinationCatalogRepository : BaseRepository<Country>, IDestinatio
         return routes.SelectMany(r => new[] { r.OriginAirportId, r.DestinationAirportId }).ToHashSet();
     }
 
+    public async Task<IReadOnlyList<Flight>> GetUpcomingFlightsAsync(int originAirportId, IReadOnlyCollection<int> destinationAirportIds, DateTime from, int take, CancellationToken cancellationToken = default)
+        => await Context.Set<Flight>().AsNoTracking()
+            .Include(f => f.Route).ThenInclude(r => r.Origin)
+            .Include(f => f.Route).ThenInclude(r => r.Destination)
+            .Include(f => f.Fares)
+            .Where(f => f.Route.OriginAirportId == originAirportId
+                        && destinationAirportIds.Contains(f.Route.DestinationAirportId)
+                        && f.DepartureAt >= from
+                        && f.Status != Domain.Enums.FlightStatus.Cancelled)
+            .OrderBy(f => f.DepartureAt)
+            .Take(take)
+            .ToListAsync(cancellationToken);
+
     public Task<DestinationCity?> FindCityAsync(string countryCode, string cityName, CancellationToken cancellationToken = default)
         => Context.Set<DestinationCity>().AsNoTracking()
             .FirstOrDefaultAsync(c => c.Country.Code == countryCode && c.Name == cityName, cancellationToken);
