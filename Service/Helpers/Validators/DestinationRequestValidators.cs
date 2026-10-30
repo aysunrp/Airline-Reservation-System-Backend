@@ -23,5 +23,8 @@ public class DestinationCityRequestValidator : AbstractValidator<DestinationCity
         RuleFor(x => x.NameAz).NotEmpty().MaximumLength(100);
         RuleFor(x => x.NameRu).NotEmpty().MaximumLength(100);
         RuleFor(x => x.Aliases).MaximumLength(300);
+        RuleFor(x => x.Description).NotEmpty().MaximumLength(400);
+        RuleFor(x => x.DescriptionAz).NotEmpty().MaximumLength(400);
+        RuleFor(x => x.DescriptionRu).NotEmpty().MaximumLength(400);
     }
 }

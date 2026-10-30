@@ -29,9 +29,47 @@ public class DestinationCatalogService : IDestinationCatalogService
             })
             .ToList();
 
-    public async Task<DestinationCountryDto> GetPublicByIdAsync(int id, CancellationToken cancellationToken = default)
-        => (await GetPublicAsync(cancellationToken)).FirstOrDefault(c => c.Id == id && !c.Cities.Any(city => city.IsHub))
-           ?? throw new NotFoundException("Destination not found.");
+    public async Task<CityDestinationDto> GetCityAsync(int cityId, CancellationToken cancellationToken = default)
+    {
+        var (country, city) = await FindPublicCityAsync(cityId, cancellationToken);
+        var others = country.Cities.Where(c => c.Id != city.Id && !c.IsHub).ToList();
+        return new CityDestinationDto(city, new DestinationCountrySummaryDto(country.Id, country.Code, country.Name, country.NameAz, country.NameRu), others);
+    }
+
+    public async Task<IReadOnlyList<DestinationFlightDto>> GetCityFlightsAsync(int cityId, CancellationToken cancellationToken = default)
+    {
+        var catalog = await GetPublicAsync(cancellationToken);
+        var (_, city) = await FindPublicCityAsync(cityId, cancellationToken, catalog);
+        var hub = catalog.SelectMany(c => c.Cities).FirstOrDefault(c => c.IsHub && c.IsActive)?.Airports.FirstOrDefault();
+        if (hub is null)
+        {
+            return Array.Empty<DestinationFlightDto>();
+        }
+
+        var airportIds = city.Airports.Select(a => a.Id).ToList();
+        var flights = await _catalog.GetUpcomingFlightsAsync(hub.Id, airportIds, DateTime.UtcNow, FlightsShown, cancellationToken);
+        return flights.Select(f => new DestinationFlightDto(
+            f.Id, f.FlightNumber, f.Route.Origin.Code, f.Route.Origin.Name, f.Route.Destination.Code, f.Route.Destination.Name,
+            f.DepartureAt, f.ArrivalAt, f.Status.ToString(), f.Fares.Count == 0 ? null : f.Fares.Min(x => x.BasePrice))).ToList();
+    }
+
+    private const int FlightsShown = 12;
+
+    private async Task<(DestinationCountryDto Country, DestinationCityDto City)> FindPublicCityAsync(
+        int cityId, CancellationToken cancellationToken, IReadOnlyList<DestinationCountryDto>? catalog = null)
+    {
+        catalog ??= await GetPublicAsync(cancellationToken);
+        foreach (var country in catalog)
+        {
+            var city = country.Cities.FirstOrDefault(c => c.Id == cityId && !c.IsHub);
+            if (city is not null)
+            {
+                return (country, city);
+            }
+        }
+
+        throw new NotFoundException("Destination not found.");
+    }
 
     public async Task<DestinationCountryDto> UpdateCountryAsync(int id, DestinationCountryRequestDto request, CancellationToken cancellationToken = default)
     {
@@ -56,6 +94,9 @@ public class DestinationCatalogService : IDestinationCatalogService
 
         city.NameAz = request.NameAz.Trim();
         city.NameRu = request.NameRu.Trim();
+        city.Description = request.Description.Trim();
+        city.DescriptionAz = request.DescriptionAz.Trim();
+        city.DescriptionRu = request.DescriptionRu.Trim();
         city.Aliases = string.IsNullOrWhiteSpace(request.Aliases) ? null : string.Join(';', SplitAliases(request.Aliases));
         city.UpdatedAt = DateTime.UtcNow;
         await _catalog.SaveChangesAsync(cancellationToken);
@@ -91,7 +132,8 @@ public class DestinationCatalogService : IDestinationCatalogService
             c.Id, c.Code, c.Name, c.NameAz, c.NameRu, c.Description, c.DescriptionAz, c.DescriptionRu, c.ImageFile, c.SortOrder, c.IsActive,
             c.Cities.OrderBy(city => city.SortOrder).ThenBy(city => city.Name).Select(city => new DestinationCityDto(
                 city.Id, city.Name, city.NameAz, city.NameRu, SplitAliases(city.Aliases), city.IsActive, city.IsHub,
-                city.Airports.OrderBy(a => a.Code).Select(a => new DestinationAirportDto(a.Id, a.Code, a.Name, a.TimeZoneId, a.IsActive, withRoutes.Contains(a.Id))).ToList()))
+                city.Airports.OrderBy(a => a.Code).Select(a => new DestinationAirportDto(a.Id, a.Code, a.Name, a.TimeZoneId, a.IsActive, withRoutes.Contains(a.Id))).ToList(),
+                city.ImageFile, city.Description, city.DescriptionAz, city.DescriptionRu))
             .ToList())).ToList();
     }
 

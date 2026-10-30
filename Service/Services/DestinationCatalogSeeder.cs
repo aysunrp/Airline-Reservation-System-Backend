@@ -23,7 +23,7 @@ public class DestinationCatalogSeeder : IDestinationCatalogSeeder
         var codes = DestinationCatalogData.Countries.SelectMany(c => c.Cities).SelectMany(c => c.Airports).Select(a => a.Code).ToList();
         var airports = (await _catalog.GetAirportsByCodesAsync(codes, cancellationToken)).ToDictionary(a => a.Code, StringComparer.OrdinalIgnoreCase);
 
-        int countriesAdded = 0, citiesAdded = 0, airportsAdded = 0, airportsLinked = 0, present = 0;
+        int countriesAdded = 0, citiesAdded = 0, airportsAdded = 0, airportsLinked = 0, present = 0, cityFilled = 0;
         var order = 0;
 
         foreach (var seed in DestinationCatalogData.Countries)
@@ -56,7 +56,8 @@ public class DestinationCatalogSeeder : IDestinationCatalogSeeder
                     city = new DestinationCity
                     {
                         Country = country, Name = citySeed.Name, NameAz = citySeed.NameAz, NameRu = citySeed.NameRu,
-                        Aliases = citySeed.Aliases.Length == 0 ? null : string.Join(';', citySeed.Aliases), SortOrder = cityOrder, IsHub = citySeed.IsHub
+                        Aliases = citySeed.Aliases.Length == 0 ? null : string.Join(';', citySeed.Aliases), SortOrder = cityOrder, IsHub = citySeed.IsHub,
+                        ImageFile = citySeed.ImageFile, Description = citySeed.Description, DescriptionAz = citySeed.DescriptionAz, DescriptionRu = citySeed.DescriptionRu
                     };
                     await _catalog.AddCityAsync(city, cancellationToken);
                     country.Cities.Add(city);
@@ -64,7 +65,14 @@ public class DestinationCatalogSeeder : IDestinationCatalogSeeder
                 }
                 else
                 {
-                    present++;
+                    // A city that exists keeps what it has; only what it lacks (the photograph and the description, added later) is filled in.
+                    var filled = false;
+                    if (string.IsNullOrEmpty(city.ImageFile)) { city.ImageFile = citySeed.ImageFile; filled = true; }
+                    if (string.IsNullOrEmpty(city.Description)) { city.Description = citySeed.Description; filled = true; }
+                    if (string.IsNullOrEmpty(city.DescriptionAz)) { city.DescriptionAz = citySeed.DescriptionAz; filled = true; }
+                    if (string.IsNullOrEmpty(city.DescriptionRu)) { city.DescriptionRu = citySeed.DescriptionRu; filled = true; }
+                    if (!filled) present++;
+                    cityFilled += filled ? 1 : 0;
                 }
 
                 foreach (var airportSeed in citySeed.Airports)
@@ -94,7 +102,7 @@ public class DestinationCatalogSeeder : IDestinationCatalogSeeder
             }
         }
 
-        if (countriesAdded + citiesAdded + airportsAdded + airportsLinked > 0)
+        if (countriesAdded + citiesAdded + airportsAdded + airportsLinked + cityFilled > 0)
         {
             await _catalog.SaveChangesAsync(cancellationToken);
         }

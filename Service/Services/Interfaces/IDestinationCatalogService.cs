@@ -7,8 +7,11 @@ public interface IDestinationCatalogService
     /// <summary>The public catalog: active countries with their active cities and airports.</summary>
     Task<IReadOnlyList<DestinationCountryDto>> GetPublicAsync(CancellationToken cancellationToken = default);
 
-    /// <summary>One destination for its details page: an active country (not the hub) with its active cities and airports; NotFound otherwise.</summary>
-    Task<DestinationCountryDto> GetPublicByIdAsync(int id, CancellationToken cancellationToken = default);
+    /// <summary>One city's destination page by its database id: the city and its airports, its country and the other active cities of that country. NotFound for the home base, a switched-off city or country, or an unknown id.</summary>
+    Task<CityDestinationDto> GetCityAsync(int cityId, CancellationToken cancellationToken = default);
+
+    /// <summary>The upcoming flights from the home base to the airports of the city (real flights only; empty when none are scheduled).</summary>
+    Task<IReadOnlyList<DestinationFlightDto>> GetCityFlightsAsync(int cityId, CancellationToken cancellationToken = default);
 
     Task<DestinationCountryDto> UpdateCountryAsync(int id, DestinationCountryRequestDto request, CancellationToken cancellationToken = default);
 
