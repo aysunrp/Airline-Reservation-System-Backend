@@ -5,6 +5,7 @@ using Domain.Enums;
 using Service.Helpers.DTOs.Flight;
 using Service.Helpers.Scheduling;
 using Service.Helpers.Settings;
+using Service.Services;
 
 namespace Service.Services.VoiceSearch;
 
@@ -276,6 +277,15 @@ public sealed class VoiceSearchInterpreter
                     foreach (var alias in aliases)
                     {
                         spellings.Add(VoiceText.Fold(alias).Trim());
+                    }
+                }
+
+                // The names the destination catalog keeps for the city: English, Azerbaijani, Russian and the extra spellings.
+                if (airport.CityRecord is { } record)
+                {
+                    foreach (var name in new[] { record.Name, record.NameAz, record.NameRu }.Concat(DestinationCatalogService.SplitAliases(record.Aliases)))
+                    {
+                        spellings.Add(VoiceText.Fold(name).Trim());
                     }
                 }
             }
