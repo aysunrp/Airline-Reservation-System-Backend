@@ -24,9 +24,11 @@ public class CheckoutService : ICheckoutService
 
     private readonly IBookingRepository _bookingRepository;
     private readonly IPaymentRepository _paymentRepository;
+    private readonly IFlightSeatRepository _flightSeatRepository;
     private readonly IPromoCodeRepository _promoCodeRepository;
     private readonly IBookingExpiryService _expiryService;
     private readonly IStripeCheckoutGateway _gateway;
+    private readonly IStripeWebhookService _webhook;
     private readonly IValidator<CreateCheckoutSessionRequestDto> _validator;
     private readonly StripeSettings _stripe;
     private readonly AuthSettings _auth;
@@ -35,9 +37,11 @@ public class CheckoutService : ICheckoutService
     public CheckoutService(
         IBookingRepository bookingRepository,
         IPaymentRepository paymentRepository,
+        IFlightSeatRepository flightSeatRepository,
         IPromoCodeRepository promoCodeRepository,
         IBookingExpiryService expiryService,
         IStripeCheckoutGateway gateway,
+        IStripeWebhookService webhook,
         IValidator<CreateCheckoutSessionRequestDto> validator,
         IOptions<StripeSettings> stripe,
         IOptions<AuthSettings> auth,
@@ -45,9 +49,11 @@ public class CheckoutService : ICheckoutService
     {
         _bookingRepository = bookingRepository;
         _paymentRepository = paymentRepository;
+        _flightSeatRepository = flightSeatRepository;
         _promoCodeRepository = promoCodeRepository;
         _expiryService = expiryService;
         _gateway = gateway;
+        _webhook = webhook;
         _validator = validator;
         _stripe = stripe.Value;
         _auth = auth.Value;
@@ -90,6 +96,13 @@ public class CheckoutService : ICheckoutService
         {
             await _expiryService.ReleaseExpiredAsync(cancellationToken);
             throw new BusinessRuleException("Bu bronun ödəniş vaxtı bitib və oturacaqlar azad edilib. Yenidən bron edin.");
+        }
+
+        // Nothing is held while the traveller pays, so the seats are checked again now: nobody is sent to Stripe for a seat that is gone.
+        var seatIds = booking.Passengers.SelectMany(p => p.Tickets).Select(t => t.FlightSeatId).OfType<int>().ToList();
+        if ((await _flightSeatRepository.GetTrackedByIdsAsync(seatIds, cancellationToken)).Any(s => s.Status is SeatStatus.Booked or SeatStatus.Blocked))
+        {
+            throw new ConflictException("Seçilmiş oturacaqlardan bir və ya bir neçəsi indicə tutuldu. Başqa oturacaqlar seçin.");
         }
 
         var waiting = booking.Payments
@@ -171,6 +184,14 @@ public class CheckoutService : ICheckoutService
         if (!allowed)
         {
             throw new NotFoundException(PaymentNotFoundMessage);
+        }
+
+        // The webhook confirms a payment, but it may not reach this server (a development machine) or may be late: a payment still
+        // waiting is checked at Stripe itself, with the secret key, and handled exactly like the webhook would.
+        if (payment.Status == PaymentStatus.Pending && payment.Method == PaymentMethod.StripeCheckout && !string.IsNullOrEmpty(payment.StripeCheckoutSessionId)
+            && await _webhook.ReconcileAsync(payment.StripeCheckoutSessionId, cancellationToken))
+        {
+            payment = await _paymentRepository.GetWithBookingAsync(paymentId, cancellationToken) ?? payment;
         }
 
         return new PaymentStatusDto(payment.Id, payment.Status, payment.Booking.Pnr, payment.Booking.Status, payment.Amount, payment.Currency, payment.PaidAt);

@@ -84,6 +84,20 @@ public class StripeCheckoutGateway : IStripeCheckoutGateway
         }
     }
 
+    public async Task<Session?> GetSessionAsync(string sessionId, CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            return await Sessions().GetAsync(sessionId, new SessionGetOptions(), null, cancellationToken);
+        }
+        catch (Exception exception) when (exception is StripeException or HttpRequestException or ServiceUnavailableException
+                                          || (exception is TaskCanceledException && !cancellationToken.IsCancellationRequested))
+        {
+            _logger.LogWarning("A Checkout Session could not be read from Stripe ({ExceptionType}).", exception.GetType().Name);
+            return null;
+        }
+    }
+
     private SessionService Sessions()
     {
         if (!_settings.IsConfigured)
