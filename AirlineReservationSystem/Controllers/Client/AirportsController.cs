@@ -21,4 +21,12 @@ public class AirportsController : ControllerBase
     [ProducesResponseType<IReadOnlyList<AirportDto>>(StatusCodes.Status200OK)]
     public async Task<ActionResult<IReadOnlyList<AirportDto>>> GetActive(CancellationToken cancellationToken)
         => Ok(await _airportService.GetActiveAsync(cancellationToken));
+
+    /// <summary>Whether an active route joins two airports (by IATA code, either direction). 422 for equal or malformed codes, 404 for an unknown airport.</summary>
+    [HttpGet("route-check")]
+    [ProducesResponseType<RouteCheckDto>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status422UnprocessableEntity)]
+    public async Task<ActionResult<RouteCheckDto>> CheckRoute([FromQuery] string origin, [FromQuery] string destination, CancellationToken cancellationToken)
+        => Ok(await _airportService.CheckRouteAsync(origin, destination, cancellationToken));
 }
