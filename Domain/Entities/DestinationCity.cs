@@ -16,6 +16,9 @@ public class DestinationCity : BaseEntity
     public int SortOrder { get; set; }
     public bool IsActive { get; set; } = true;
 
+    /// <summary>AEROVA's home base (Baku): the default departure of the flight search. A hub is a place to fly from, so Explore Destinations does not offer it as a destination.</summary>
+    public bool IsHub { get; set; }
+
     public Country Country { get; set; } = null!;
     public ICollection<Airport> Airports { get; set; } = new List<Airport>();
 }
