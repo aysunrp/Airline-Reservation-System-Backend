@@ -16,6 +16,7 @@ public class AirportRepository : BaseRepository<Airport>, IAirportRepository
 
     public async Task<IReadOnlyList<Airport>> GetActiveAsync(CancellationToken cancellationToken = default)
         => await Set.AsNoTracking()
+            .Include(a => a.CityRecord)
             .Where(a => a.IsActive)
             .OrderBy(a => a.City)
             .ToListAsync(cancellationToken);

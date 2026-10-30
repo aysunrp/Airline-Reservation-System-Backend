@@ -11,6 +11,8 @@ public class AppDbContext : DbContext
     }
 
     public DbSet<Airport> Airports => Set<Airport>();
+    public DbSet<Country> Countries => Set<Country>();
+    public DbSet<DestinationCity> DestinationCities => Set<DestinationCity>();
     public DbSet<Route> Routes => Set<Route>();
     public DbSet<Aircraft> Aircrafts => Set<Aircraft>();
     public DbSet<AircraftSeat> AircraftSeats => Set<AircraftSeat>();

@@ -12,4 +12,8 @@ public class Airport : BaseEntity
     /// <summary>IANA time zone of the airport, e.g. "Asia/Baku"; local schedule times are read in this zone.</summary>
     public string TimeZoneId { get; set; } = string.Empty;
     public bool IsActive { get; set; } = true;
+
+    /// <summary>The catalog city this airport serves; null for an airport outside the destination catalog.</summary>
+    public int? CityId { get; set; }
+    public DestinationCity? CityRecord { get; set; }
 }
