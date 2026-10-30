@@ -25,4 +25,11 @@ public class DestinationsController : ControllerBase
     [ProducesResponseType<IReadOnlyList<DestinationCountryDto>>(StatusCodes.Status200OK)]
     public async Task<ActionResult<IReadOnlyList<DestinationCountryDto>>> Get(CancellationToken cancellationToken)
         => Ok(await _catalog.GetPublicAsync(cancellationToken));
+
+    /// <summary>One destination by its database id, for its details page. The home base (Baku), a switched-off country and an unknown id answer 404.</summary>
+    [HttpGet("{id:int}")]
+    [ProducesResponseType<DestinationCountryDto>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<DestinationCountryDto>> GetById(int id, CancellationToken cancellationToken)
+        => Ok(await _catalog.GetPublicByIdAsync(id, cancellationToken));
 }

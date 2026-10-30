@@ -1,3 +1,4 @@
+using FluentValidation;
 using Repository.Repositories.Interfaces;
 using Service.Helpers.DTOs.Destinations;
 using Service.Helpers.Exceptions;
@@ -8,8 +9,16 @@ namespace Service.Services;
 public class DestinationCatalogService : IDestinationCatalogService
 {
     private readonly IDestinationCatalogRepository _catalog;
+    private readonly IValidator<DestinationCountryRequestDto> _countryValidator;
+    private readonly IValidator<DestinationCityRequestDto> _cityValidator;
 
-    public DestinationCatalogService(IDestinationCatalogRepository catalog) => _catalog = catalog;
+    public DestinationCatalogService(
+        IDestinationCatalogRepository catalog, IValidator<DestinationCountryRequestDto> countryValidator, IValidator<DestinationCityRequestDto> cityValidator)
+    {
+        _catalog = catalog;
+        _countryValidator = countryValidator;
+        _cityValidator = cityValidator;
+    }
 
     public async Task<IReadOnlyList<DestinationCountryDto>> GetPublicAsync(CancellationToken cancellationToken = default)
         => (await BuildAsync(cancellationToken))
@@ -19,6 +28,39 @@ public class DestinationCatalogService : IDestinationCatalogService
                 Cities = c.Cities.Where(city => city.IsActive).Select(city => city with { Airports = city.Airports.Where(a => a.IsActive).ToList() }).ToList()
             })
             .ToList();
+
+    public async Task<DestinationCountryDto> GetPublicByIdAsync(int id, CancellationToken cancellationToken = default)
+        => (await GetPublicAsync(cancellationToken)).FirstOrDefault(c => c.Id == id && !c.Cities.Any(city => city.IsHub))
+           ?? throw new NotFoundException("Destination not found.");
+
+    public async Task<DestinationCountryDto> UpdateCountryAsync(int id, DestinationCountryRequestDto request, CancellationToken cancellationToken = default)
+    {
+        await _countryValidator.ValidateAndThrowAsync(request, cancellationToken);
+        var country = await _catalog.GetCountryAsync(id, cancellationToken) ?? throw new NotFoundException("Country not found.");
+
+        country.Name = request.Name.Trim();
+        country.NameAz = request.NameAz.Trim();
+        country.NameRu = request.NameRu.Trim();
+        country.Description = request.Description.Trim();
+        country.DescriptionAz = request.DescriptionAz.Trim();
+        country.DescriptionRu = request.DescriptionRu.Trim();
+        _catalog.Update(country);
+        await _catalog.SaveChangesAsync(cancellationToken);
+        return (await BuildAsync(cancellationToken)).Single(c => c.Id == id);
+    }
+
+    public async Task<DestinationCountryDto> UpdateCityAsync(int id, DestinationCityRequestDto request, CancellationToken cancellationToken = default)
+    {
+        await _cityValidator.ValidateAndThrowAsync(request, cancellationToken);
+        var city = await _catalog.GetCityAsync(id, cancellationToken) ?? throw new NotFoundException("City not found.");
+
+        city.NameAz = request.NameAz.Trim();
+        city.NameRu = request.NameRu.Trim();
+        city.Aliases = string.IsNullOrWhiteSpace(request.Aliases) ? null : string.Join(';', SplitAliases(request.Aliases));
+        city.UpdatedAt = DateTime.UtcNow;
+        await _catalog.SaveChangesAsync(cancellationToken);
+        return (await BuildAsync(cancellationToken)).Single(c => c.Id == city.CountryId);
+    }
 
     public Task<IReadOnlyList<DestinationCountryDto>> GetAllAsync(CancellationToken cancellationToken = default) => BuildAsync(cancellationToken);
 

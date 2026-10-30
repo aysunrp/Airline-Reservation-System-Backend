@@ -29,6 +29,22 @@ public class AdminDestinationsController : ControllerBase
     public async Task<ActionResult<IReadOnlyList<DestinationCountryDto>>> GetAll(CancellationToken cancellationToken)
         => Ok(await _catalog.GetAllAsync(cancellationToken));
 
+    /// <summary>Edits a country's names and descriptions (400 for invalid text); everything that shows the destination reads the same record.</summary>
+    [HttpPut("countries/{id:int}")]
+    [ProducesResponseType<DestinationCountryDto>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ValidationProblemDetails>(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<DestinationCountryDto>> UpdateCountry(int id, [FromBody] DestinationCountryRequestDto request, CancellationToken cancellationToken)
+        => Ok(await _catalog.UpdateCountryAsync(id, request, cancellationToken));
+
+    /// <summary>Edits a city's Azerbaijani and Russian names and its extra spellings.</summary>
+    [HttpPut("cities/{id:int}")]
+    [ProducesResponseType<DestinationCountryDto>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ValidationProblemDetails>(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<DestinationCountryDto>> UpdateCity(int id, [FromBody] DestinationCityRequestDto request, CancellationToken cancellationToken)
+        => Ok(await _catalog.UpdateCityAsync(id, request, cancellationToken));
+
     [HttpPut("countries/{id:int}/active")]
     [ProducesResponseType<DestinationCountryDto>(StatusCodes.Status200OK)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
