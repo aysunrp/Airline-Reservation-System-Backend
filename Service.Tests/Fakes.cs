@@ -196,6 +196,16 @@ internal sealed class FakeAirportRepository : FakeRepository<Airport>, IAirportR
 
     public HashSet<int> InUse { get; } = new();
 
+    public HashSet<int> WithRoutes { get; } = new();
+
+    public HashSet<(string, string)> RoutePairs { get; } = new();
+
+    public Task<IReadOnlySet<int>> GetAirportIdsWithActiveRoutesAsync(CancellationToken cancellationToken = default)
+        => Task.FromResult<IReadOnlySet<int>>(WithRoutes);
+
+    public Task<bool> HasActiveRouteAsync(string originCode, string destinationCode, CancellationToken cancellationToken = default)
+        => Task.FromResult(RoutePairs.Contains((originCode, destinationCode)) || RoutePairs.Contains((destinationCode, originCode)));
+
     public Task<bool> CodeExistsAsync(string code, int? excludeId = null, CancellationToken cancellationToken = default)
         => Task.FromResult(Items.Any(a => a.Code == code && a.Id != excludeId));
 

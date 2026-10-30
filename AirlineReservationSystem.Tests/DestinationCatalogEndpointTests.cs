@@ -202,6 +202,47 @@ public class DestinationCatalogEndpointTests : IClassFixture<ApiFactory>
         Assert.Equal(HttpStatusCode.NotFound, (await admin.PutAsJsonAsync("/api/admin/destinations/cities/999999", new { nameAz = "a", nameRu = "b" }, Json)).StatusCode);
     }
 
+    [Fact]
+    public async Task ThePickerAirports_CarryTheirCityAndCountryFromTheCatalog_NotFromTheBrowser()
+    {
+        await SeedAsync();
+
+        var airports = await (await _factory.CreateClient().GetAsync("/api/airports")).ReadAsync<List<AirportDto>>();
+
+        var istanbul = airports.Single(a => a.Code == "IST");
+        Assert.Equal(("Turkey", "Türkiyə", "Турция"), (istanbul.CountryName, istanbul.CountryNameAz, istanbul.CountryNameRu));
+        Assert.Equal(("İstanbul", "Стамбул"), (istanbul.CityNameAz, istanbul.CityNameRu));
+        Assert.Equal("Antalya", airports.Single(a => a.Code == "AYT").City);
+        Assert.Equal("Turkey", airports.Single(a => a.Code == "ESB").CountryName); // Ankara, from its city record
+        Assert.Equal("United Kingdom", airports.Single(a => a.Code == "LHR").CountryName);
+        Assert.Contains("Tokyo", airports.Single(a => a.Code == "NRT").Aliases!);
+        Assert.Equal(new[] { "HND", "NRT" }, airports.Where(a => a.City == "Tokyo").Select(a => a.Code).OrderBy(c => c)); // two airports, one city
+
+        var baku = airports.Single(a => a.Code == "GYD");
+        Assert.True(baku.IsHub);
+        Assert.True(baku.HasRoutes);
+        Assert.Single(airports, a => a.IsHub);
+        Assert.False(airports.Single(a => a.Code == "NRT").HasRoutes);
+    }
+
+    [Fact]
+    public async Task TheRouteCheck_SaysWhetherARouteJoinsTwoAirports()
+    {
+        await SeedAsync();
+        var client = _factory.CreateClient();
+
+        var yes = await (await client.GetAsync("/api/airports/route-check?origin=gyd&destination=LHR")).ReadAsync<RouteCheckDto>();
+        var back = await (await client.GetAsync("/api/airports/route-check?origin=LHR&destination=GYD")).ReadAsync<RouteCheckDto>();
+        var no = await (await client.GetAsync("/api/airports/route-check?origin=GYD&destination=BCN")).ReadAsync<RouteCheckDto>();
+
+        Assert.Equal(("GYD", "LHR", true), (yes.Origin, yes.Destination, yes.Exists));
+        Assert.True(back.Exists);
+        Assert.False(no.Exists);
+        Assert.Equal(HttpStatusCode.UnprocessableEntity, (await client.GetAsync("/api/airports/route-check?origin=GYD&destination=GYD")).StatusCode);
+        Assert.Equal(HttpStatusCode.UnprocessableEntity, (await client.GetAsync("/api/airports/route-check?origin=GY&destination=LHR")).StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, (await client.GetAsync("/api/airports/route-check?origin=ZZZ&destination=LHR")).StatusCode);
+    }
+
     [Theory]
     [InlineData("Osaka'dan Barselonaya uçuşları göstər.", "az")]
     [InlineData("Show flights from Osaka to Barcelona.", "en")]
