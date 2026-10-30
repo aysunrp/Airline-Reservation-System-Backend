@@ -56,7 +56,7 @@ public class DestinationCatalogSeeder : IDestinationCatalogSeeder
                     city = new DestinationCity
                     {
                         Country = country, Name = citySeed.Name, NameAz = citySeed.NameAz, NameRu = citySeed.NameRu,
-                        Aliases = citySeed.Aliases.Length == 0 ? null : string.Join(';', citySeed.Aliases), SortOrder = cityOrder
+                        Aliases = citySeed.Aliases.Length == 0 ? null : string.Join(';', citySeed.Aliases), SortOrder = cityOrder, IsHub = citySeed.IsHub
                     };
                     await _catalog.AddCityAsync(city, cancellationToken);
                     country.Cities.Add(city);

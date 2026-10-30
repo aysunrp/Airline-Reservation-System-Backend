@@ -66,6 +66,14 @@ public class DestinationCatalogDataTests
     }
 
     [Fact]
+    public void BakuIsTheOnlyHub_TheHomeBaseOfTheAirline()
+    {
+        var hub = Assert.Single(Cities, c => c.IsHub);
+        Assert.Equal("Baku", hub.Name);
+        Assert.Equal("GYD", Assert.Single(hub.Airports).Code);
+    }
+
+    [Fact]
     public void TheCatalog_KeepsNoDuplicateCityInACountry()
         => Assert.All(DestinationCatalogData.Countries, c => Assert.Equal(c.Cities.Length, c.Cities.Select(city => city.Name).Distinct(StringComparer.OrdinalIgnoreCase).Count()));
 }

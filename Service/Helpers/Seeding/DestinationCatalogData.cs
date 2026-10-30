@@ -2,7 +2,11 @@ namespace Service.Helpers.Seeding;
 
 public sealed record CatalogAirportSeed(string Code, string Name, string TimeZoneId);
 
-public sealed record CatalogCitySeed(string Name, string NameAz, string NameRu, string[] Aliases, CatalogAirportSeed[] Airports);
+public sealed record CatalogCitySeed(string Name, string NameAz, string NameRu, string[] Aliases, CatalogAirportSeed[] Airports)
+{
+    /// <summary>AEROVA's home base: kept in the catalog (search origin, airports, routes) but not shown as a place to travel to.</summary>
+    public bool IsHub { get; init; }
+}
 
 public sealed record CatalogCountrySeed(
     string Code, string Name, string NameAz, string NameRu,
@@ -21,6 +25,8 @@ public static class DestinationCatalogData
 
     private static CatalogCitySeed C(string name, string az, string ru, string[] aliases, params CatalogAirportSeed[] airports) => new(name, az, ru, aliases, airports);
 
+    private static CatalogCitySeed H(string name, string az, string ru, string[] aliases, params CatalogAirportSeed[] airports) => C(name, az, ru, aliases, airports) with { IsHub = true };
+
     private static readonly string[] None = Array.Empty<string>();
 
     public static readonly IReadOnlyList<CatalogCountrySeed> Countries = new[]
@@ -31,7 +37,7 @@ public static class DestinationCatalogData
             "Огненные башни Баку светятся над набережной Каспия и старым городом.",
             "azerbaijan-baku.jpg", new[]
             {
-                C("Baku", "Bakı", "Баку", new[] { "Baki", "Baku" }, A("GYD", "Heydar Aliyev International Airport", "Asia/Baku")),
+                H("Baku", "Bakı", "Баку", new[] { "Baki", "Baku" }, A("GYD", "Heydar Aliyev International Airport", "Asia/Baku")),
                 C("Ganja", "Gəncə", "Гянджа", new[] { "Gence", "Gandja", "Гянджа", "Гянджи", "Гянджу" }, A("GNJ", "Ganja International Airport", "Asia/Baku"))
             }),
         new CatalogCountrySeed("TR", "Turkey", "Türkiyə", "Турция",

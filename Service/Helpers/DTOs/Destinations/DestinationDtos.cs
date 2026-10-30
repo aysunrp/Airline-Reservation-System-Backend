@@ -4,7 +4,7 @@ namespace Service.Helpers.DTOs.Destinations;
 public record DestinationAirportDto(int Id, string Code, string Name, string TimeZoneId, bool IsActive, bool HasRoutes);
 
 public record DestinationCityDto(
-    int Id, string Name, string NameAz, string NameRu, IReadOnlyList<string> Aliases, bool IsActive, IReadOnlyList<DestinationAirportDto> Airports);
+    int Id, string Name, string NameAz, string NameRu, IReadOnlyList<string> Aliases, bool IsActive, bool IsHub, IReadOnlyList<DestinationAirportDto> Airports);
 
 public record DestinationCountryDto(
     int Id, string Code, string Name, string NameAz, string NameRu,

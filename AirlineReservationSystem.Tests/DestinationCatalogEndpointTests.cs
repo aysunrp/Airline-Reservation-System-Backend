@@ -76,6 +76,9 @@ public class DestinationCatalogEndpointTests : IClassFixture<ApiFactory>
 
         var airports = catalog.SelectMany(c => c.Cities).SelectMany(c => c.Airports).ToDictionary(a => a.Code);
         Assert.True(airports["GYD"].HasRoutes); // the test network flies from Baku
+        var baku = catalog.Single(c => c.Code == "AZ").Cities.Single(c => c.Name == "Baku");
+        Assert.True(baku.IsHub); // Baku stays in the catalog (origin, airports) and is marked as the home base
+        Assert.Single(catalog.SelectMany(c => c.Cities), c => c.IsHub);
         Assert.False(airports["NRT"].HasRoutes); // a catalog airport nobody flies to yet
     }
 
