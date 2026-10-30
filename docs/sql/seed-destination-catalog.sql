@@ -1,3 +1,4 @@
+-- Run it with the UTF-8 code page, or every non-ASCII letter is stored wrongly: sqlcmd -S ".\SQLEXPRESS" -E -C -d AerovaDb -b -f 65001 -i seed-destination-catalog.sql
 SET NOCOUNT ON; SET XACT_ABORT ON; BEGIN TRAN;
 DECLARE @now datetime2 = SYSUTCDATETIME(); DECLARE @cid int;
 IF NOT EXISTS (SELECT 1 FROM Countries WHERE Code = N'AZ') INSERT INTO Countries (Code, Name, NameAz, NameRu, Description, DescriptionAz, DescriptionRu, ImageFile, SortOrder, IsActive, CreatedAt) VALUES (N'AZ', N'Azerbaijan', N'Azərbaycan', N'Азербайджан', N'Baku''s Flame Towers glow above the Caspian waterfront and the walled Old City.', N'Bakının Alov Qüllələri Xəzər sahilində və İçərişəhərin üstündə parlayır.', N'Огненные башни Баку светятся над набережной Каспия и старым городом.', N'azerbaijan-baku.jpg', 1, 1, @now);

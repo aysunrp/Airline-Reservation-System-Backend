@@ -42,6 +42,8 @@ sqlcmd -S .\SQLEXPRESS -E -d AerovaDb -b -f 65001 -i docs\sql\seed-destination-c
 
 It prints the totals (20 countries, 37 cities) at the end; running it again changes nothing.
 
+The `-f 65001` is required: without it `sqlcmd` reads the file in the console code page and stores every non-ASCII letter wrongly. If that happened, run `docs/sql/repair-city-text-encoding.sql` (same options) and then the seed again; the repair only touches rows that carry the wrong characters.
+
 ## API
 
 The hierarchy is Country → City → Airport → Flight (a flight's route joins two airports). Every page reads it from here.
