@@ -1,6 +1,6 @@
 # Destination photographs
 
-All 20 photographs come from Wikimedia Commons. Each was taken from the file's own page, where the author and the licence are stated; only
+All the photographs come from Wikimedia Commons. Each was taken from the file's own page, where the author and the licence are stated; only
 files under CC0 or a Creative Commons licence that allows reuse with attribution (CC BY, CC BY-SA) were used. Pinterest was not used as a source:
 its images carry no licence of their own, so none was downloaded from it.
 
@@ -30,6 +30,23 @@ CC BY-SA photographs stay under CC BY-SA, which applies to the photograph itself
 | `singapore-marina-bay.jpg` (+ `singapore-marina-bay-sm.jpg`) | [ArtScience Museum, Marina Bay Sands, Singapore.jpg](https://commons.wikimedia.org/wiki/File:ArtScience_Museum,_Marina_Bay_Sands,_Singapore.jpg) | Basile Morin | CC BY-SA 4.0 |
 | `thailand-bangkok.jpg` (+ `thailand-bangkok-sm.jpg`) | [Templo Wat Arun, Bangkok, Tailandia, 2013-08-22, DD 30.jpg](https://commons.wikimedia.org/wiki/File:Templo_Wat_Arun,_Bangkok,_Tailandia,_2013-08-22,_DD_30.jpg) | Diego Delso | CC BY-SA 3.0 |
 | `maldives-male.jpg` (+ `maldives-male-sm.jpg`) | [Diamonds Thudufushi Beach and Water Villas, May 2017 -04.jpg](https://commons.wikimedia.org/wiki/File:Diamonds_Thudufushi_Beach_and_Water_Villas,_May_2017_-04.jpg) | Martin Falbisoner | CC BY-SA 4.0 |
+| `azerbaijan-ganja.jpg` (+ `azerbaijan-ganja-sm.jpg`) | [Imamzadeh Complex, Ganja.jpg](https://commons.wikimedia.org/wiki/File:Imamzadeh_Complex,_Ganja.jpg) | Petar Milošević | CC BY-SA 4.0 |
+| `turkey-ankara.jpg` (+ `turkey-ankara-sm.jpg`) | [Anıtkabir, Ankara, Turquía, 2024-10-03, DD 20.jpg](https://commons.wikimedia.org/wiki/File:An%C4%B1tkabir,_Ankara,_Turqu%C3%ADa,_2024-10-03,_DD_20.jpg) | Diego Delso | CC BY-SA 4.0 |
+| `turkey-antalya.jpg` (+ `turkey-antalya-sm.jpg`) | [Antalya kaleiçi 2.jpg](https://commons.wikimedia.org/wiki/File:Antalya_kalei%C3%A7i_2.jpg) | REHBER0770 | CC BY-SA 4.0 |
+| `uae-abu-dhabi.jpg` (+ `uae-abu-dhabi-sm.jpg`) | [Sheikh Zayed Grand Mosque @ Abu Dhabi (15856602738).jpg](https://commons.wikimedia.org/wiki/File:Sheikh_Zayed_Grand_Mosque_@_Abu_Dhabi_(15856602738).jpg) | Guilhem Vellut from Annecy, France | CC BY 2.0 |
+| `uk-manchester.jpg` (+ `uk-manchester-sm.jpg`) | [Manchester town hall.jpg](https://commons.wikimedia.org/wiki/File:Manchester_town_hall.jpg) | Julius (User:Juliux) | CC BY-SA 3.0 |
+| `france-nice.jpg` (+ `france-nice-sm.jpg`) | [Nice Baie des anges 02.jpg](https://commons.wikimedia.org/wiki/File:Nice_Baie_des_anges_02.jpg) | Cayambe | CC BY-SA 3.0 |
+| `germany-frankfurt.jpg` (+ `germany-frankfurt-sm.jpg`) | [Frankfurt Skyline with river Main 2014.jpg](https://commons.wikimedia.org/wiki/File:Frankfurt_Skyline_with_river_Main_2014.jpg) | Norbert Nagel | CC BY-SA 4.0 |
+| `italy-milan.jpg` (+ `italy-milan-sm.jpg`) | [Milan Duomo with tourists in Piazza.jpg](https://commons.wikimedia.org/wiki/File:Milan_Duomo_with_tourists_in_Piazza.jpg) | Daniel Case | CC BY-SA 3.0 |
+| `spain-madrid.jpg` (+ `spain-madrid-sm.jpg`) | [Puerta de Alcalá 2024 2.jpg](https://commons.wikimedia.org/wiki/File:Puerta_de_Alcal%C3%A1_2024_2.jpg) | kallerna | CC BY-SA 4.0 |
+| `georgia-batumi.jpg` (+ `georgia-batumi-sm.jpg`) | [Batumi sunset.jpg](https://commons.wikimedia.org/wiki/File:Batumi_sunset.jpg) | Dmitry A. Mottl | CC BY-SA 4.0 |
+| `saudi-arabia-jeddah.jpg` (+ `saudi-arabia-jeddah-sm.jpg`) | [Old Jeddah - 55362181118.jpg](https://commons.wikimedia.org/wiki/File:Old_Jeddah_-_55362181118.jpg) | xiquinhosilva | CC BY 4.0 |
+| `switzerland-geneva.jpg` (+ `switzerland-geneva-sm.jpg`) | [Jet d'eau, Lake Geneva (Ank Kumar) 08.jpg](https://commons.wikimedia.org/wiki/File:Jet_d%27eau,_Lake_Geneva_(Ank_Kumar)_08.jpg) | Ank Kumar | CC BY-SA 4.0 |
+| `usa-los-angeles.jpg` (+ `usa-los-angeles-sm.jpg`) | [Skyline of Los Angeles, Downtown Los Angeles, California 13.jpg](https://commons.wikimedia.org/wiki/File:Skyline_of_Los_Angeles,_Downtown_Los_Angeles,_California_13.jpg) | Levi Clancy | CC BY-SA 4.0 |
+| `canada-montreal.jpg` (+ `canada-montreal-sm.jpg`) | [Montreal - QC - Skyline.jpg](https://commons.wikimedia.org/wiki/File:Montreal_-_QC_-_Skyline.jpg) | Taxiarchos228 | CC BY 3.0 |
+| `japan-osaka.jpg` (+ `japan-osaka-sm.jpg`) | [Osaka Castle 02bs3200.jpg](https://commons.wikimedia.org/wiki/File:Osaka_Castle_02bs3200.jpg) | 663highland | CC BY 2.5 |
+| `china-beijing.jpg` (+ `china-beijing-sm.jpg`) | [Beijing China Forbidden-City-03.jpg](https://commons.wikimedia.org/wiki/File:Beijing_China_Forbidden-City-03.jpg) | CEphoto, Uwe Aranas | CC BY-SA 3.0 |
+| `thailand-phuket.jpg` (+ `thailand-phuket-sm.jpg`) | [Banana beach Phuket 2017 - 04.jpg](https://commons.wikimedia.org/wiki/File:Banana_beach_Phuket_2017_-_04.jpg) | This photo was taken by Anton Zelenov. Please credit this with : Photo : Anton Z | CC BY-SA 4.0 |
 
 Licence texts: CC0 1.0 (https://creativecommons.org/publicdomain/zero/1.0/), CC BY 2.0 / 3.0 / 4.0 and CC BY-SA 3.0 / 4.0
 (https://creativecommons.org/licenses/). The exact version is the one in the Licence column.

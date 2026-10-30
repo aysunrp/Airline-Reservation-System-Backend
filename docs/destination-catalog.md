@@ -1,6 +1,6 @@
 # Destination catalog
 
-One database-backed catalog says where AEROVA may fly: 20 countries, 37 cities and 38 airports. Explore Destinations (home and destinations pages),
+One database-backed catalog says where AEROVA may fly: 20 countries, 37 cities and 39 airports (Istanbul has two: IST and SAW). Explore Destinations (home and destinations pages),
 the search suggestions, the voice search and the admin panel all read it. It says nothing about flights: a destination without a route is shown as
 "No scheduled flights yet" and searches for it return an empty list. Nothing in the catalog creates a route, schedule, fare or flight.
 
@@ -9,10 +9,10 @@ the search suggestions, the voice search and the admin panel all read it. It say
 | Table | Key and constraints |
 |---|---|
 | `Countries` | `Code` (ISO 3166-1 alpha-2) unique; `Name`, `NameAz`, `NameRu`; `Description`, `DescriptionAz`, `DescriptionRu`; `ImageFile`; `SortOrder`; `IsActive` |
-| `DestinationCities` | `(CountryId, Name)` unique; `NameAz`, `NameRu`; `Aliases` (extra spellings, `;`-separated); foreign key to `Countries`, `ON DELETE NO ACTION` |
+| `DestinationCities` | `(CountryId, Name)` unique; `NameAz`, `NameRu`; `Aliases` (extra spellings, `;`-separated); `IsHub` (the home base, Baku); `ImageFile` and `Description`, `DescriptionAz`, `DescriptionRu` (the city's own photograph and short description); foreign key to `Countries`, `ON DELETE NO ACTION` |
 | `Airports` (existing) | new nullable `CityId`, foreign key to `DestinationCities`, `ON DELETE NO ACTION`. The existing `City` and `CountryCode` text columns stay, so nothing that reads airports changes. `Code` stays unique. |
 
-The migration only adds two tables, one nullable column and its index and key. It changes and deletes no existing row.
+The migrations only add tables and columns (`AddDestinationCatalog`, `AddDestinationCityHub`, `AddCityDetails`). They change and delete no existing row.
 
 ## Seed
 
@@ -44,15 +44,21 @@ It prints the totals (20 countries, 37 cities) at the end; running it again chan
 
 ## API
 
+The hierarchy is Country → City → Airport → Flight (a flight's route joins two airports). Every page reads it from here.
+
 | Endpoint | Who | What |
 |---|---|---|
-| `GET /api/destinations` | everyone | Active countries with active cities and airports; `hasRoutes` per airport says whether an active route starts or ends there |
-| `GET /api/admin/destinations` | Admin, SuperAdmin | The same with switched-off records |
-| `PUT /api/admin/destinations/countries/{id}/active` and `.../cities/{id}/active` | Admin, SuperAdmin | Switch a country or city on or off (body `{ "isActive": false }`) |
+| `GET /api/destinations` | everyone | Active countries with active cities (each with its photograph and description) and airports; `hasRoutes` per airport |
+| `GET /api/destinations/cities/{id}` | everyone | One city's page: the city with **its own** airports, its country, and the **other active cities of the same country** (each with photograph, description, airports). 404 for the home base (Baku), a switched-off city or country, an unknown id |
+| `GET /api/destinations/cities/{id}/flights` | everyone | The upcoming, not cancelled flights from Baku (the hub) to the airports of that city, earliest first, with the lowest stored base fare. Empty when none is scheduled: nothing is borrowed from another city |
+| `GET /api/admin/destinations` | Admin, SuperAdmin | The same catalog with switched-off records |
+| `PUT /api/admin/destinations/countries/{id}` and `.../cities/{id}` | Admin, SuperAdmin | Edit names and descriptions (the city's English name is its key and stays) |
+| `PUT /api/admin/destinations/countries/{id}/active` and `.../cities/{id}/active` | Admin, SuperAdmin | Switch a country or city on or off |
 
+The catalog is loaded once per request (countries with cities and airports in one query, the route set in another), so a city page costs three queries and the flight list one.
 Countries and cities are switched off, never deleted: a switched-off one leaves the public catalog while its airports, routes, flights and bookings stay.
 The database refuses to delete a country that has cities or a city that has airports. Airports are managed (and refused deletion when a route, schedule
-stop or flight segment uses them) under `api/admin/airports`. `GET /api/airports` (the search suggestions) still lists every active airport.
+stop or flight segment uses them) under `api/admin/airports`.
 
 ## Voice search
 
