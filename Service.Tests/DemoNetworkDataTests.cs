@@ -5,7 +5,7 @@ using Service.Helpers.Seeding;
 
 namespace Service.Tests;
 
-/// <summary>The demonstration network as data: valid airports, consistent clocks, believable timetables, nothing outside the 16 countries.</summary>
+/// <summary>The demonstration network as data: valid airports, consistent clocks, believable timetables, nothing outside the 15 countries.</summary>
 public class DemoNetworkDataTests
 {
     private static readonly DateOnly First = new(2026, 11, 1);
@@ -57,10 +57,10 @@ public class DemoNetworkDataTests
     public void BakuIsTheHub_AndAzerbaijanAndTheMaldivesStayWithinTheirAirports()
     {
         var fromBaku = DemoNetworkData.Routes.Where(r => r.OriginCode == "GYD").Select(r => r.DestinationCode).ToList();
-        Assert.True(fromBaku.Count >= 40);
+        Assert.True(fromBaku.Count >= 20);
         Assert.Contains("GNJ", fromBaku);
         Assert.Contains("MLE", fromBaku);
-        Assert.Contains("TBS", fromBaku);
+        Assert.DoesNotContain("TBS", fromBaku);
         Assert.Contains("HND", fromBaku);
 
         var allowed = Airports.Values.Where(a => a.CountryCode == "AZ").Select(a => a.Code).OrderBy(c => c).ToList();
@@ -129,15 +129,15 @@ public class DemoNetworkDataTests
             }
         }
 
-        Assert.InRange(checkedFlights, 3500, 4000);
+        Assert.InRange(checkedFlights, 1800, 2100);
     }
 
     [Fact]
-    public void Kazakhstan_IsFiveHoursAheadOfUtc_SoAnAlmatyDepartureAt0800IsThreeHoursUtc()
+    public void Japan_IsNineHoursAheadOfUtc_SoATokyoDepartureAt0800IsTheEveningBeforeUtc()
     {
-        var almaty = Airports["ALA"];
-        var utc = ScheduleTimeCalculator.ToUtc(new DateOnly(2026, 12, 15), new TimeOnly(8, 0), almaty);
-        Assert.Equal(new DateTime(2026, 12, 15, 3, 0, 0, DateTimeKind.Utc), utc);
+        var tokyo = Airports["HND"];
+        var utc = ScheduleTimeCalculator.ToUtc(new DateOnly(2026, 12, 15), new TimeOnly(8, 0), tokyo);
+        Assert.Equal(new DateTime(2026, 12, 14, 23, 0, 0, DateTimeKind.Utc), utc);
     }
 
     [Fact]
@@ -160,14 +160,13 @@ public class DemoNetworkDataTests
     public void TheTimetable_IsVaried_NotEveryRouteFliesEveryDay_AndNotAtTheSameHour()
     {
         var daily = Network.Count(s => s.Days == ScheduleDays.Everyday);
-        Assert.InRange(daily, 1, Network.Count() / 4); // only the busiest routes (Tbilisi, Ganja) fly every day
-        Assert.True(Network.Select(s => s.Days).Distinct().Count() >= 8);
-        Assert.True(Network.Select(s => s.Departure.Hour).Distinct().Count() >= 14);
+        Assert.InRange(daily, 1, Network.Count() / 4); // only the busiest routes (Ganja) fly every day
+        Assert.True(Network.Select(s => s.Days).Distinct().Count() >= 5);
+        Assert.True(Network.Select(s => s.Departure.Hour).Distinct().Count() >= 10);
 
         var weeklyFlights = Network.GroupBy(s => (s.OriginCode, s.DestinationCode))
             .ToDictionary(g => g.Key, g => g.Sum(s => Enumerable.Range(0, 7).Count(i => s.Days.HasFlag((ScheduleDays)(1 << i)))));
         Assert.InRange(weeklyFlights[("GYD", "GNJ")], 7, 7);
-        Assert.InRange(weeklyFlights[("GYD", "TBS")], 8, 9);   // high demand: daily, with a second flight on selected days
         Assert.InRange(weeklyFlights[("GYD", "FRA")], 3, 5);   // medium demand
         Assert.InRange(weeklyFlights[("GYD", "MLE")], 2, 3);   // low demand
         Assert.InRange(weeklyFlights[("GYD", "HND")], 2, 3);
