@@ -39,9 +39,9 @@ public class DestinationCatalogEndpointTests : IClassFixture<ApiFactory>
 
         using var scope = _factory.Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-        Assert.Equal(16, await db.Countries.CountAsync());
-        Assert.Equal(78, await db.DestinationCities.CountAsync());
-        Assert.Equal(80, await db.Airports.CountAsync());
+        Assert.Equal(15, await db.Countries.CountAsync());
+        Assert.Equal(39, await db.DestinationCities.CountAsync());
+        Assert.Equal(39, await db.Airports.CountAsync());
         Assert.Equal(1, await db.Airports.CountAsync(a => a.Code == "GYD")); // the airport that existed first was linked, not duplicated
         Assert.Equal("Baku", (await db.Airports.Include(a => a.CityRecord).SingleAsync(a => a.Code == "GYD")).CityRecord!.Name);
         Assert.Equal("London", (await db.Airports.Include(a => a.CityRecord).SingleAsync(a => a.Code == "LHR")).CityRecord!.Name);
@@ -54,26 +54,26 @@ public class DestinationCatalogEndpointTests : IClassFixture<ApiFactory>
         using var scope = _factory.Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
 
-        // Only the test network's own route exists; the 78 new airports have none.
+        // Only the test network's own route exists; the 37 new airports have none.
         var newAirportIds = await db.Airports.Where(a => a.Code != "GYD" && a.Code != "LHR").Select(a => a.Id).ToListAsync();
         Assert.False(await db.Routes.AnyAsync(r => newAirportIds.Contains(r.OriginAirportId) || newAirportIds.Contains(r.DestinationAirportId)));
     }
 
     [Fact]
-    public async Task ThePublicCatalog_HasTheSixteenCountries_WithCitiesAirportsAndWhetherTheyHaveRoutes()
+    public async Task ThePublicCatalog_HasTheFifteenCountries_WithCitiesAirportsAndWhetherTheyHaveRoutes()
     {
         await SeedAsync();
 
         var catalog = await PublicAsync();
 
-        Assert.Equal(new[] { "AZ", "TR", "AE", "GB", "FR", "DE", "IT", "ES", "GE", "NL", "JP", "MV", "PL", "AT", "KZ", "UZ" }, catalog.Select(c => c.Code));
-        Assert.Equal(78, catalog.Sum(c => c.Cities.Count));
-        Assert.Equal(80, catalog.SelectMany(c => c.Cities).Sum(city => city.Airports.Count));
+        Assert.Equal(new[] { "AZ", "TR", "AE", "GB", "FR", "DE", "IT", "ES", "JP", "MV", "AT", "US", "GR", "TH", "PT" }, catalog.Select(c => c.Code));
+        Assert.Equal(39, catalog.Sum(c => c.Cities.Count));
+        Assert.Equal(39, catalog.SelectMany(c => c.Cities).Sum(city => city.Airports.Count));
         Assert.Equal(new[] { "Baku", "Ganja", "Nakhchivan" }, catalog.Single(c => c.Code == "AZ").Cities.Select(c => c.Name)); // Azerbaijan: three cities only
         Assert.Equal("MLE", Assert.Single(Assert.Single(catalog.Single(c => c.Code == "MV").Cities).Airports).Code); // the Maldives: Malé only
         var japan = catalog.Single(c => c.Code == "JP");
         Assert.Equal(("Tokio", "Токио"), (japan.Cities[0].NameAz, japan.Cities[0].NameRu));
-        Assert.Equal(new[] { "HND", "NRT" }, japan.Cities[0].Airports.Select(a => a.Code));
+        Assert.Equal(new[] { "HND" }, japan.Cities[0].Airports.Select(a => a.Code));
         Assert.Contains("Tokyo", japan.Cities[0].Aliases);
 
         var airports = catalog.SelectMany(c => c.Cities).SelectMany(c => c.Airports).ToDictionary(a => a.Code);
@@ -81,7 +81,8 @@ public class DestinationCatalogEndpointTests : IClassFixture<ApiFactory>
         var baku = catalog.Single(c => c.Code == "AZ").Cities.Single(c => c.Name == "Baku");
         Assert.True(baku.IsHub); // Baku stays in the catalog (origin, airports) and is marked as the home base
         Assert.Single(catalog.SelectMany(c => c.Cities), c => c.IsHub);
-        Assert.False(airports["NRT"].HasRoutes); // a catalog airport nobody flies to yet
+        Assert.False(airports["KIX"].HasRoutes); // a catalog airport nobody flies to yet
+        Assert.DoesNotContain("NRT", airports.Keys); // left out of the catalog: Tokyo has one airport
     }
 
     [Fact]
@@ -91,7 +92,8 @@ public class DestinationCatalogEndpointTests : IClassFixture<ApiFactory>
 
         var airports = await (await _factory.CreateClient().GetAsync("/api/airports")).ReadAsync<List<AirportDto>>();
 
-        Assert.All(new[] { "NRT", "BCN", "MLE", "NAJ", "TAS", "GNJ", "ALA", "KIX" }, code => Assert.Contains(airports, a => a.Code == code));
+        Assert.All(new[] { "HND", "BCN", "MLE", "NAJ", "ATH", "GNJ", "MIA", "KIX" }, code => Assert.Contains(airports, a => a.Code == code));
+        Assert.All(new[] { "NRT", "SAW", "TAS", "ALA" }, code => Assert.DoesNotContain(airports, a => a.Code == code));
         Assert.Equal(airports.Count, airports.Select(a => a.Code).Distinct().Count());
     }
 
@@ -130,9 +132,9 @@ public class DestinationCatalogEndpointTests : IClassFixture<ApiFactory>
         Assert.Equal(HttpStatusCode.OK, off.StatusCode);
         Assert.False((await off.ReadAsync<DestinationCountryDto>()).IsActive);
 
-        Assert.Equal(15, (await PublicAsync()).Count); // gone from the public catalog...
+        Assert.Equal(14, (await PublicAsync()).Count); // gone from the public catalog...
         var all = await (await admin.GetAsync("/api/admin/destinations")).ReadAsync<List<DestinationCountryDto>>();
-        Assert.Equal(16, all.Count); // ...but still there for the admin
+        Assert.Equal(15, all.Count); // ...but still there for the admin
         Assert.Contains((await (await _factory.CreateClient().GetAsync("/api/airports")).ReadAsync<List<AirportDto>>()), a => a.Code == "GYD"); // its airports and flights are untouched
 
         var ganja = azerbaijan.Cities.Single(c => c.Name == "Ganja");
@@ -160,19 +162,19 @@ public class DestinationCatalogEndpointTests : IClassFixture<ApiFactory>
         Assert.Equal("turkey-istanbul.jpg", page.City.ImageFile);
         Assert.False(string.IsNullOrWhiteSpace(page.City.DescriptionAz));
         Assert.Equal(("TR", "Turkey", "Türkiyə"), (page.Country.Code, page.Country.Name, page.Country.NameAz));
-        // Only Istanbul's airports are Istanbul's; Ankara and Antalya are other cities of Turkey, with their own airports.
-        Assert.Equal(new[] { "IST", "SAW" }, page.City.Airports.Select(a => a.Code).OrderBy(c => c));
-        Assert.Equal(new[] { "Ankara", "Antalya", "Izmir", "Trabzon", "Bodrum" }, page.OtherCities.Select(c => c.Name));
-        Assert.Equal(new[] { "ESB" }, page.OtherCities.Single(c => c.Name == "Ankara").Airports.Select(a => a.Code));
-        Assert.Equal("turkey-ankara.jpg", page.OtherCities.Single(c => c.Name == "Ankara").ImageFile);
-        Assert.Equal(string.Empty, page.OtherCities.Single(c => c.Name == "Izmir").ImageFile); // no photograph of its own yet: the page shows its country's
+        // Only Istanbul's airport is Istanbul's; Antalya and Bodrum are other cities of Turkey, with their own airports.
+        Assert.Equal(new[] { "IST" }, page.City.Airports.Select(a => a.Code).OrderBy(c => c));
+        Assert.Equal(new[] { "Antalya", "Bodrum" }, page.OtherCities.Select(c => c.Name));
+        Assert.Equal(new[] { "AYT" }, page.OtherCities.Single(c => c.Name == "Antalya").Airports.Select(a => a.Code));
+        Assert.Equal("turkey-antalya.jpg", page.OtherCities.Single(c => c.Name == "Antalya").ImageFile);
+        Assert.Equal(string.Empty, page.OtherCities.Single(c => c.Name == "Bodrum").ImageFile); // no photograph of its own yet: the page shows its country's
         Assert.DoesNotContain(page.OtherCities, c => c.Id == istanbul.Id);
 
         // Every country works the same way: another country, another set of sister cities.
         var france = catalog.Single(c => c.Code == "FR");
         var nice = await (await client.GetAsync($"/api/destinations/cities/{france.Cities.Single(c => c.Name == "Nice").Id}")).ReadAsync<CityDestinationDto>();
         Assert.Equal("FR", nice.Country.Code);
-        Assert.Equal(new[] { "Paris", "Lyon", "Marseille", "Toulouse", "Bordeaux" }, nice.OtherCities.Select(c => c.Name));
+        Assert.Equal(new[] { "Paris", "Marseille" }, nice.OtherCities.Select(c => c.Name));
         var male = await (await client.GetAsync($"/api/destinations/cities/{catalog.Single(c => c.Code == "MV").Cities.Single().Id}")).ReadAsync<CityDestinationDto>();
         Assert.Empty(male.OtherCities); // a one-city country has no sister cities
     }
@@ -235,16 +237,16 @@ public class DestinationCatalogEndpointTests : IClassFixture<ApiFactory>
         Assert.Equal(("Turkey", "Türkiyə", "Турция"), (istanbul.CountryName, istanbul.CountryNameAz, istanbul.CountryNameRu));
         Assert.Equal(("İstanbul", "Стамбул"), (istanbul.CityNameAz, istanbul.CityNameRu));
         Assert.Equal("Antalya", airports.Single(a => a.Code == "AYT").City);
-        Assert.Equal("Turkey", airports.Single(a => a.Code == "ESB").CountryName); // Ankara, from its city record
+        Assert.Equal("Turkey", airports.Single(a => a.Code == "BJV").CountryName); // Bodrum, from its city record
         Assert.Equal("United Kingdom", airports.Single(a => a.Code == "LHR").CountryName);
-        Assert.Contains("Tokyo", airports.Single(a => a.Code == "NRT").Aliases!);
-        Assert.Equal(new[] { "HND", "NRT" }, airports.Where(a => a.City == "Tokyo").Select(a => a.Code).OrderBy(c => c)); // two airports, one city
+        Assert.Contains("Tokyo", airports.Single(a => a.Code == "HND").Aliases!);
+        Assert.Equal(new[] { "HND" }, airports.Where(a => a.City == "Tokyo").Select(a => a.Code)); // one airport per city
 
         var baku = airports.Single(a => a.Code == "GYD");
         Assert.True(baku.IsHub);
         Assert.True(baku.HasRoutes);
         Assert.Single(airports, a => a.IsHub);
-        Assert.False(airports.Single(a => a.Code == "NRT").HasRoutes);
+        Assert.False(airports.Single(a => a.Code == "KIX").HasRoutes);
     }
 
     [Fact]
@@ -280,15 +282,14 @@ public class DestinationCatalogEndpointTests : IClassFixture<ApiFactory>
     }
 
     [Fact]
-    public async Task VoiceSearch_KnowsTokyoAsTokyoTokioAndТокио_AndAsksWhichOfItsTwoAirports()
+    public async Task VoiceSearch_KnowsTokyoAsTokyoTokioAndТокио_AsHaneda()
     {
         await SeedAsync();
 
         foreach (var text in new[] { "Flights from Tokyo to Barcelona", "Tokiodan Barselonaya uçuşlar", "Рейсы из Токио в Барселону" })
         {
             var result = await (await _factory.CreateClient().PostAsJsonAsync("/api/voice-search/interpret", new { text }, Json)).ReadAsync<VoiceSearchInterpretationDto>();
-            var issue = Assert.Single(result.Issues, i => i.Code == "ambiguous_origin");
-            Assert.Equal(new[] { "HND", "NRT" }, issue.Options!.Select(o => o.Code).OrderBy(c => c));
+            Assert.Equal(("HND", "BCN"), (result.Origin!.Code, result.Destination!.Code));
         }
     }
 }
@@ -309,10 +310,54 @@ public class DestinationCatalogFirstRunTests : IClassFixture<ApiFactory>
 
         var first = await scope.ServiceProvider.GetRequiredService<IDestinationCatalogSeeder>().SeedAsync();
 
-        Assert.Equal(16, first.CountriesAdded);
-        Assert.Equal(78, first.CitiesAdded);
-        Assert.Equal(78, first.AirportsAdded); // 80 catalog airports, GYD and LHR were already there
+        Assert.Equal(15, first.CountriesAdded);
+        Assert.Equal(39, first.CitiesAdded);
+        Assert.Equal(37, first.AirportsAdded); // 39 catalog airports, GYD and LHR were already there
         Assert.Equal(2, first.AirportsLinked);
         Assert.Equal(0, first.CountriesDeactivated); // a new database has none of the countries the network left out
+    }
+}
+
+
+/// <summary>Countries that had been switched off by an earlier catalog and are in this one again.</summary>
+public class DestinationCatalogReactivationTests : IClassFixture<ApiFactory>
+{
+    private readonly ApiFactory _factory;
+
+    public DestinationCatalogReactivationTests(ApiFactory factory) => _factory = factory;
+
+    [Fact]
+    public async Task ACountryThatIsInTheCatalogAgain_IsSwitchedBackOnWithItsCitiesAndAirports_AndNothingIsDuplicated()
+    {
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+            var us = new Domain.Entities.Country { Code = "US", Name = "United States", NameAz = "ABŞ", NameRu = "США", SortOrder = 90, IsActive = false };
+            var york = new Domain.Entities.DestinationCity { Country = us, Name = "New York", NameAz = "Nyu-York", NameRu = "Нью-Йорк", SortOrder = 1, IsActive = false };
+            db.Airports.Add(new Domain.Entities.Airport { Code = "JFK", Name = "John F. Kennedy International Airport", City = "New York", CountryCode = "US", TimeZoneId = "America/New_York", IsActive = false, CityRecord = york });
+            await db.SaveChangesAsync();
+        }
+
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var first = await scope.ServiceProvider.GetRequiredService<IDestinationCatalogSeeder>().SeedAsync();
+            Assert.Equal(3, first.Reactivated); // the country, New York and JFK
+        }
+
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+            Assert.True((await db.Countries.SingleAsync(c => c.Code == "US")).IsActive);
+            Assert.True((await db.Airports.SingleAsync(a => a.Code == "JFK")).IsActive);
+            Assert.Equal(3, await db.DestinationCities.CountAsync(c => c.Country.Code == "US" && c.IsActive));
+            Assert.Equal(1, await db.Airports.CountAsync(a => a.Code == "JFK"));
+            Assert.Equal(new[] { "JFK", "LAX", "MIA" }, await db.Airports.Where(a => a.CountryCode == "US").OrderBy(a => a.Code).Select(a => a.Code).ToListAsync());
+        }
+
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var again = await scope.ServiceProvider.GetRequiredService<IDestinationCatalogSeeder>().SeedAsync();
+            Assert.Equal((0, 0, 0, 0), (again.Reactivated, again.CountriesAdded, again.CitiesAdded, again.AirportsAdded));
+        }
     }
 }

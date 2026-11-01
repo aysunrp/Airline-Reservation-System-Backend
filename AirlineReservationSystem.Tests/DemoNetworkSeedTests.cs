@@ -26,7 +26,7 @@ public class DemoNetworkSeedTests : IClassFixture<ApiFactory>
     public async Task TheNetwork_AddsWhatIsPlanned_SwitchesOffTheCountriesLeftOut_AndAgainChangesNothing()
     {
         // Records that exist before the network: a country that leaves the catalog (with a city and an airport that have no route), and
-        // another one whose airport has an active route and therefore stays on.
+        // another one with an active route, which is switched off together with its country.
         using (var scope = _factory.Services.CreateScope())
         {
             var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
@@ -55,14 +55,15 @@ public class DemoNetworkSeedTests : IClassFixture<ApiFactory>
 
         var first = await SeedAsync(network: true);
 
-        Assert.Single(first.Skipped); // Switzerland stays on: its airport has an active route
-        Assert.Contains("CH was kept on", first.Skipped[0]);
-        Assert.Equal(16, first.Added["Countries"]);
-        Assert.Equal(78, first.Added["Cities"]);
+        Assert.Empty(first.Skipped);
+        Assert.Equal(15, first.Added["Countries"]);
+        Assert.Equal(39, first.Added["Cities"]);
         Assert.Equal(8, first.Added["Aircraft"]);
         Assert.Equal(DemoNetworkData.Routes.Count, first.Added["Routes"]);
         Assert.Equal(DemoNetworkData.Schedules.Count, first.Added["Schedules"]);
-        Assert.Equal((1, 1, 1), (first.Added["CountriesSwitchedOff"], first.Added["CitiesSwitchedOff"], first.Added["AirportsSwitchedOff"]));
+        Assert.Equal((2, 2, 3), (first.Added["CountriesSwitchedOff"], first.Added["CitiesSwitchedOff"], first.Added["AirportsSwitchedOff"]));
+        Assert.Equal(1, first.Added["RoutesSwitchedOff"]); // 3 airports: Doha, Zurich and Tbilisi (a stop of the core network, not a destination)
+        // // the Baku - Zurich route
 
         using (var scope = _factory.Services.CreateScope())
         {
@@ -71,11 +72,13 @@ public class DemoNetworkSeedTests : IClassFixture<ApiFactory>
             Assert.False((await db.Countries.SingleAsync(c => c.Code == "QA")).IsActive);
             Assert.False((await db.DestinationCities.SingleAsync(c => c.Name == "Doha")).IsActive);
             Assert.False((await db.Airports.SingleAsync(a => a.Code == "DOH")).IsActive);
-            Assert.True((await db.Countries.SingleAsync(c => c.Code == "CH")).IsActive);
-            Assert.True((await db.Airports.SingleAsync(a => a.Code == "ZRH")).IsActive);
+            Assert.False((await db.Countries.SingleAsync(c => c.Code == "CH")).IsActive);
+            Assert.False((await db.Airports.SingleAsync(a => a.Code == "ZRH")).IsActive);
+            Assert.False((await db.Routes.SingleAsync(r => r.DestinationAirportId == db.Airports.Single(a => a.Code == "ZRH").Id)).IsActive);
+            Assert.Equal(1, await db.Airports.CountAsync(a => a.Code == "ZRH")); // nothing was deleted
             Assert.Equal(1, await db.Countries.CountAsync(c => c.Code == "QA")); // nothing was deleted
 
-            Assert.Equal(17, await db.Countries.CountAsync(c => c.IsActive)); // 16 of the network and Switzerland, kept because of its route
+            Assert.Equal(15, await db.Countries.CountAsync(c => c.IsActive)); // the fifteen of the catalog
             Assert.Equal(4 + 8, await db.Aircrafts.CountAsync());
             Assert.Equal(10 + 1 + DemoNetworkData.Routes.Count, await db.Routes.CountAsync());
             Assert.Equal(27 + DemoNetworkData.Schedules.Count, await db.FlightSchedules.CountAsync());
@@ -105,7 +108,7 @@ public class DemoNetworkSeedTests : IClassFixture<ApiFactory>
         // A second run finds everything and changes nothing.
         var second = await SeedAsync(network: true);
         Assert.Empty(second.Added);
-        Assert.Single(second.Skipped); // the Switzerland note again
+        Assert.Empty(second.Skipped);
     }
 }
 
