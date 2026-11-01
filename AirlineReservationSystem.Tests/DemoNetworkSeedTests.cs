@@ -58,7 +58,7 @@ public class DemoNetworkSeedTests : IClassFixture<ApiFactory>
         Assert.Empty(first.Skipped);
         Assert.Equal(15, first.Added["Countries"]);
         Assert.Equal(39, first.Added["Cities"]);
-        Assert.Equal(8, first.Added["Aircraft"]);
+        Assert.Equal(DemoNetworkData.Aircraft.Count, first.Added["Aircraft"]);
         Assert.Equal(DemoNetworkData.Routes.Count, first.Added["Routes"]);
         Assert.Equal(DemoNetworkData.Schedules.Count, first.Added["Schedules"]);
         Assert.Equal((2, 2, 3), (first.Added["CountriesSwitchedOff"], first.Added["CitiesSwitchedOff"], first.Added["AirportsSwitchedOff"]));
@@ -79,7 +79,7 @@ public class DemoNetworkSeedTests : IClassFixture<ApiFactory>
             Assert.Equal(1, await db.Countries.CountAsync(c => c.Code == "QA")); // nothing was deleted
 
             Assert.Equal(15, await db.Countries.CountAsync(c => c.IsActive)); // the fifteen of the catalog
-            Assert.Equal(4 + 8, await db.Aircrafts.CountAsync());
+            Assert.Equal(4 + DemoNetworkData.Aircraft.Count, await db.Aircrafts.CountAsync());
             Assert.Equal(10 + 1 + DemoNetworkData.Routes.Count, await db.Routes.CountAsync());
             Assert.Equal(27 + DemoNetworkData.Schedules.Count, await db.FlightSchedules.CountAsync());
 

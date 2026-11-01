@@ -129,6 +129,7 @@ public class SwaggerContractTests : IClassFixture<ApiFactory>
         { "post", "/api/admin/schedules/{id}/generate", true },
         { "get", "/api/admin/flights", true },
         { "post", "/api/admin/flights", true },
+        { "get", "/api/admin/flights/journeys", true },
         { "get", "/api/admin/flights/{id}", true },
         { "put", "/api/admin/flights/{id}", true },
         { "delete", "/api/admin/flights/{id}", true },

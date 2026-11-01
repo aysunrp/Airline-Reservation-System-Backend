@@ -85,7 +85,7 @@ public class DemoNetworkDataTests
     public void EverySchedule_UsesAnAircraftThatExists_AndHasThreeIncreasingFares()
     {
         var registrations = DemoSeedData.Aircraft.Concat(DemoNetworkData.Aircraft).Select(a => a.RegistrationNumber).ToHashSet();
-        Assert.Equal(12, registrations.Count);
+        Assert.Equal(4 + DemoNetworkData.Aircraft.Count, registrations.Count);
         Assert.All(DemoNetworkData.Aircraft, a => Assert.Equal((12, 25, 60), (a.BusinessSeats, a.ComfortSeats, a.EconomySeats)));
         Assert.All(Network, s =>
         {
@@ -129,7 +129,7 @@ public class DemoNetworkDataTests
             }
         }
 
-        Assert.InRange(checkedFlights, 1800, 2100);
+        Assert.InRange(checkedFlights, 2800, 3200);
     }
 
     [Fact]
@@ -170,5 +170,112 @@ public class DemoNetworkDataTests
         Assert.InRange(weeklyFlights[("GYD", "FRA")], 3, 5);   // medium demand
         Assert.InRange(weeklyFlights[("GYD", "MLE")], 2, 3);   // low demand
         Assert.InRange(weeklyFlights[("GYD", "HND")], 2, 3);
+    }
+}
+
+/// <summary>Every destination that has no direct flight from Baku is reached through a hub, in every month, both ways, within the connection rules.</summary>
+public class DemoNetworkConnectionTests
+{
+    private static readonly string[] Spokes = { "JTR", "JMK", "JFK", "LAX", "MIA", "BKK", "HKT", "LIS", "OPO", "FAO" };
+
+    private static readonly Dictionary<string, string> HubOf = new()
+    {
+        ["JTR"] = "ATH", ["JMK"] = "ATH", ["JFK"] = "IST", ["LAX"] = "IST", ["MIA"] = "IST", ["BKK"] = "IST", ["HKT"] = "IST",
+        ["LIS"] = "IST", ["OPO"] = "IST", ["FAO"] = "IST"
+    };
+
+    private static Dictionary<string, Airport> Airports { get; } = DestinationCatalogData.Countries
+        .SelectMany(c => c.Cities.SelectMany(city => city.Airports).Select(a => new Airport { Code = a.Code, TimeZoneId = a.TimeZoneId, CountryCode = c.Code }))
+        .ToDictionary(a => a.Code);
+
+    private static IEnumerable<(DateTime Departure, DateTime Arrival)> Flights(string origin, string destination)
+    {
+        // The core timetable (Baku - Istanbul is daily) and the demonstration network together.
+        var seeds = DemoSeedData.Schedules.Concat(DemoNetworkData.Schedules).Where(s => s.OriginCode == origin && s.DestinationCode == destination).ToList();
+        for (var date = new DateOnly(2026, 11, 1); date <= DemoNetworkData.ValidTo; date = date.AddDays(1))
+        {
+            var day = date.DayOfWeek == DayOfWeek.Sunday ? ScheduleDays.Sunday : (ScheduleDays)(1 << ((int)date.DayOfWeek - 1));
+            foreach (var seed in seeds.Where(s => s.Days.HasFlag(day)))
+            {
+                var departure = ScheduleTimeCalculator.ToUtc(date, seed.Departure, Airports[origin]);
+                var arrival = ScheduleTimeCalculator.ToUtc(date.AddDays(seed.ArrivalDayOffset), seed.Arrival, Airports[destination]);
+                yield return (departure, arrival);
+            }
+        }
+    }
+
+    [Theory]
+    [InlineData("JTR")]
+    [InlineData("JMK")]
+    [InlineData("JFK")]
+    [InlineData("LAX")]
+    [InlineData("MIA")]
+    [InlineData("BKK")]
+    [InlineData("HKT")]
+    [InlineData("LIS")]
+    [InlineData("OPO")]
+    [InlineData("FAO")]
+    public void ADestinationWithoutADirectFlight_HasAConnectionFromBakuInEveryMonth_AndBack(string spoke)
+    {
+        var hub = HubOf[spoke];
+        foreach (var (first, hubLeg, last) in new[] { ("GYD", hub, spoke), (spoke, hub, "GYD") })
+        {
+            var months = new HashSet<string>();
+            foreach (var a in Flights(first, hubLeg))
+            {
+                foreach (var b in Flights(hubLeg, last).Where(b => ConnectionRules.IsValidTransfer(a.Arrival, b.Departure)))
+                {
+                    months.Add(a.Departure.ToString("yyyy-MM"));
+                }
+            }
+
+            Assert.Equal(new[] { "2026-11", "2026-12", "2027-01" }, months.OrderBy(m => m));
+        }
+    }
+
+    [Fact]
+    public void EveryNewDestinationOfTheCatalog_IsAtLeastReachableFromBaku()
+    {
+        var reachable = DemoNetworkData.Routes.Where(r => r.OriginCode == "GYD").Select(r => r.DestinationCode)
+            .Concat(Spokes).ToHashSet();
+        Assert.All(new[] { "ATH", "BJV" }, code => Assert.Contains(code, reachable)); // direct
+        Assert.All(Spokes, code => Assert.DoesNotContain(DemoNetworkData.Routes, r => r.OriginCode == "GYD" && r.DestinationCode == code)); // through a hub only, no invented direct flight
+    }
+}
+
+public class ConnectionRulesTests
+{
+    private static readonly DateTime Landing = new(2026, 12, 14, 10, 0, 0, DateTimeKind.Utc);
+
+    [Theory]
+    [InlineData(89, false)]
+    [InlineData(90, true)]
+    [InlineData(480, true)]
+    [InlineData(481, false)]
+    public void ATransferIsNinetyMinutesToEightHours(int waitMinutes, bool valid)
+        => Assert.Equal(valid, ConnectionRules.IsValidTransfer(Landing, Landing.AddMinutes(waitMinutes)));
+
+    private static List<Service.Helpers.DTOs.Reservation.BookingLegRequestDto> Legs(params int[] journeys)
+        => journeys.Select((j, i) => new Service.Helpers.DTOs.Reservation.BookingLegRequestDto { FlightId = i + 1, JourneyNo = j }).ToList();
+
+    [Fact]
+    public void LegsThatDoNotSayWhichJourneyTheyBelongTo_AreNumberedByTheTripType()
+    {
+        Assert.Equal(new[] { 1 }, ConnectionRules.JourneyNumbers(TripType.OneWay, Legs(0)));
+        Assert.Equal(new[] { 1, 1 }, ConnectionRules.JourneyNumbers(TripType.OneWay, Legs(0, 0)));
+        Assert.Equal(new[] { 1, 2 }, ConnectionRules.JourneyNumbers(TripType.RoundTrip, Legs(0, 0)));
+        Assert.Null(ConnectionRules.JourneyNumbers(TripType.RoundTrip, Legs(0, 0, 0)));
+        Assert.Null(ConnectionRules.JourneyNumbers(TripType.RoundTrip, Legs(0)));
+    }
+
+    [Fact]
+    public void JourneysMustStartAtOne_NeverGoBack_AndHaveAtMostThreeFlights()
+    {
+        Assert.Equal(new[] { 1, 1, 2, 2 }, ConnectionRules.JourneyNumbers(TripType.RoundTrip, Legs(1, 1, 2, 2)));
+        Assert.Null(ConnectionRules.JourneyNumbers(TripType.RoundTrip, Legs(2, 1)));
+        Assert.Null(ConnectionRules.JourneyNumbers(TripType.RoundTrip, Legs(1, 1)));
+        Assert.Null(ConnectionRules.JourneyNumbers(TripType.OneWay, Legs(1, 2)));
+        Assert.Null(ConnectionRules.JourneyNumbers(TripType.OneWay, Legs(1, 1, 1, 1)));
+        Assert.Null(ConnectionRules.JourneyNumbers(TripType.RoundTrip, Legs(1, 3)));
     }
 }

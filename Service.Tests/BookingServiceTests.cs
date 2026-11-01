@@ -338,10 +338,12 @@ public class BookingServiceTests
         removed.Legs.Add(new BookingLegRequestDto { FlightId = 2, CabinClass = CabinClass.Economy });
         await Assert.ThrowsAsync<ValidationException>(() => CreateService().CreateBookingAsync(1, removed));
 
-        // Two separate flights are not a one-way booking, and one flight is not a round trip.
+        // Two flights in a one-way booking are one journey with a transfer: flights that do not join are refused.
         var twoOneWay = OneWay(Passenger("Aysun", 1990, (1, 104), (2, 204)));
         twoOneWay.Legs.Add(new BookingLegRequestDto { FlightId = 2, CabinClass = CabinClass.Economy });
-        await Assert.ThrowsAsync<ValidationException>(() => CreateService().CreateBookingAsync(1, twoOneWay));
+        await Assert.ThrowsAsync<BusinessRuleException>(() => CreateService().CreateBookingAsync(1, twoOneWay));
+
+        // One flight is not a round trip.
 
         var oneRoundTrip = OneWay(Passenger("Aysun", 1990, (1, 105)));
         oneRoundTrip.TripType = TripType.RoundTrip;

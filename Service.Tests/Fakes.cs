@@ -206,6 +206,9 @@ internal sealed class FakeAirportRepository : FakeRepository<Airport>, IAirportR
     public Task<bool> HasActiveRouteAsync(string originCode, string destinationCode, CancellationToken cancellationToken = default)
         => Task.FromResult(RoutePairs.Contains((originCode, destinationCode)) || RoutePairs.Contains((destinationCode, originCode)));
 
+    public Task<bool> HasActiveConnectionAsync(string originCode, string destinationCode, CancellationToken cancellationToken = default)
+        => Task.FromResult(RoutePairs.Any(first => first.Item1 == originCode && RoutePairs.Any(second => second.Item1 == first.Item2 && second.Item2 == destinationCode && second.Item2 != first.Item1)));
+
     public Task<bool> CodeExistsAsync(string code, int? excludeId = null, CancellationToken cancellationToken = default)
         => Task.FromResult(Items.Any(a => a.Code == code && a.Id != excludeId));
 
@@ -316,6 +319,28 @@ internal sealed class FakeFlightRepository : FakeRepository<Flight>, IFlightRepo
             .OrderBy(f => f.DepartureAt).ThenBy(f => f.Id)
             .Skip(skip).Take(take)
             .ToList());
+
+    public Task<IReadOnlyList<Flight>> GetAdminFilteredAsync(AdminFlightFilter filter, int skip, int take, CancellationToken cancellationToken = default)
+        => Task.FromResult<IReadOnlyList<Flight>>(Items
+            .Where(f => filter.Status is null || f.Status == filter.Status)
+            .Where(f => filter.OriginCode is null || f.Route.Origin.Code == filter.OriginCode)
+            .Where(f => filter.DestinationCode is null || f.Route.Destination.Code == filter.DestinationCode)
+            .Where(f => filter.Month is null || f.DepartureAt.Month == filter.Month)
+            .Where(f => filter.Year is null || f.DepartureAt.Year == filter.Year)
+            .Where(f => filter.AircraftId is null || f.AircraftId == filter.AircraftId)
+            .Where(f => filter.FlightType is null || (filter.FlightType == "direct" ? f.Segments.Count <= 1 : f.Segments.Count > 1))
+            .Where(f => filter.Active is null || (f.FlightSchedule is null || f.FlightSchedule.IsActive) == filter.Active)
+            .OrderBy(f => f.DepartureAt).ThenBy(f => f.Id)
+            .Skip(skip).Take(take)
+            .ToList());
+
+    public Task<IReadOnlyDictionary<int, (int Total, int Available)>> GetSeatCountsAsync(IReadOnlyCollection<int> flightIds, CancellationToken cancellationToken = default)
+    {
+        IReadOnlyDictionary<int, (int Total, int Available)> counts = Items
+            .Where(f => flightIds.Contains(f.Id))
+            .ToDictionary(f => f.Id, f => (f.Seats.Count, f.Seats.Count(seat => seat.Status == SeatStatus.Available)));
+        return Task.FromResult(counts);
+    }
 
     public Task<IReadOnlyList<Flight>> GetUpcomingAsync(DateTime from, int take, CancellationToken cancellationToken = default)
         => Task.FromResult<IReadOnlyList<Flight>>(Items
@@ -444,6 +469,22 @@ internal sealed class FakeBookingRepository : FakeRepository<Booking>, IBookingR
 
     public Task<IReadOnlyList<Booking>> GetByUserIdAsync(int userId, CancellationToken cancellationToken = default)
         => Task.FromResult<IReadOnlyList<Booking>>(Items.Where(b => b.UserId == userId).OrderByDescending(b => b.CreatedAt).ToList());
+
+    public Task<IReadOnlyList<BookingSummaryRow>> GetSummariesByUserIdAsync(int userId, CancellationToken cancellationToken = default)
+        => Task.FromResult<IReadOnlyList<BookingSummaryRow>>(Items.Where(b => b.UserId == userId).OrderByDescending(b => b.CreatedAt).Select(b =>
+        {
+            var latest = b.Cancellation?.Refunds.OrderByDescending(r => r.CreatedAt).FirstOrDefault();
+            var method = latest?.Payment?.Method ?? b.Payments.FirstOrDefault(p => p.Id == latest?.PaymentId)?.Method;
+            return new BookingSummaryRow(b.Id, b.Pnr, b.Status, b.TripType, b.TotalAmount, b.CreatedAt, b.Passengers.Count,
+                b.Cancellation?.RefundAmount, latest?.Status, latest?.Currency, method is not null && method != PaymentMethod.StripeCheckout,
+                b.Flights.OrderBy(f => f.LegOrder).Select(f => new BookingLegRow(
+                    f.LegOrder, f.FlightId, f.Flight.FlightNumber, f.Flight.Route.Origin.Code, f.Flight.Route.Origin.City,
+                    f.Flight.Route.Destination.Code, f.Flight.Route.Destination.City, f.Flight.DepartureAt, f.Flight.ArrivalAt,
+                    f.CabinClass, f.Flight.Aircraft.Model,
+                    b.Passengers.OrderBy(p => p.Id).SelectMany(p => p.Tickets)
+                        .Where(t => t.BookingFlightId == f.Id && t.FlightSeat is not null)
+                        .Select(t => $"{t.FlightSeat!.AircraftSeat.RowNumber}{t.FlightSeat.AircraftSeat.Letter}").ToList())).ToList());
+        }).ToList());
 
     public Task<IReadOnlyList<Booking>> GetForAdminAsync(string? pnr, string? passengerName, BookingStatus? status, int? take = null, CancellationToken cancellationToken = default)
     {
