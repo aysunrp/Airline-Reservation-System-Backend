@@ -22,6 +22,9 @@ public interface IDestinationCatalogRepository : IBaseRepository<Country>
     /// <summary>The ids of airports that at least one active route starts or ends at.</summary>
     Task<IReadOnlySet<int>> GetAirportIdsWithActiveRoutesAsync(CancellationToken cancellationToken = default);
 
+    /// <summary>Switches off the active routes that start or end at one of the airports, and the active schedules of those routes. Flights and bookings are not touched. Tracked; the caller saves.</summary>
+    Task<(int Routes, int Schedules)> DeactivateRoutesOfAirportsAsync(IReadOnlyCollection<int> airportIds, CancellationToken cancellationToken = default);
+
     /// <summary>Upcoming, not cancelled flights from one airport to any of the given airports (one query), earliest first.</summary>
     Task<IReadOnlyList<Flight>> GetUpcomingFlightsAsync(int originAirportId, IReadOnlyCollection<int> destinationAirportIds, DateTime from, int take, CancellationToken cancellationToken = default);
 

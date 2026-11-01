@@ -98,6 +98,9 @@ public class DemoDataSeeder : IDemoDataSeeder
         run.Count("CountriesSwitchedOff", catalog.CountriesDeactivated);
         run.Count("CitiesSwitchedOff", catalog.CitiesDeactivated);
         run.Count("AirportsSwitchedOff", catalog.AirportsDeactivated);
+        run.Count("RoutesSwitchedOff", catalog.RoutesDeactivated);
+        run.Count("SchedulesSwitchedOff", catalog.SchedulesDeactivated);
+        run.Count("CatalogReactivated", catalog.Reactivated);
         foreach (var reason in catalog.Skipped)
         {
             run.Skip(reason);

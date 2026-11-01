@@ -102,21 +102,37 @@ public class DestinationCatalogSeeder : IDestinationCatalogSeeder
             }
         }
 
-        // Countries that left the catalog are switched off with their cities and airports; nothing is deleted and nothing that has a route is touched.
-        var skipped = new List<string>();
-        int countriesOff = 0, citiesOff = 0, airportsOff = 0;
-        var withRoutes = await _catalog.GetAirportIdsWithActiveRoutesAsync(cancellationToken);
-        foreach (var code in DestinationCatalogData.RetiredCountryCodes)
+        // Countries that came back (they had been switched off by an earlier, narrower catalog): the country, its catalog cities and airports are on again.
+        var reactivated = 0;
+        foreach (var code in DestinationCatalogData.ReactivatedCountryCodes)
         {
-            if (!existing.TryGetValue(code, out var retired) || !retired.IsActive)
+            var seed = DestinationCatalogData.Countries.FirstOrDefault(c => c.Code == code);
+            if (seed is null || !existing.TryGetValue(code, out var back) || back.IsActive)
             {
                 continue;
             }
 
-            var blocked = retired.Cities.SelectMany(c => c.Airports).Where(a => withRoutes.Contains(a.Id)).Select(a => a.Code).ToList();
-            if (blocked.Count > 0)
+            back.IsActive = true;
+            reactivated++;
+            foreach (var citySeed in seed.Cities)
             {
-                skipped.Add($"{code} was kept on: {string.Join(", ", blocked)} still has an active route.");
+                var backCity = back.Cities.FirstOrDefault(c => string.Equals(c.Name, citySeed.Name, StringComparison.OrdinalIgnoreCase));
+                if (backCity is not null && !backCity.IsActive) { backCity.IsActive = true; reactivated++; }
+                foreach (var airportSeed in citySeed.Airports)
+                {
+                    if (airports.TryGetValue(airportSeed.Code, out var backAirport) && !backAirport.IsActive) { backAirport.IsActive = true; reactivated++; }
+                }
+            }
+        }
+
+        // What left the catalog is switched off with its cities, airports, routes and schedules. Nothing is deleted: flights, bookings, payments
+        // and every relation stay, and an airport that is off is refused by every new search.
+        int countriesOff = 0, citiesOff = 0, airportsOff = 0;
+        var switchedOff = new List<int>();
+        foreach (var code in DestinationCatalogData.RetiredCountryCodes)
+        {
+            if (!existing.TryGetValue(code, out var retired) || !retired.IsActive)
+            {
                 continue;
             }
 
@@ -131,15 +147,32 @@ public class DestinationCatalogSeeder : IDestinationCatalogSeeder
             foreach (var retiredAirport in retired.Cities.SelectMany(c => c.Airports).Where(a => a.IsActive))
             {
                 retiredAirport.IsActive = false;
+                switchedOff.Add(retiredAirport.Id);
                 airportsOff++;
             }
         }
 
-        if (countriesAdded + citiesAdded + airportsAdded + airportsLinked + cityFilled + countriesOff > 0)
+        var leaving = (await _catalog.GetAirportsByCodesAsync(DestinationCatalogData.RetiredAirportCodes, cancellationToken)).Where(a => a.IsActive).ToList();
+        foreach (var leavingAirport in leaving)
+        {
+            leavingAirport.IsActive = false;
+            switchedOff.Add(leavingAirport.Id);
+            airportsOff++;
+            var home = leavingAirport.CityRecord;
+            if (home is { IsActive: true } && home.Airports.All(a => !a.IsActive))
+            {
+                home.IsActive = false;
+                citiesOff++;
+            }
+        }
+
+        var (routesOff, schedulesOff) = await _catalog.DeactivateRoutesOfAirportsAsync(switchedOff, cancellationToken);
+
+        if (countriesAdded + citiesAdded + airportsAdded + airportsLinked + cityFilled + countriesOff + citiesOff + airportsOff + reactivated + routesOff + schedulesOff > 0)
         {
             await _catalog.SaveChangesAsync(cancellationToken);
         }
 
-        return new DestinationSeedResultDto(countriesAdded, citiesAdded, airportsAdded, airportsLinked, present, skipped, countriesOff, citiesOff, airportsOff);
+        return new DestinationSeedResultDto(countriesAdded, citiesAdded, airportsAdded, airportsLinked, present, Array.Empty<string>(), countriesOff, citiesOff, airportsOff, routesOff, schedulesOff, reactivated);
     }
 }

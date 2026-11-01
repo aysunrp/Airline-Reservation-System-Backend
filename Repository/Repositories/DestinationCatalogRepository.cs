@@ -40,6 +40,23 @@ public class DestinationCatalogRepository : BaseRepository<Country>, IDestinatio
         return routes.SelectMany(r => new[] { r.OriginAirportId, r.DestinationAirportId }).ToHashSet();
     }
 
+    public async Task<(int Routes, int Schedules)> DeactivateRoutesOfAirportsAsync(IReadOnlyCollection<int> airportIds, CancellationToken cancellationToken = default)
+    {
+        if (airportIds.Count == 0)
+        {
+            return (0, 0);
+        }
+
+        var routes = await Context.Set<Route>()
+            .Where(r => r.IsActive && (airportIds.Contains(r.OriginAirportId) || airportIds.Contains(r.DestinationAirportId)))
+            .ToListAsync(cancellationToken);
+        var routeIds = routes.Select(r => r.Id).ToList();
+        var schedules = await Context.Set<FlightSchedule>().Where(s => s.IsActive && routeIds.Contains(s.RouteId)).ToListAsync(cancellationToken);
+        routes.ForEach(r => r.IsActive = false);
+        schedules.ForEach(s => s.IsActive = false);
+        return (routes.Count, schedules.Count);
+    }
+
     public async Task<IReadOnlyList<Flight>> GetUpcomingFlightsAsync(int originAirportId, IReadOnlyCollection<int> destinationAirportIds, DateTime from, int take, CancellationToken cancellationToken = default)
         => await Context.Set<Flight>().AsNoTracking()
             .Include(f => f.Route).ThenInclude(r => r.Origin)
