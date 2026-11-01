@@ -103,7 +103,13 @@ public static class DemoSeedStartup
         }
 
         logger.LogInformation("Seeding demo data{Flights}.", settings.GenerateFlights ? " and generating its flights (this can take a few minutes)" : string.Empty);
-        var result = await scope.ServiceProvider.GetRequiredService<IDemoDataSeeder>().SeedAsync(settings.GenerateFlights, cancellationToken);
+        var seeder = scope.ServiceProvider.GetRequiredService<IDemoDataSeeder>();
+        var result = await seeder.SeedAsync(settings.GenerateFlights, cancellationToken);
+        if (settings.Network)
+        {
+            logger.LogInformation("Seeding the demonstration network (this can take several minutes).");
+            result = await seeder.SeedNetworkAsync(settings.GenerateFlights, cancellationToken);
+        }
 
         logger.LogInformation("Demo data added: {Added}; already present: {Present}.",
             Describe(result.Added), Describe(result.AlreadyPresent));

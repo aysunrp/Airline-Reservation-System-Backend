@@ -32,6 +32,7 @@ public class DemoDataSeeder : IDemoDataSeeder
     private readonly IAdminRouteService _routeService;
     private readonly IAdminScheduleService _scheduleService;
     private readonly IFlightGenerationService _generationService;
+    private readonly IDestinationCatalogSeeder _catalogSeeder;
 
     public DemoDataSeeder(
         IAirportRepository airportRepository,
@@ -45,7 +46,8 @@ public class DemoDataSeeder : IDemoDataSeeder
         IAdminAircraftService aircraftService,
         IAdminRouteService routeService,
         IAdminScheduleService scheduleService,
-        IFlightGenerationService generationService)
+        IFlightGenerationService generationService,
+        IDestinationCatalogSeeder catalogSeeder)
     {
         _airportRepository = airportRepository;
         _aircraftRepository = aircraftRepository;
@@ -59,6 +61,7 @@ public class DemoDataSeeder : IDemoDataSeeder
         _routeService = routeService;
         _scheduleService = scheduleService;
         _generationService = generationService;
+        _catalogSeeder = catalogSeeder;
     }
 
     public async Task<DemoSeedResultDto> SeedAsync(bool generateFlights = true, CancellationToken cancellationToken = default)
@@ -66,14 +69,66 @@ public class DemoDataSeeder : IDemoDataSeeder
         var run = new Run();
 
         await SeedAirportsAsync(run, cancellationToken);
-        await SeedAircraftAsync(run, cancellationToken);
-        await SeedRoutesAsync(run, cancellationToken);
-        await SeedSchedulesAsync(run, cancellationToken);
+        await SeedAircraftAsync(run, DemoSeedData.Aircraft, cancellationToken);
+        await SeedRoutesAsync(run, DemoSeedData.Routes, cancellationToken);
+        await SeedSchedulesAsync(run, DemoSeedData.Schedules, cancellationToken);
         await SeedBookingOptionsAsync(run, cancellationToken);
         await SeedPromoCodesAsync(run, cancellationToken);
         await SeedCancellationRulesAsync(run, cancellationToken);
 
         var flights = generateFlights ? await _generationService.GenerateAsync(cancellationToken: cancellationToken) : null;
+        return new DemoSeedResultDto(run.Added, run.AlreadyPresent, run.Skipped, flights);
+    }
+
+    /// <summary>
+    /// The demonstration network of <see cref="DemoNetworkData"/> (November 2026 to January 2027): the destination catalog first (the routes need
+    /// its airports), then the extra aircraft, the routes and the schedules, and, when asked, the flights of the new schedules only. Everything is
+    /// looked up by its natural key and left alone when it exists, so it can run any number of times. The schedules end on 31 January 2027, so the
+    /// background worker does not extend them. Flights are made with the normal generator, one schedule at a time.
+    /// </summary>
+    public async Task<DemoSeedResultDto> SeedNetworkAsync(bool generateFlights = true, CancellationToken cancellationToken = default)
+    {
+        var run = new Run();
+
+        var catalog = await _catalogSeeder.SeedAsync(cancellationToken);
+        run.Count("Countries", catalog.CountriesAdded);
+        run.Count("Cities", catalog.CitiesAdded);
+        run.Count("Airports", catalog.AirportsAdded);
+        run.Count("AirportsLinked", catalog.AirportsLinked);
+        run.Count("CountriesSwitchedOff", catalog.CountriesDeactivated);
+        run.Count("CitiesSwitchedOff", catalog.CitiesDeactivated);
+        run.Count("AirportsSwitchedOff", catalog.AirportsDeactivated);
+        foreach (var reason in catalog.Skipped)
+        {
+            run.Skip(reason);
+        }
+
+        await SeedAircraftAsync(run, DemoNetworkData.Aircraft, cancellationToken);
+        await SeedRoutesAsync(run, DemoNetworkData.Routes, cancellationToken);
+        await SeedSchedulesAsync(run, DemoNetworkData.Schedules, cancellationToken);
+
+        FlightGenerationResultDto? flights = null;
+        if (generateFlights)
+        {
+            var numbers = DemoNetworkData.Schedules.Select(x => x.FlightNumber).ToHashSet();
+            var created = new List<GeneratedFlightDto>();
+            var skipped = new List<FlightGenerationSkipDto>();
+            var conflicts = new List<FlightGenerationConflictDto>();
+            var already = 0;
+            var adjustments = new List<string>();
+            foreach (var schedule in (await _scheduleRepository.GetAllWithDetailsAsync(cancellationToken)).Where(x => numbers.Contains(x.FlightNumber)))
+            {
+                var result = await _generationService.GenerateAsync(schedule.Id, DateOnly.FromDateTime(DateTime.UtcNow), DemoNetworkData.ValidTo, cancellationToken);
+                created.AddRange(result.Created);
+                skipped.AddRange(result.Skipped);
+                conflicts.AddRange(result.Conflicts);
+                adjustments.AddRange(result.TimeAdjustments);
+                already += result.AlreadyExisting;
+            }
+
+            flights = new FlightGenerationResultDto(created, already, skipped, conflicts, adjustments);
+        }
+
         return new DemoSeedResultDto(run.Added, run.AlreadyPresent, run.Skipped, flights);
     }
 
@@ -97,9 +152,9 @@ public class DemoDataSeeder : IDemoDataSeeder
         await _airportRepository.SaveChangesAsync(cancellationToken);
     }
 
-    private async Task SeedAircraftAsync(Run run, CancellationToken cancellationToken)
+    private async Task SeedAircraftAsync(Run run, IEnumerable<AircraftSeed> seeds, CancellationToken cancellationToken)
     {
-        foreach (var seed in DemoSeedData.Aircraft)
+        foreach (var seed in seeds)
         {
             if (await _aircraftRepository.RegistrationExistsAsync(seed.RegistrationNumber, null, cancellationToken))
             {
@@ -115,9 +170,9 @@ public class DemoDataSeeder : IDemoDataSeeder
         }
     }
 
-    private async Task SeedRoutesAsync(Run run, CancellationToken cancellationToken)
+    private async Task SeedRoutesAsync(Run run, IEnumerable<RouteSeed> seeds, CancellationToken cancellationToken)
     {
-        foreach (var seed in DemoSeedData.Routes)
+        foreach (var seed in seeds)
         {
             if (await FindRouteAsync(seed.OriginCode, seed.DestinationCode, cancellationToken) is not null)
             {
@@ -132,14 +187,14 @@ public class DemoDataSeeder : IDemoDataSeeder
         }
     }
 
-    private async Task SeedSchedulesAsync(Run run, CancellationToken cancellationToken)
+    private async Task SeedSchedulesAsync(Run run, IEnumerable<ScheduleSeed> seeds, CancellationToken cancellationToken)
     {
         var existing = (await _scheduleRepository.GetAllWithDetailsAsync(cancellationToken))
             .Select(s => (s.FlightNumber, s.RouteId))
             .ToHashSet();
         var aircraft = (await _aircraftRepository.GetAllAsync(cancellationToken)).ToDictionary(a => a.RegistrationNumber, a => a.Id);
 
-        foreach (var seed in DemoSeedData.Schedules)
+        foreach (var seed in seeds)
         {
             var label = $"Schedule {seed.FlightNumber} {seed.OriginCode}-{seed.DestinationCode}";
             var route = await FindRouteAsync(seed.OriginCode, seed.DestinationCode, cancellationToken);
@@ -165,7 +220,7 @@ public class DemoDataSeeder : IDemoDataSeeder
             {
                 FlightNumber = seed.FlightNumber, RouteId = route.Id, DefaultAircraftId = aircraftId,
                 DepartureTime = seed.Departure, ArrivalTime = seed.Arrival, ArrivalDayOffset = seed.ArrivalDayOffset,
-                DaysOfWeek = ScheduleDays.Everyday, ValidFrom = DemoSeedData.ScheduleValidFrom,
+                DaysOfWeek = seed.Days, ValidFrom = DemoSeedData.ScheduleValidFrom, ValidTo = seed.ValidTo,
                 Fares =
                 {
                     new ScheduleFareRequestDto { CabinClass = CabinClass.Economy, BasePrice = seed.Economy },
@@ -274,6 +329,14 @@ public class DemoDataSeeder : IDemoDataSeeder
         public List<string> Skipped { get; } = new();
 
         public void Add(string kind) => Added[kind] = Added.GetValueOrDefault(kind) + 1;
+
+        public void Count(string kind, int count)
+        {
+            if (count > 0)
+            {
+                Added[kind] = Added.GetValueOrDefault(kind) + count;
+            }
+        }
 
         public void Present(string kind) => AlreadyPresent[kind] = AlreadyPresent.GetValueOrDefault(kind) + 1;
 
