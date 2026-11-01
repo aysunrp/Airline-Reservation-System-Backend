@@ -118,8 +118,9 @@ public class BookingService : IBookingService
             ContactConfirmedAt = userId is not null && _confirmation.IsRequired ? null : now
         };
 
+        var journeys = ConnectionRules.JourneyNumbers(request.TripType, request.Legs)!;
         var bookingFlights = quote.Legs
-            .Select((leg, index) => new BookingFlight { FlightId = leg.Flight.Id, LegOrder = index + 1, CabinClass = leg.Request.CabinClass })
+            .Select((leg, index) => new BookingFlight { FlightId = leg.Flight.Id, LegOrder = index + 1, JourneyNo = journeys[index], CabinClass = leg.Request.CabinClass })
             .ToList();
         foreach (var bookingFlight in bookingFlights)
         {
@@ -237,8 +238,12 @@ public class BookingService : IBookingService
 
     public async Task<IReadOnlyList<BookingSummaryDto>> GetMyBookingsAsync(int userId, CancellationToken cancellationToken = default)
     {
-        var bookings = await _bookingRepository.GetByUserIdAsync(userId, cancellationToken);
-        return bookings.Select(b => b.ToSummaryDto()).ToList();
+        var rows = await _bookingRepository.GetSummariesByUserIdAsync(userId, cancellationToken);
+        return rows.Select(r => new BookingSummaryDto(
+            r.Id, r.Pnr, r.Status, r.TripType, r.TotalAmount, r.CreatedAt, r.PassengerCount, r.RefundStatus,
+            r.Legs.Select(l => new BookingLegDto(l.LegOrder, l.FlightId, l.FlightNumber, l.OriginCode, l.OriginCity, l.DestinationCode,
+                l.DestinationCity, l.DepartureAt, l.ArrivalAt, l.CabinClass, l.AircraftModel, l.Seats, l.JourneyNo)).ToList(),
+            r.RefundIsDemo, r.CancellationRefundAmount, r.RefundCurrency)).ToList();
     }
 
     public async Task<BookingDto> GetMyBookingAsync(int userId, string pnr, CancellationToken cancellationToken = default)
@@ -269,7 +274,7 @@ public class BookingService : IBookingService
             var flight = await _flightRepository.GetDetailsAsync(leg.FlightId, cancellationToken)
                          ?? throw new NotFoundException("Uçuş tapılmadı.");
 
-            if (flight.Status == FlightStatus.Cancelled || flight.DepartureAt <= now)
+            if (flight.Status == FlightStatus.Cancelled || flight.DepartureAt <= now || flight.FlightSchedule is { IsActive: false })
             {
                 throw new BusinessRuleException($"{flight.FlightNumber} nömrəli uçuşu artıq bron etmək mümkün deyil.");
             }
@@ -285,11 +290,39 @@ public class BookingService : IBookingService
             legs.Add((leg, flight, fare.BasePrice));
         }
 
-        if (request.TripType == TripType.RoundTrip
-            && (legs[1].Flight.Route.OriginAirportId != legs[0].Flight.Route.DestinationAirportId
-                || legs[1].Flight.Route.DestinationAirportId != legs[0].Flight.Route.OriginAirportId))
+        // Flights of one journey follow each other: each lands where the next departs, after a transfer of 90 minutes to 8 hours.
+        var journeys = ConnectionRules.JourneyNumbers(request.TripType, request.Legs)!;
+        for (var i = 1; i < legs.Count; i++)
         {
-            throw new BusinessRuleException("Qayıdış uçuşu eyni marşrutla geri uçmalıdır.");
+            var previous = legs[i - 1].Flight;
+            var next = legs[i].Flight;
+            if (journeys[i] != journeys[i - 1])
+            {
+                continue;
+            }
+
+            if (previous.Route.DestinationAirportId != next.Route.OriginAirportId)
+            {
+                throw new BusinessRuleException("Aktarma uçuşları bir-birinə bağlanmır: növbəti uçuş əvvəlki uçuşun endiyi hava limanından qalxmalıdır.");
+            }
+
+            if (!ConnectionRules.IsValidTransfer(previous.ArrivalAt, next.DepartureAt))
+            {
+                throw new BusinessRuleException("Aktarma müddəti 90 dəqiqədən az və ya 8 saatdan çox ola bilməz.");
+            }
+        }
+
+        if (request.TripType == TripType.RoundTrip)
+        {
+            var outboundFirst = legs[journeys.ToList().IndexOf(1)].Flight;
+            var outboundLast = legs[journeys.ToList().LastIndexOf(1)].Flight;
+            var returnFirst = legs[journeys.ToList().IndexOf(2)].Flight;
+            var returnLast = legs[journeys.ToList().LastIndexOf(2)].Flight;
+            if (returnFirst.Route.OriginAirportId != outboundLast.Route.DestinationAirportId
+                || returnLast.Route.DestinationAirportId != outboundFirst.Route.OriginAirportId)
+            {
+                throw new BusinessRuleException("Qayıdış uçuşu eyni marşrutla geri uçmalıdır.");
+            }
         }
 
         return legs;

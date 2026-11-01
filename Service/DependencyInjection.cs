@@ -103,6 +103,7 @@ namespace Service
             services.AddScoped<IAuditLogService, AuditLogService>();
             services.AddScoped<IAdminUserService, AdminUserService>();
             services.AddScoped<ISuperAdminProvisioningService, SuperAdminProvisioningService>();
+            services.AddHostedService<StartupWarmUpWorker>();
             services.AddHostedService<BookingExpiryWorker>();
             services.AddHostedService<FlightGenerationWorker>();
             services.AddHostedService<BookingLifecycleWorker>();

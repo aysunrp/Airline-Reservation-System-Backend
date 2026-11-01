@@ -23,6 +23,9 @@ public class BookingLegRequestDto
 {
     public int FlightId { get; set; }
     public CabinClass CabinClass { get; set; }
+
+    /// <summary>1 for the outbound journey, 2 for the return. Left out (0), a one-way booking is journey 1 and a two-flight round trip is 1 and 2.</summary>
+    public int JourneyNo { get; set; }
 }
 
 public class BookingPassengerRequestDto

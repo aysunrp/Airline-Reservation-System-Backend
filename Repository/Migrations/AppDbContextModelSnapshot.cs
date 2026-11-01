@@ -410,6 +410,9 @@ namespace Repository.Migrations
                     b.Property<int>("FlightId")
                         .HasColumnType("int");
 
+                    b.Property<int>("JourneyNo")
+                        .HasColumnType("int");
+
                     b.Property<int>("LegOrder")
                         .HasColumnType("int");
 

@@ -28,6 +28,79 @@ public class BookingRepository : BaseRepository<Booking>, IBookingRepository
     public Task<bool> PnrExistsAsync(string pnr, CancellationToken cancellationToken = default)
         => Set.AnyAsync(b => b.Pnr == pnr, cancellationToken);
 
+    /// <summary>
+    /// A few small queries, each over narrow columns and each filtered by the account: the bookings, their legs, their seats, their
+    /// cancellations and refunds. They are put together here. (Loading whole bookings with flights, routes, airports and aircraft made one
+    /// wide, sorted query that SQL Server sometimes held up for 25 seconds waiting for a memory grant.)
+    /// </summary>
+    public async Task<IReadOnlyList<BookingSummaryRow>> GetSummariesByUserIdAsync(int userId, CancellationToken cancellationToken = default)
+    {
+        var bookings = await Set.AsNoTracking()
+            .Where(b => b.UserId == userId)
+            .OrderByDescending(b => b.CreatedAt).ThenByDescending(b => b.Id)
+            .Select(b => new { b.Id, b.Pnr, b.Status, b.TripType, b.TotalAmount, b.CreatedAt, PassengerCount = b.Passengers.Count })
+            .ToListAsync(cancellationToken);
+        if (bookings.Count == 0)
+        {
+            return Array.Empty<BookingSummaryRow>();
+        }
+
+        var legs = await Context.Set<BookingFlight>().AsNoTracking()
+            .Where(f => f.Booking.UserId == userId)
+            .Select(f => new
+            {
+                f.BookingId, f.Id, f.LegOrder, f.JourneyNo, f.FlightId, f.CabinClass,
+                f.Flight.FlightNumber, f.Flight.DepartureAt, f.Flight.ArrivalAt,
+                OriginCode = f.Flight.Route.Origin.Code, OriginCity = f.Flight.Route.Origin.City,
+                DestinationCode = f.Flight.Route.Destination.Code, DestinationCity = f.Flight.Route.Destination.City,
+                AircraftModel = f.Flight.Aircraft.Model
+            })
+            .ToListAsync(cancellationToken);
+
+        var seats = await Context.Set<Ticket>().AsNoTracking()
+            .Where(t => t.BookingFlight.Booking.UserId == userId && t.FlightSeatId != null)
+            .OrderBy(t => t.BookingPassengerId).ThenBy(t => t.Id)
+            .Select(t => new { t.BookingFlightId, t.FlightSeat!.AircraftSeat.RowNumber, t.FlightSeat.AircraftSeat.Letter })
+            .ToListAsync(cancellationToken);
+
+        var cancellations = await Context.Set<Cancellation>().AsNoTracking()
+            .Where(c => c.Booking.UserId == userId)
+            .Select(c => new { c.Id, c.BookingId, c.RefundAmount })
+            .ToListAsync(cancellationToken);
+
+        var refunds = cancellations.Count == 0
+            ? new List<RefundRow>()
+            : await Context.Set<Refund>().AsNoTracking()
+                .Where(r => r.Cancellation.Booking.UserId == userId)
+                .Select(r => new RefundRow(r.CancellationId, r.Status, r.Currency, r.CreatedAt, r.Payment.Method))
+                .ToListAsync(cancellationToken);
+
+        var seatsByLeg = seats.GroupBy(s => s.BookingFlightId)
+            .ToDictionary(g => g.Key, g => (IReadOnlyList<string>)g.Select(s => s.RowNumber + s.Letter).ToList());
+        var legsByBooking = legs.GroupBy(l => l.BookingId).ToDictionary(g => g.Key);
+        var cancellationByBooking = cancellations.ToDictionary(c => c.BookingId);
+
+        return bookings.Select(b =>
+        {
+            cancellationByBooking.TryGetValue(b.Id, out var cancellation);
+            var latest = cancellation is null
+                ? null
+                : refunds.Where(r => r.CancellationId == cancellation.Id).OrderByDescending(r => r.CreatedAt).FirstOrDefault();
+
+            var bookingLegs = legsByBooking.TryGetValue(b.Id, out var group)
+                ? group.OrderBy(l => l.LegOrder).Select(l => new BookingLegRow(
+                    l.LegOrder, l.FlightId, l.FlightNumber, l.OriginCode, l.OriginCity, l.DestinationCode, l.DestinationCity,
+                    l.DepartureAt, l.ArrivalAt, l.CabinClass, l.AircraftModel,
+                    seatsByLeg.TryGetValue(l.Id, out var labels) ? labels : Array.Empty<string>(), l.JourneyNo)).ToList()
+                : new List<BookingLegRow>();
+
+            return new BookingSummaryRow(b.Id, b.Pnr, b.Status, b.TripType, b.TotalAmount, b.CreatedAt, b.PassengerCount,
+                cancellation?.RefundAmount, latest?.Status, latest?.Currency, latest is not null && latest.Method != PaymentMethod.StripeCheckout, bookingLegs);
+        }).ToList();
+    }
+
+    private sealed record RefundRow(int CancellationId, RefundStatus Status, string Currency, DateTime CreatedAt, PaymentMethod Method);
+
     public async Task<IReadOnlyList<Booking>> GetByUserIdAsync(int userId, CancellationToken cancellationToken = default)
         => await Set.AsNoTracking()
             .AsSplitQuery()
