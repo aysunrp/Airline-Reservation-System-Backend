@@ -5,13 +5,13 @@ namespace Service.Helpers.Validators;
 
 public class FlightSearchRequestValidator : AbstractValidator<FlightSearchRequestDto>
 {
-    // Upper bound for a multi-city search; keeps a single request reasonable.
-    private const int MaxLegs = 6;
+    // One flight for a one-way search, two (outbound and return) for a round trip.
+    private const int MaxLegs = 2;
 
     public FlightSearchRequestValidator(TimeProvider timeProvider)
     {
         RuleFor(x => x.Legs).NotEmpty().Must(l => l.Count <= MaxLegs)
-            .WithMessage($"A search can contain at most {MaxLegs} flights.");
+            .WithMessage("A search is one-way (one flight) or round trip (outbound and return).");
 
         RuleFor(x => x.CabinClass).IsInEnum();
         RuleFor(x => x.Passengers).InclusiveBetween(1, CreateBookingRequestValidator.MaxPassengers);

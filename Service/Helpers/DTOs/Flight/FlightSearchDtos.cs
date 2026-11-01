@@ -2,7 +2,7 @@ using Domain.Enums;
 
 namespace Service.Helpers.DTOs.Flight;
 
-/// <summary>One-way = 1 leg, round trip = 2 legs, multi-city = one leg per city pair.</summary>
+/// <summary>One-way = 1 leg, round trip = 2 legs (outbound and return).</summary>
 public class FlightSearchRequestDto
 {
     public List<FlightSearchLegDto> Legs { get; set; } = new();

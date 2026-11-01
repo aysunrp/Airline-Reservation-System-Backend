@@ -21,7 +21,7 @@ public class FlightsController : ControllerBase
         _seatService = seatService;
     }
 
-    /// <summary>One-way, round-trip or multi-city search: one result list per leg.</summary>
+    /// <summary>One-way or round-trip search: one result list per leg.</summary>
     [HttpPost("search")]
     [ProducesResponseType<IReadOnlyList<FlightSearchLegResultDto>>(StatusCodes.Status200OK)]
     [ProducesResponseType<ValidationProblemDetails>(StatusCodes.Status400BadRequest)]
