@@ -197,4 +197,81 @@ public class VoiceSearchEndpointTests : IClassFixture<ApiFactory>
         var legs = await response.ReadAsync<List<FlightSearchLegResultDto>>();
         Assert.Equal(seed.FlightId, Assert.Single(Assert.Single(legs).Flights).Id);
     }
+
+    // ---- the Azerbaijani wishes: the fastest flight, direct or connecting, a return day, who travels, unknown places ----
+
+    [Fact]
+    public async Task TheFastestDirectFlight_ArrivesAsCriteria()
+    {
+        var result = await InterpretAsync("Bakıdan Londona ən sürətli birbaşa uçuş");
+
+        Assert.Equal("ready", result.Status);
+        Assert.True(result.Fastest);
+        Assert.Equal("direct", result.Stops);
+        Assert.Equal("LHR", result.Destination!.Code);
+    }
+
+    [Fact]
+    public async Task ARoundTrip_ArrivesWithBothDays()
+    {
+        var result = await InterpretAsync("Bakıdan Londona 10 dekabr gediş 15 dekabr qayıdış");
+
+        Assert.Equal("ready", result.Status);
+        Assert.Equal(10, result.Date!.Value.Day);
+        Assert.Equal(15, result.ReturnDate!.Value.Day);
+        Assert.Equal(12, result.ReturnDate.Value.Month);
+    }
+
+    [Fact]
+    public async Task AdultsChildrenAndInfants_ArriveApart()
+    {
+        var result = await InterpretAsync("Bakıdan Londona iki böyük bir uşaq bir körpə");
+
+        Assert.Equal((2, 1, 1, 4), (result.Adults, result.Children, result.Infants, result.Passengers));
+    }
+
+    [Fact]
+    public async Task AnUnknownPlace_IsNamed()
+    {
+        var result = await InterpretAsync("Bakıdan Atlantidaya uçuş");
+
+        Assert.Equal("needs_clarification", result.Status);
+        Assert.Equal("Atlantidaya", Assert.Single(result.Issues, i => i.Code == "unknown_destination").Value);
+    }
+
+    [Fact]
+    public async Task APeriodSearch_CanBeSortedByDuration_AndKeepsOnlyDirectFlights()
+    {
+        var seed = await _factory.GetSeedAsync();
+        var today = DateOnly.FromDateTime(DateTime.UtcNow);
+
+        var response = await _client.PostAsJsonAsync("/api/flights/search-range", new
+        {
+            originCode = "GYD", destinationCode = "LHR", from = today, to = today.AddDays(30), sortBy = "duration", stops = "direct", passengers = 1
+        }, Json);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var result = await response.ReadAsync<FlightRangeSearchResultDto>();
+        Assert.Equal("duration", result.SortBy);
+        Assert.Equal("direct", result.Stops);
+        Assert.All(result.Flights, f => Assert.Equal(0, f.Stops));
+        Assert.True(result.Flights.Zip(result.Flights.Skip(1), (a, b) => a.DurationMinutes <= b.DurationMinutes).All(x => x));
+        Assert.True(seed.FlightId > 0);
+    }
+
+    [Theory]
+    [InlineData("random", null)]
+    [InlineData("price", "sometimes")]
+    public async Task AnUnknownSortOrStops_IsABadRequest(string sortBy, string? stops)
+    {
+        await _factory.GetSeedAsync();
+        var today = DateOnly.FromDateTime(DateTime.UtcNow);
+
+        var response = await _client.PostAsJsonAsync("/api/flights/search-range", new
+        {
+            originCode = "GYD", destinationCode = "LHR", from = today, to = today.AddDays(5), sortBy, stops
+        }, Json);
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
 }

@@ -86,6 +86,66 @@ public class ConnectionJourneyTests : IClassFixture<ApiFactory>
         Assert.Equal((int)(connection.ArrivalAt - connection.DepartureAt).TotalMinutes, connection.DurationMinutes);
     }
 
+    private async Task<FlightRangeSearchResultDto> SearchPeriodAsync(string from, string to, string sortBy = "price", string? stops = null)
+    {
+        var response = await _factory.CreateClient().PostAsJsonAsync("/api/flights/search-range", new
+        {
+            originCode = from, destinationCode = to, from = Monday, to = Monday.AddDays(2), sortBy, stops, passengers = 1
+        }, Json);
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        return await response.ReadAsync<FlightRangeSearchResultDto>();
+    }
+
+    [Fact]
+    public async Task APeriodSearch_ListsTheJourneysOfEveryDay_AsAOneDaySearchDoes()
+    {
+        await PrepareAsync();
+
+        var period = await SearchPeriodAsync("GYD", "JTR");
+
+        Assert.Empty(period.Flights);
+        Assert.Equal(period.Connections.Count, period.TotalFound);
+        Assert.NotEmpty(period.Connections);
+        // The same journeys, day by day.
+        var perDay = 0;
+        for (var day = 0; day < 3; day++)
+        {
+            perDay += (await SearchAsync("GYD", "JTR", Monday.AddDays(day))).Connections.Count;
+        }
+
+        Assert.Equal(perDay, period.Connections.Count);
+        Assert.All(period.Connections, c => Assert.Equal(("ATH", 2), (c.TransferCode, c.Flights.Count)));
+        Assert.True(period.Connections.Zip(period.Connections.Skip(1), (a, b) => a.Fares[CabinClass.Economy] <= b.Fares[CabinClass.Economy]).All(x => x));
+    }
+
+    [Fact]
+    public async Task APeriodSearch_CanBeSortedByDuration_AndKeepsOnlyConnectingJourneys()
+    {
+        await PrepareAsync();
+
+        var shortest = await SearchPeriodAsync("GYD", "JTR", "duration");
+        var connecting = await SearchPeriodAsync("GYD", "JTR", "price", "connecting");
+        var direct = await SearchPeriodAsync("GYD", "JTR", "price", "direct");
+
+        Assert.True(shortest.Connections.Zip(shortest.Connections.Skip(1), (a, b) => a.DurationMinutes <= b.DurationMinutes).All(x => x));
+        Assert.Equal(shortest.Connections.Count, connecting.Connections.Count);
+        Assert.Empty(direct.Connections);
+        Assert.Equal(0, direct.TotalFound);
+    }
+
+    [Fact]
+    public async Task APeriodSearch_OfADirectDestination_StillListsItsDirectFlights()
+    {
+        await PrepareAsync();
+
+        var athens = await SearchPeriodAsync("GYD", "ATH");
+        var directOnly = await SearchPeriodAsync("GYD", "ATH", "price", "direct");
+
+        Assert.NotEmpty(athens.Flights);
+        Assert.Equal(athens.Flights.Count, directOnly.Flights.Count);
+        Assert.All(directOnly.Flights, f => Assert.Equal(0, f.Stops));
+    }
+
     [Fact]
     public async Task ADirectDestination_StillShowsItsDirectFlight_AndTheRouteCheckKnowsBothKindsOfJourney()
     {
