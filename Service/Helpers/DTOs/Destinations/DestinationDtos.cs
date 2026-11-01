@@ -50,4 +50,5 @@ public class DestinationCityRequestDto
 
 /// <summary>What a catalog seed run did; counts only, never record contents.</summary>
 public record DestinationSeedResultDto(
-    int CountriesAdded, int CitiesAdded, int AirportsAdded, int AirportsLinked, int AlreadyPresent, IReadOnlyList<string> Skipped);
+    int CountriesAdded, int CitiesAdded, int AirportsAdded, int AirportsLinked, int AlreadyPresent, IReadOnlyList<string> Skipped,
+    int CountriesDeactivated = 0, int CitiesDeactivated = 0, int AirportsDeactivated = 0);

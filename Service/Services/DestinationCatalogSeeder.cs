@@ -102,11 +102,44 @@ public class DestinationCatalogSeeder : IDestinationCatalogSeeder
             }
         }
 
-        if (countriesAdded + citiesAdded + airportsAdded + airportsLinked + cityFilled > 0)
+        // Countries that left the catalog are switched off with their cities and airports; nothing is deleted and nothing that has a route is touched.
+        var skipped = new List<string>();
+        int countriesOff = 0, citiesOff = 0, airportsOff = 0;
+        var withRoutes = await _catalog.GetAirportIdsWithActiveRoutesAsync(cancellationToken);
+        foreach (var code in DestinationCatalogData.RetiredCountryCodes)
+        {
+            if (!existing.TryGetValue(code, out var retired) || !retired.IsActive)
+            {
+                continue;
+            }
+
+            var blocked = retired.Cities.SelectMany(c => c.Airports).Where(a => withRoutes.Contains(a.Id)).Select(a => a.Code).ToList();
+            if (blocked.Count > 0)
+            {
+                skipped.Add($"{code} was kept on: {string.Join(", ", blocked)} still has an active route.");
+                continue;
+            }
+
+            retired.IsActive = false;
+            countriesOff++;
+            foreach (var retiredCity in retired.Cities.Where(c => c.IsActive))
+            {
+                retiredCity.IsActive = false;
+                citiesOff++;
+            }
+
+            foreach (var retiredAirport in retired.Cities.SelectMany(c => c.Airports).Where(a => a.IsActive))
+            {
+                retiredAirport.IsActive = false;
+                airportsOff++;
+            }
+        }
+
+        if (countriesAdded + citiesAdded + airportsAdded + airportsLinked + cityFilled + countriesOff > 0)
         {
             await _catalog.SaveChangesAsync(cancellationToken);
         }
 
-        return new DestinationSeedResultDto(countriesAdded, citiesAdded, airportsAdded, airportsLinked, present, Array.Empty<string>());
+        return new DestinationSeedResultDto(countriesAdded, citiesAdded, airportsAdded, airportsLinked, present, skipped, countriesOff, citiesOff, airportsOff);
     }
 }
