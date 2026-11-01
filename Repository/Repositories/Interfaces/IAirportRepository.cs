@@ -11,6 +11,9 @@ public interface IAirportRepository : IBaseRepository<Airport>
     /// <summary>The ids of airports that at least one active route starts or ends at.</summary>
     Task<IReadOnlySet<int>> GetAirportIdsWithActiveRoutesAsync(CancellationToken cancellationToken = default);
 
+    /// <summary>True when active routes join the origin to the destination through one transfer airport (origin → hub → destination).</summary>
+    Task<bool> HasActiveConnectionAsync(string originCode, string destinationCode, CancellationToken cancellationToken = default);
+
     /// <summary>True when an active route joins the two airports (either direction), by IATA code.</summary>
     Task<bool> HasActiveRouteAsync(string originCode, string destinationCode, CancellationToken cancellationToken = default);
 

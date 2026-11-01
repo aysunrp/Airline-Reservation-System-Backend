@@ -11,6 +11,10 @@ public class RouteRepository : BaseRepository<Route>, IRouteRepository
     {
     }
 
+    public async Task<IReadOnlyList<(int Origin, int Destination)>> GetActivePairsAsync(CancellationToken cancellationToken = default)
+        => (await Set.AsNoTracking().Where(r => r.IsActive).Select(r => new { r.OriginAirportId, r.DestinationAirportId }).ToListAsync(cancellationToken))
+            .Select(r => (r.OriginAirportId, r.DestinationAirportId)).ToList();
+
     public Task<int> CountActiveAsync(CancellationToken cancellationToken = default)
         => Set.CountAsync(r => r.IsActive, cancellationToken);
 
