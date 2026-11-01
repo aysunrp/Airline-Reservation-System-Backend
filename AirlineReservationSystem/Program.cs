@@ -224,6 +224,9 @@ await app.SeedDemoDataIfEnabledAsync();
 // The destination catalog (reference data): any environment, only once the migrations are applied (see DestinationCatalogStartup).
 await app.SeedDestinationCatalogAsync();
 
+// The texts of the static site pages (reference data): any environment, only once the migrations are applied (see SiteContentStartup).
+await app.SeedSiteContentAsync();
+
 // The first SuperAdmin (Bootstrap:Enabled): any environment, server configuration only, off by default (see SuperAdminStartup).
 await SuperAdminStartup.RunAsync(app.Services, app.Logger);
 

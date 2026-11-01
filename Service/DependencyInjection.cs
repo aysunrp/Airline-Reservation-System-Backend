@@ -53,6 +53,8 @@ namespace Service
             services.AddScoped<IAirportService, AirportService>();
             services.AddScoped<IDestinationCatalogService, DestinationCatalogService>();
             services.AddScoped<IDestinationCatalogSeeder, DestinationCatalogSeeder>();
+            services.AddScoped<ISiteContentService, SiteContentService>();
+            services.AddScoped<ISiteContentSeeder, SiteContentSeeder>();
             services.AddScoped<IFlightSearchService, FlightSearchService>();
             services.AddScoped<ISeatService, SeatService>();
             services.AddScoped<IExtraServiceOptionsService, ExtraServiceOptionsService>();
