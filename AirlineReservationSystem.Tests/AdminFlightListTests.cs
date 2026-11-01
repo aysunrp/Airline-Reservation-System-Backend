@@ -128,6 +128,21 @@ public class AdminFlightListTests : IClassFixture<ApiFactory>
     }
 
     [Fact]
+    public async Task TheSearch_MatchesAnAirportCode_AndAFlightNumber()
+    {
+        await PrepareAsync();
+        var admin = await AdminAsync();
+
+        var byCode = await (await admin.GetAsync("/api/admin/flights?search=ath&take=100")).ReadAsync<List<AdminFlightRowDto>>();
+        Assert.NotEmpty(byCode);
+        Assert.All(byCode, r => Assert.True(r.OriginCode == "ATH" || r.DestinationCode == "ATH"));
+
+        var first = byCode.First();
+        var byNumber = await (await admin.GetAsync($"/api/admin/flights?search={Uri.EscapeDataString(first.FlightNumber)}&take=100")).ReadAsync<List<AdminFlightRowDto>>();
+        Assert.Contains(byNumber, r => r.Id == first.Id);
+    }
+
+    [Fact]
     public async Task TheListAndJourneys_AreForAdminsOnly()
     {
         await PrepareAsync();

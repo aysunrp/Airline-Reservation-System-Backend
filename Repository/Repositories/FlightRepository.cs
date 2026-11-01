@@ -205,7 +205,10 @@ public class FlightRepository : BaseRepository<Flight>, IFlightRepository
         if (!string.IsNullOrWhiteSpace(filter.Search))
         {
             var term = filter.Search.Trim();
+            var code = term.ToUpperInvariant();
             query = query.Where(f => f.FlightNumber.Contains(term)
+                                     || f.Route.Origin.Code == code
+                                     || f.Route.Destination.Code == code
                                      || f.Route.Origin.City.Contains(term)
                                      || f.Route.Destination.City.Contains(term)
                                      || f.Aircraft.Model.Contains(term));
