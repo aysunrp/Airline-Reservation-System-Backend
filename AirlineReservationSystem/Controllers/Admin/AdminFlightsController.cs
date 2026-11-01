@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Service.Helpers;
 using Service.Helpers.DTOs.Flight;
+using Repository.Repositories.Interfaces;
 using Service.Helpers.DTOs.Seat;
 using Service.Services.Interfaces;
 
@@ -32,11 +33,24 @@ public class AdminFlightsController : ControllerBase
     /// departure day. <c>take</c> is 1-500 (100 by default); use <c>skip</c> to read further.
     /// </summary>
     [HttpGet]
-    [ProducesResponseType<IReadOnlyList<FlightResultDto>>(StatusCodes.Status200OK)]
-    public async Task<ActionResult<IReadOnlyList<FlightResultDto>>> GetAll(
+    [ProducesResponseType<IReadOnlyList<AdminFlightRowDto>>(StatusCodes.Status200OK)]
+    public async Task<ActionResult<IReadOnlyList<AdminFlightRowDto>>> GetAll(
         [FromQuery] string? search, [FromQuery] FlightStatus? status, [FromQuery] DateOnly? date,
+        [FromQuery] string? origin, [FromQuery] string? destination, [FromQuery] int? month, [FromQuery] int? year,
+        [FromQuery] int? aircraftId, [FromQuery] string? flightType, [FromQuery] bool? active,
         [FromQuery] int skip = 0, [FromQuery] int take = 100, CancellationToken cancellationToken = default)
-        => Ok(await _flightService.GetPageAsync(search, status, date, skip, take, cancellationToken));
+        => Ok(await _flightService.GetFilteredPageAsync(
+            new AdminFlightFilter(search, origin, destination, status, date, month, year, aircraftId, flightType, active),
+            skip, take, cancellationToken));
+
+    /// <summary>The journeys with a transfer between two airports over up to 62 departure days (no seat filter).</summary>
+    [HttpGet("journeys")]
+    [ProducesResponseType<IReadOnlyList<AdminJourneyDto>>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status422UnprocessableEntity)]
+    public async Task<ActionResult<IReadOnlyList<AdminJourneyDto>>> GetJourneys(
+        [FromQuery] string origin, [FromQuery] string destination, [FromQuery] DateOnly from, [FromQuery] DateOnly to, CancellationToken cancellationToken = default)
+        => Ok(await _flightService.GetJourneysAsync(origin, destination, from, to, cancellationToken));
 
     [HttpGet("{id:int}")]
     [ProducesResponseType<FlightResultDto>(StatusCodes.Status200OK)]

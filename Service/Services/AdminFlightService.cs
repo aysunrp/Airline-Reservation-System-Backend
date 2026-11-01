@@ -8,6 +8,7 @@ using Service.Helpers.DTOs.Flight;
 using Service.Helpers.DTOs.Seat;
 using Service.Helpers.Exceptions;
 using Service.Helpers.Mappings;
+using Service.Helpers.Scheduling;
 using Service.Helpers.Validators;
 using Service.Services.Interfaces;
 
@@ -58,6 +59,81 @@ public class AdminFlightService : IAdminFlightService
         var flights = await _flightRepository.GetAdminPageAsync(search, status, date, Math.Max(0, skip), Math.Clamp(take, 1, 500), cancellationToken);
         return flights.Select(f => f.ToResultDto()).ToList();
     }
+
+    public async Task<IReadOnlyList<AdminFlightRowDto>> GetFilteredPageAsync(AdminFlightFilter filter, int skip, int take, CancellationToken cancellationToken = default)
+    {
+        var flights = await _flightRepository.GetAdminFilteredAsync(filter, Math.Max(0, skip), Math.Clamp(take, 1, 500), cancellationToken);
+        var seats = await _flightRepository.GetSeatCountsAsync(flights.Select(f => f.Id).ToList(), cancellationToken);
+
+        return flights.Select(f =>
+        {
+            var counts = seats.TryGetValue(f.Id, out var value) ? value : (Total: 0, Available: 0);
+            var stops = Math.Max(0, f.Segments.Count - 1);
+            return new AdminFlightRowDto(
+                f.Id, f.FlightNumber,
+                f.Route.Origin.Code, f.Route.Origin.City, f.Route.Destination.Code, f.Route.Destination.City,
+                f.DepartureAt, f.ArrivalAt, f.AircraftId, f.Aircraft.Model, f.Status,
+                stops, stops == 0 ? "direct" : "withStops",
+                f.FlightScheduleId, f.FlightSchedule is null || f.FlightSchedule.IsActive,
+                f.Fares.ToDictionary(fare => fare.CabinClass, fare => fare.BasePrice),
+                counts.Total, counts.Available);
+        }).ToList();
+    }
+
+    public async Task<IReadOnlyList<AdminJourneyDto>> GetJourneysAsync(string originCode, string destinationCode, DateOnly from, DateOnly to, CancellationToken cancellationToken = default)
+    {
+        if (to < from || to.DayNumber - from.DayNumber > 62)
+        {
+            throw new BusinessRuleException("Choose a period of at most 62 days, ending on or after its start.");
+        }
+
+        var origin = await _airportRepository.GetByCodeAsync(originCode.Trim().ToUpperInvariant(), cancellationToken)
+                     ?? throw new NotFoundException($"'{originCode}' hava limanı tapılmadı.");
+        var destination = await _airportRepository.GetByCodeAsync(destinationCode.Trim().ToUpperInvariant(), cancellationToken)
+                          ?? throw new NotFoundException($"'{destinationCode}' hava limanı tapılmadı.");
+
+        // The same rule the search uses: a hub that an active route joins to the origin and to the destination.
+        var pairs = await _routeRepository.GetActivePairsAsync(cancellationToken);
+        var fromOrigin = pairs.Where(p => p.Origin == origin.Id).Select(p => p.Destination).ToHashSet();
+        var hubs = pairs.Where(p => p.Destination == destination.Id && fromOrigin.Contains(p.Origin))
+            .Select(p => p.Origin).Where(h => h != origin.Id && h != destination.Id).Distinct().ToList();
+
+        var fromUtc = ScheduleTimeCalculator.ToUtc(from, TimeOnly.MinValue, origin);
+        var toUtc = ScheduleTimeCalculator.ToUtc(to.AddDays(1), TimeOnly.MinValue, origin);
+        var journeys = new List<AdminJourneyDto>();
+
+        foreach (var hub in hubs)
+        {
+            var first = await _flightRepository.SearchAsync(origin.Id, hub, fromUtc, toUtc, cancellationToken);
+            if (first.Count == 0)
+            {
+                continue;
+            }
+
+            var second = await _flightRepository.SearchAsync(hub, destination.Id, fromUtc,
+                toUtc.AddMinutes(ConnectionRules.MaxTransferMinutes).AddHours(24), cancellationToken);
+
+            foreach (var a in first)
+            {
+                foreach (var b in second.Where(b => ConnectionRules.IsValidTransfer(a.ArrivalAt, b.DepartureAt)))
+                {
+                    var fares = a.Fares.Join(b.Fares, x => x.CabinClass, y => y.CabinClass, (x, y) => (x.CabinClass, Price: x.BasePrice + y.BasePrice))
+                        .ToDictionary(x => x.CabinClass, x => x.Price);
+                    journeys.Add(new AdminJourneyDto(
+                        origin.Code, destination.Code, a.Route.Destination.Code, a.Route.Destination.City,
+                        (int)(b.DepartureAt - a.ArrivalAt).TotalMinutes, (int)(b.ArrivalAt - a.DepartureAt).TotalMinutes,
+                        a.DepartureAt, b.ArrivalAt, fares,
+                        new[] { JourneyLeg(a), JourneyLeg(b) }));
+                }
+            }
+        }
+
+        return journeys.OrderBy(j => j.DepartureAt).ThenBy(j => j.DurationMinutes).Take(500).ToList();
+    }
+
+    private static AdminJourneyLegDto JourneyLeg(Domain.Entities.Flight flight)
+        => new(flight.Id, flight.FlightNumber, flight.Route.Origin.Code, flight.Route.Destination.Code, flight.DepartureAt, flight.ArrivalAt,
+            (int)(flight.ArrivalAt - flight.DepartureAt).TotalMinutes, flight.Aircraft.Model);
 
     public async Task<FlightResultDto> CreateAsync(FlightRequestDto request, CancellationToken cancellationToken = default)
     {
