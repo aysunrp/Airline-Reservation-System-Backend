@@ -6,7 +6,7 @@ public class CreateBookingRequestDto
 {
     public TripType TripType { get; set; }
 
-    /// <summary>Flights in travel order: one for one-way, outbound + return for round trip, one per city pair for multi-city.</summary>
+    /// <summary>Flights in travel order: one for one-way, outbound + return for round trip.</summary>
     public List<BookingLegRequestDto> Legs { get; set; } = new();
 
     public List<BookingPassengerRequestDto> Passengers { get; set; } = new();
