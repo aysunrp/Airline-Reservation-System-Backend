@@ -67,15 +67,53 @@ public sealed class VoiceSearchInterpreter
         var active = airports.Where(a => a.IsActive).ToList();
         var (origin, destination) = ReadRoute(tokens, words, used, active, votes, issues);
 
-        var (passengers, passengersSpecified) = ReadPassengers(tokens, used, votes, issues);
+        // "iki böyük, bir uşaq, bir körpə" is counted by kind; a plain "iki nəfər" is read as before.
+        var travellers = ReadTravellers(tokens, used, votes, issues);
+        var (passengers, passengersSpecified) = travellers is { } people
+            ? (people.Adults + people.Children + people.Infants, true)
+            : ReadPassengers(tokens, used, votes, issues);
         var cabin = ReadFirst(VoiceLexicon.Cabins, tokens, used, votes);
         var cheapest = ReadFirst(VoiceLexicon.Cheapest, tokens, used, votes) is true;
         // "the cheapest flight" is one flight; "the cheapest flights" (a plural noun) keeps several low-priced options.
         var single = cheapest && !tokens.Any(VoiceLexicon.PluralWords.Contains);
+        var fastest = ReadFastest(tokens, used, votes);
+        var stops = ReadStops(tokens, used, votes);
 
         var today = TodayAt(origin, utcNow);
         var lang = PickLanguage(votes, language);
+
+        // A return day ("15 noyabr qayıdış", "qayıdış 15 noyabr") is taken out before the departure day is read, so the two are not mixed up.
+        var (returnMarker, markerBindsDate) = FindReturnMarker(tokens, used);
+        var wantsReturn = returnMarker >= 0;
+        DateOnly? returnDate = wantsReturn && markerBindsDate ? ReadReturnDate(tokens, used, votes, today, numericDates, returnMarker, issues) : null;
         var period = ReadWhen(tokens, used, votes, today, lang, numericDates, issues, cheapest);
+        if (wantsReturn && markerBindsDate && returnDate is null && period.Date is { } departureDay)
+        {
+            returnDate = ReadReturnDay(tokens, used, returnMarker, departureDay, issues);
+        }
+
+        if (wantsReturn)
+        {
+            var dateProblem = issues.Any(i => i.Code is "past_date" or "invalid_date" or "ambiguous_date");
+            if (returnDate is null && !dateProblem)
+            {
+                issues.Add(new VoiceIssueDto("missing_return_date"));
+            }
+            else if (returnDate is { } back)
+            {
+                if (period.Date is not { } outbound)
+                {
+                    issues.Add(new VoiceIssueDto("return_needs_departure_date"));
+                    returnDate = null;
+                }
+                else if (back < outbound)
+                {
+                    issues.Add(new VoiceIssueDto("return_before_departure", back.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)));
+                    returnDate = null;
+                }
+            }
+        }
+
         var timeOfDay = period.TimeOfDay ?? ReadFirst(VoiceLexicon.TimesOfDay, tokens, used, votes);
 
         if (origin is not null && destination is not null && origin.Id == destination.Id)
@@ -119,7 +157,8 @@ public sealed class VoiceSearchInterpreter
             }
         }
 
-        return Build(origin, destination, date, from, to, timeOfDay, cabin, passengers, passengersSpecified, cheapest, single, defaultPeriod, lang, issues);
+        return Build(origin, destination, date, from, to, timeOfDay, cabin, passengers, passengersSpecified, cheapest, single, defaultPeriod, lang, issues,
+            fastest, stops, returnDate, travellers?.Adults ?? passengers, travellers?.Children ?? 0, travellers?.Infants ?? 0);
     }
 
     private static string PickLanguage(Dictionary<string, int> votes, string? requested)
@@ -136,7 +175,8 @@ public sealed class VoiceSearchInterpreter
 
     private static VoiceSearchInterpretationDto Build(
         Airport? origin, Airport? destination, DateOnly? date, DateOnly? from, DateOnly? to, DepartureTimeOfDay? timeOfDay, CabinClass? cabin,
-        int passengers, bool passengersSpecified, bool cheapest, bool cheapestSingle, bool defaultPeriod, string detected, List<VoiceIssueDto> issues)
+        int passengers, bool passengersSpecified, bool cheapest, bool cheapestSingle, bool defaultPeriod, string detected, List<VoiceIssueDto> issues,
+        bool fastest = false, string? stops = null, DateOnly? returnDate = null, int adults = 0, int children = 0, int infants = 0)
     {
         var told = (string code) => issues.Any(i => i.Code == code);
         if (!told("missing_text"))
@@ -155,7 +195,7 @@ public sealed class VoiceSearchInterpreter
         return new VoiceSearchInterpretationDto(
             issues.Count == 0 ? VoiceSearchInterpretationDto.Ready : VoiceSearchInterpretationDto.NeedsClarification,
             detected, ToDto(origin), ToDto(destination), date, from, to, timeOfDay, cabin, passengers, passengersSpecified, cheapest, cheapestSingle, defaultPeriod,
-            "rules", issues);
+            "rules", issues, fastest, stops, returnDate, adults, children, infants);
     }
 
     internal static VoiceAirportDto? ToDto(Airport? airport) => airport is null ? null : new VoiceAirportDto(airport.Code, airport.City, airport.Name);
@@ -243,6 +283,7 @@ public sealed class VoiceSearchInterpreter
         var originAirport = Resolve(origin, "ambiguous_origin", issues);
         var destinationAirport = Resolve(destination, "ambiguous_destination", issues);
         ReadUnknownCities(tokens, used, originAirport is null, destinationAirport is null, issues);
+        ReadUnknownAzerbaijaniCities(tokens, words, used, originAirport is null, destinationAirport is null, origin, destination, issues);
         return (originAirport, destinationAirport);
     }
 
@@ -389,6 +430,68 @@ public sealed class VoiceSearchInterpreter
         }
     }
 
+    private static readonly string[] DativeEndings = { "ya", "ye", "na", "ne", "a", "e" };
+    private static readonly string[] AblativeEndings = { "dan", "den", "tan", "ten" };
+
+    /// <summary>
+    /// "Atlantidaya" / "Atlantidadan": a place that is not one of ours is named, so the traveller sees which one was not understood.
+    /// A word counts only when it carries a case ending, is not an everyday word, and is either written with a capital or stands right next
+    /// to the city that was understood (right after the origin, right before the destination).
+    /// </summary>
+    private static void ReadUnknownAzerbaijaniCities(
+        string[] tokens, List<(string Folded, string Original)> words, bool[] used, bool originMissing, bool destinationMissing,
+        Mention? origin, Mention? destination, List<VoiceIssueDto> issues)
+    {
+        bool Candidate(int i, string[] endings, bool adjacent)
+        {
+            if (i < 0 || i >= tokens.Length || used[i])
+            {
+                return false;
+            }
+
+            var word = tokens[i];
+            if (word.Length < 5 || IsKnownWord(word) || !endings.Any(e => word.EndsWith(e, StringComparison.Ordinal) && word.Length - e.Length >= 3))
+            {
+                return false;
+            }
+
+            return adjacent || char.IsUpper(words[i].Original[0]);
+        }
+
+        void Report(string code, string[] endings, int adjacentIndex)
+        {
+            var found = Candidate(adjacentIndex, endings, true) ? adjacentIndex : Enumerable.Range(0, tokens.Length).FirstOrDefault(i => Candidate(i, endings, false), -1);
+            if (found < 0)
+            {
+                return;
+            }
+
+            issues.Add(new VoiceIssueDto(code, words[found].Original));
+            used[found] = true;
+        }
+
+        if (destinationMissing && !issues.Any(i => i.Code is "unknown_destination" or "ambiguous_destination"))
+        {
+            Report("unknown_destination", DativeEndings, origin is null ? -1 : origin.Start + origin.Length);
+        }
+
+        if (originMissing && !issues.Any(i => i.Code is "unknown_origin" or "ambiguous_origin"))
+        {
+            Report("unknown_origin", AblativeEndings, destination is null ? -1 : destination.Start - 1);
+        }
+    }
+
+    /// <summary>A word the rules know (a month, a part of the day, a number, a cabin...): never a place name.</summary>
+    private static bool IsKnownWord(string word)
+        => IsDateWord(word) || DayWords.Contains(word) || VoiceLexicon.NotCities.Contains(word) || VoiceLexicon.PluralWords.Contains(word)
+           || VoiceLexicon.AzerbaijaniWeekdays.Any(e => e.Matches(word)) || VoiceLexicon.TimesOfDay.Any(e => e.Matches(word))
+           || VoiceLexicon.Cabins.Any(e => e.Matches(word)) || VoiceLexicon.Cheapest.Any(e => e.Matches(word)) || VoiceLexicon.Fastest.Any(e => e.Matches(word))
+           || VoiceLexicon.DirectWords.Any(e => e.Matches(word)) || VoiceLexicon.ConnectingWords.Any(e => e.Matches(word))
+           || VoiceLexicon.ReturnWords.Any(e => e.Matches(word)) || VoiceLexicon.RoundTripWords.Any(e => e.Matches(word))
+           || VoiceLexicon.PassengerNouns.Any(e => e.Matches(word)) || VoiceLexicon.AdultNouns.Any(e => e.Matches(word))
+           || VoiceLexicon.ChildNouns.Any(e => e.Matches(word)) || VoiceLexicon.InfantNouns.Any(e => e.Matches(word))
+           || VoiceLexicon.Numbers.Any(e => e.Matches(word)) || word is "sabah" or "bugun" or "gelen" or "novbeti";
+
     private static bool IsDateWord(string word)
         => VoiceLexicon.Months.Any(e => e.Matches(word)) || VoiceLexicon.Weekdays.Any(e => e.Matches(word))
            || word is "today" or "tomorrow" or "tonight" or "next" or "this" or "morning" or "afternoon" or "evening" or "night";
@@ -438,6 +541,262 @@ public sealed class VoiceSearchInterpreter
         }
 
         return (1, false);
+    }
+
+    private sealed record Travellers(int Adults, int Children, int Infants);
+
+    /// <summary>
+    /// "iki böyük, bir uşaq, bir körpə": each kind is counted by itself. Read only when a child or an infant is named with its number; a request
+    /// without them is left to <see cref="ReadPassengers"/>. A child or an infant without an adult, or more infants than adults, is asked about.
+    /// </summary>
+    private static Travellers? ReadTravellers(string[] tokens, bool[] used, Dictionary<string, int> votes, List<VoiceIssueDto> issues)
+    {
+        var found = new List<(int Index, char Kind, int Count)>();
+        for (var i = 1; i < tokens.Length; i++)
+        {
+            if (used[i] || used[i - 1] || !TryNumber(tokens[i - 1], out var count, out _))
+            {
+                continue;
+            }
+
+            var kind = VoiceLexicon.ChildNouns.Any(n => n.Matches(tokens[i])) ? 'C'
+                : VoiceLexicon.InfantNouns.Any(n => n.Matches(tokens[i])) ? 'I'
+                : VoiceLexicon.AdultNouns.Any(n => n.Matches(tokens[i])) ? 'A'
+                : ' ';
+            if (kind != ' ')
+            {
+                found.Add((i, kind, count));
+            }
+        }
+
+        if (!found.Any(f => f.Kind is 'C' or 'I'))
+        {
+            return null;
+        }
+
+        int adults = 0, children = 0, infants = 0;
+        foreach (var (index, kind, count) in found)
+        {
+            used[index] = used[index - 1] = true;
+            votes["az"]++;
+            switch (kind)
+            {
+                case 'A': adults += count; break;
+                case 'C': children += count; break;
+                default: infants += count; break;
+            }
+        }
+
+        var total = adults + children + infants;
+        if (total > 9)
+        {
+            issues.Add(new VoiceIssueDto("bad_passengers", total.ToString(CultureInfo.InvariantCulture)));
+        }
+        else if (adults == 0)
+        {
+            issues.Add(new VoiceIssueDto("missing_adult"));
+        }
+        else if (infants > adults)
+        {
+            issues.Add(new VoiceIssueDto("too_many_infants", infants.ToString(CultureInfo.InvariantCulture)));
+        }
+
+        return new Travellers(adults, children, infants);
+    }
+
+    /// <summary>"ən sürətli", "ən qısa": the traveller wants the shortest flight.</summary>
+    private static bool ReadFastest(string[] tokens, bool[] used, Dictionary<string, int> votes)
+    {
+        for (var i = 0; i < tokens.Length; i++)
+        {
+            if (used[i])
+            {
+                continue;
+            }
+
+            if (VoiceLexicon.Fastest.Any(e => e.Matches(tokens[i])))
+            {
+                used[i] = true;
+                votes["az"]++;
+                return true;
+            }
+
+            if (tokens[i] == VoiceLexicon.ShortestWord && i > 0 && !used[i - 1] && tokens[i - 1] == VoiceLexicon.SuperlativeWord)
+            {
+                used[i] = used[i - 1] = true;
+                votes["az"]++;
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>Direct ("birbaşa", "aktarmasız") or connecting ("transferli"); both named ("birbaşa və ya transferli") means no preference.</summary>
+    private static string? ReadStops(string[] tokens, bool[] used, Dictionary<string, int> votes)
+    {
+        bool direct = false, connecting = false;
+        for (var i = 0; i < tokens.Length; i++)
+        {
+            if (used[i])
+            {
+                continue;
+            }
+
+            if (VoiceLexicon.DirectWords.Any(e => e.Matches(tokens[i])))
+            {
+                used[i] = true;
+                direct = true;
+                votes["az"]++;
+            }
+            else if (VoiceLexicon.ConnectingWords.Any(e => e.Matches(tokens[i])))
+            {
+                used[i] = true;
+                connecting = true;
+                votes["az"]++;
+            }
+        }
+
+        return direct == connecting ? null : direct ? VoiceSearchInterpretationDto.StopsDirect : VoiceSearchInterpretationDto.StopsConnecting;
+    }
+
+    // ---- the return day of a round trip ----
+
+    /// <summary>
+    /// The word that says "return" ("qayıdış", "qayıdıram", "geri dönüş"), or -1. A day next to it is the return day. "gedib-gəlmə" and
+    /// "gediş-dönüş" only say that the trip is a round trip: they have no day of their own (the second value is false), so the return day has
+    /// to be said separately. The word is taken.
+    /// </summary>
+    private static (int Index, bool BindsDate) FindReturnMarker(string[] tokens, bool[] used)
+    {
+        for (var i = 0; i < tokens.Length; i++)
+        {
+            if (used[i] || !VoiceLexicon.ReturnWords.Any(e => e.Matches(tokens[i])))
+            {
+                continue;
+            }
+
+            var descriptor = i > 0 && !used[i - 1] && tokens[i - 1] == "gedis" && tokens[i].StartsWith("donus", StringComparison.Ordinal);
+            if (descriptor)
+            {
+                used[i - 1] = true;
+            }
+
+            used[i] = true;
+            return (i, !descriptor);
+        }
+
+        for (var i = 0; i < tokens.Length; i++)
+        {
+            if (!used[i] && VoiceLexicon.RoundTripWords.Any(e => e.Matches(tokens[i])))
+            {
+                used[i] = true;
+                return (i, false);
+            }
+        }
+
+        return (-1, false);
+    }
+
+    /// <summary>
+    /// The return day when it is written with a month ("15 noyabr qayıdış", "qayıdış 15 noyabr") or when two dates are written in digits (the
+    /// later one is the return). A return day with the month left out ("15-də qayıdıram") is read after the departure day, see ReadReturnDay.
+    /// </summary>
+    private static DateOnly? ReadReturnDate(
+        string[] tokens, bool[] used, Dictionary<string, int> votes, DateOnly today, List<NumericDate> numeric, int marker, List<VoiceIssueDto> issues)
+    {
+        if (numeric.Count >= 2 && numeric.All(n => !n.Ambiguous && !n.Invalid && n.Date is not null))
+        {
+            var days = numeric.Select(n => NextOccurrence(n.Date!.Value, today)).OrderBy(d => d).ToList();
+            numeric.Clear();
+            numeric.Add(new NumericDate(days[0], false, false, false));
+            return days[^1];
+        }
+
+        foreach (var step in new[] { 1, -1 })
+        {
+            for (var distance = 1; distance <= 5; distance++)
+            {
+                var i = marker + step * distance;
+                if (i < 0 || i >= tokens.Length || used[i])
+                {
+                    continue;
+                }
+
+                var month = VoiceLexicon.Months.FirstOrDefault(m => m.Matches(tokens[i]));
+                if (month is null)
+                {
+                    continue;
+                }
+
+                // Tried on a copy: a month alone, or a day that belongs to the other date, must not use up any word.
+                var scratch = (bool[])used.Clone();
+                scratch[i] = true;
+                var day = TakeDay(tokens, scratch, i);
+                if (day is null)
+                {
+                    continue;
+                }
+
+                var year = TakeYear(tokens, scratch, i);
+                if (day is < 1 or > 31 || day > DateTime.DaysInMonth(year ?? 2024, month.Value))
+                {
+                    issues.Add(new VoiceIssueDto("invalid_date"));
+                    return null;
+                }
+
+                for (var k = 0; k < used.Length; k++)
+                {
+                    used[k] |= scratch[k];
+                }
+
+                votes[month.Language]++;
+                return year is { } y ? new DateOnly(y, month.Value, day.Value) : NextOccurrence(new DateOnly(0001, month.Value, day.Value), today);
+            }
+        }
+
+        return null;
+    }
+
+    /// <summary>"15-də qayıdıram": a day number next to the return word, in the month of the departure (the next month when it is an earlier day).</summary>
+    private static DateOnly? ReadReturnDay(string[] tokens, bool[] used, int marker, DateOnly departure, List<VoiceIssueDto> issues)
+    {
+        foreach (var step in new[] { 1, -1 })
+        {
+            for (var distance = 1; distance <= 4; distance++)
+            {
+                var i = marker + step * distance;
+                if (i < 0 || i >= tokens.Length || used[i] || DayToken.Match(tokens[i]) is not { Success: true } match)
+                {
+                    continue;
+                }
+
+                var day = int.Parse(match.Groups[1].Value, CultureInfo.InvariantCulture);
+                if (day is < 1 or > 31)
+                {
+                    continue;
+                }
+
+                used[i] = true;
+                // The ending that goes with the number ("15-də": "də") is part of it.
+                if (i + 1 < tokens.Length && !used[i + 1] && tokens[i + 1].Length <= 3 && !tokens[i + 1].All(char.IsDigit))
+                {
+                    used[i + 1] = true;
+                }
+
+                var first = new DateOnly(departure.Year, departure.Month, 1);
+                var month = day < departure.Day ? first.AddMonths(1) : first;
+                if (day > DateTime.DaysInMonth(month.Year, month.Month))
+                {
+                    issues.Add(new VoiceIssueDto("invalid_date"));
+                    return null;
+                }
+
+                return new DateOnly(month.Year, month.Month, day);
+            }
+        }
+
+        return null;
     }
 
     private static bool TryNumber(string token, out int value, out string? language)
@@ -590,6 +949,25 @@ public sealed class VoiceSearchInterpreter
 
             var date = year is { } y ? new DateOnly(y, month.Value, day.Value) : NextOccurrence(new DateOnly(0001, month.Value, day.Value), today);
             return Checked(date, today, issues);
+        }
+
+        // 2b. "2 gün sonra", "iki həftə sonra": that many days (weeks) from today. One day, not a period.
+        for (var i = 0; i + 2 < tokens.Length; i++)
+        {
+            if (used[i] || used[i + 1] || used[i + 2] || tokens[i + 2] != "sonra" || !TryNumber(tokens[i], out var amount, out _) || amount is < 1 or > 60)
+            {
+                continue;
+            }
+
+            var weeks = tokens[i + 1].StartsWith("hefte", StringComparison.Ordinal);
+            if (tokens[i + 1] != "gun" && !weeks)
+            {
+                continue;
+            }
+
+            used[i] = used[i + 1] = used[i + 2] = true;
+            votes["az"]++;
+            return Checked(today.AddDays(weeks ? amount * 7 : amount), today, issues);
         }
 
         // 3. Today, tomorrow, the day after, tonight.

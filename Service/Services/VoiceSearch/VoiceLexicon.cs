@@ -97,6 +97,49 @@ internal static class VoiceLexicon
         E("дешев*", true, "ru"), E("недорог*", true, "ru"), E("дёшев*", true, "ru")
     };
 
+    // ---- the Azerbaijani words of the later additions: the fastest flight, direct or connecting, a return day, who travels ----
+
+    /// <summary>"the fastest flight" ("ən sürətli uçuş").</summary>
+    public static readonly Entry<bool>[] Fastest = { E("sürətli*", true, "az") };
+
+    /// <summary>The shortest flight: "qısa" counts only after "ən" ("ən qısa uçuş").</summary>
+    public static readonly string ShortestWord = VoiceText.Fold("qısa").Trim();
+
+    public static readonly string SuperlativeWord = VoiceText.Fold("ən").Trim();
+
+    /// <summary>Flights without a stop: "birbaşa", "aktarmasız", "transfersiz", "dayanacaqsız".</summary>
+    public static readonly Entry<bool>[] DirectWords =
+    {
+        E("birbaşa*", true, "az"), E("aktarmasız*", true, "az"), E("transfersiz*", true, "az"), E("dayanacaqsız*", true, "az"), E("dayanmadan", true, "az")
+    };
+
+    /// <summary>Flights with a stop: "transferli", "aktarmalı", "dayanacaqlı".</summary>
+    public static readonly Entry<bool>[] ConnectingWords =
+    {
+        E("transferli*", true, "az"), E("aktarmalı*", true, "az"), E("dayanacaqlı*", true, "az")
+    };
+
+    /// <summary>The return of a round trip: "qayıdış", "qayıdıram", "geri qayıt", "dönüş" (also in "gediş-dönüş").</summary>
+    public static readonly Entry<bool>[] ReturnWords = { E("qayıd*", true, "az"), E("qayıt*", true, "az"), E("dönüş*", true, "az") };
+
+    /// <summary>"gedib-gəlmə" (a round trip by itself, even without a return day said).</summary>
+    public static readonly Entry<bool>[] RoundTripWords = { E("gəlmə*", true, "az") };
+
+    /// <summary>Who is travelling: "iki böyük, bir uşaq, bir körpə".</summary>
+    public static readonly Entry<bool>[] AdultNouns = { E("böyük*", true, "az"), E("yetkin*", true, "az") };
+
+    public static readonly Entry<bool>[] ChildNouns = { E("uşaq*", true, "az") };
+
+    public static readonly Entry<bool>[] InfantNouns = { E("körpə*", true, "az") };
+
+    /// <summary>Everyday Azerbaijani words that end like a place name in the dative or ablative ("uçuşa", "sonra"): never taken for a city.</summary>
+    public static readonly HashSet<string> NotCities = new(new[]
+    {
+        "sonra", "uçuşa", "reysə", "reysdən", "biletə", "sabaha", "bugünə", "səhərə", "axşama", "gecəyə", "günortaya", "ancaq", "amma", "lakin", "üçün",
+        "mənə", "sənə", "bizə", "bütün", "hansı", "necə", "indi", "gedib", "qayıdıb", "uçmaq", "getmək", "istəyirəm", "lazımdır", "göstər", "tapın",
+        "axtar", "tarixində", "tarixə", "həftəyə", "aya", "ilə"
+    }.Select(VoiceText.Fold));
+
     /// <summary>Plural nouns (folded): with "cheapest" they ask for several low-priced options instead of the one cheapest flight.</summary>
     public static readonly HashSet<string> PluralWords = new(new[]
     {

@@ -116,11 +116,33 @@ public class FlightSearchService : IFlightSearchService
         var matching = bookable
             .Where(f => request.TimeOfDay is null
                         || DepartureTimeOfDayRanges.Contains(request.TimeOfDay.Value, ScheduleTimeCalculator.LocalTime(f.DepartureAt, origin)))
-            .Select(f => new { Flight = f, Price = f.Fares.Where(fare => request.CabinClass is null || fare.CabinClass == request.CabinClass).Min(fare => fare.BasePrice) });
+            // A direct flight has one segment; a flight with a stop has more (the stop is where one segment ends and the next begins).
+            .Where(f => request.Stops is null || (request.Stops == "direct") == (f.Segments.Count <= 1))
+            .Select(f => new RangeCandidate(
+                f, null, f.Fares.Where(fare => request.CabinClass is null || fare.CabinClass == request.CabinClass).Min(fare => fare.BasePrice),
+                f.DepartureAt, f.ArrivalAt - f.DepartureAt, f.Id))
+            .ToList();
 
-        var ordered = request.SortBy == "departure"
-            ? matching.OrderBy(x => x.Flight.DepartureAt).ThenBy(x => x.Price).ThenBy(x => x.Flight.Id)
-            : matching.OrderBy(x => x.Price).ThenBy(x => x.Flight.DepartureAt).ThenBy(x => x.Flight.Id);
+        // Journeys of two flights through a transfer airport are part of the period too (never for "direct only"), found by the same rules a
+        // one-day search and booking apply. Every one of the period is kept here: the cap of a one-day search would drop most of 62 days.
+        if (request.Stops != "direct")
+        {
+            var journeys = await FindConnectionsAsync(origin, destination, fromUtc, toUtc, request.CabinClass, request.Passengers, cancellationToken, int.MaxValue);
+            matching.AddRange(journeys
+                .Where(c => request.TimeOfDay is null
+                            || DepartureTimeOfDayRanges.Contains(request.TimeOfDay.Value, ScheduleTimeCalculator.LocalTime(c.DepartureAt, origin)))
+                .Select(c => new RangeCandidate(
+                    null, c, c.Fares.Where(fare => request.CabinClass is null || fare.Key == request.CabinClass).Min(fare => fare.Value),
+                    c.DepartureAt, TimeSpan.FromMinutes(c.DurationMinutes), c.Flights[0].Id)));
+        }
+
+        // Every matching flight and journey of the whole period is ordered before the list is cut, so "shortest" is the shortest of all of them.
+        var ordered = request.SortBy switch
+        {
+            "departure" => matching.OrderBy(x => x.DepartureAt).ThenBy(x => x.Price).ThenBy(x => x.Id),
+            "duration" => matching.OrderBy(x => x.Duration).ThenBy(x => x.Price).ThenBy(x => x.DepartureAt).ThenBy(x => x.Id),
+            _ => matching.OrderBy(x => x.Price).ThenBy(x => x.DepartureAt).ThenBy(x => x.Id)
+        };
         var all = ordered.ToList();
 
         // Every flight of the whole period is compared first. The lowest price is the minimum of all of them, and a lowest-only search keeps
@@ -129,9 +151,17 @@ public class FlightSearchService : IFlightSearchService
         var lowestCount = all.Count(x => x.Price == lowest);
         var chosen = request.LowestOnly ? all.Where(x => x.Price == lowest) : all;
         var limit = Math.Max(1, _voiceSettings.MaxResults);
+        var shown = chosen.Take(limit).ToList();
         return new FlightRangeSearchResultDto(origin.Code, destination.Code, request.From, request.To, request.SortBy, request.TimeOfDay,
-            all.Count, lowestCount, Domain.Constants.AppConstants.Currency, chosen.Take(limit).Select(x => x.Flight.ToResultDto()).ToList());
+            all.Count, lowestCount, Domain.Constants.AppConstants.Currency,
+            shown.Where(x => x.Flight is not null).Select(x => x.Flight!.ToResultDto()).ToList(), request.Stops)
+        {
+            Connections = shown.Where(x => x.Connection is not null).Select(x => x.Connection!).ToList()
+        };
     }
+
+    /// <summary>A flight, or a journey of two flights, of a period search with what it is ordered by.</summary>
+    private sealed record RangeCandidate(Domain.Entities.Flight? Flight, ConnectionResultDto? Connection, decimal Price, DateTime DepartureAt, TimeSpan Duration, int Id);
 
     public async Task<FlightResultDto> GetFlightAsync(int flightId, CancellationToken cancellationToken = default)
     {
@@ -172,7 +202,7 @@ public class FlightSearchService : IFlightSearchService
     /// </summary>
     private async Task<IReadOnlyList<ConnectionResultDto>> FindConnectionsAsync(
         Domain.Entities.Airport origin, Domain.Entities.Airport destination, DateTime fromUtc, DateTime toUtc,
-        Domain.Enums.CabinClass? cabinClass, int passengers, CancellationToken cancellationToken)
+        Domain.Enums.CabinClass? cabinClass, int passengers, CancellationToken cancellationToken, int? limit = null)
     {
         if (_routeRepository is null)
         {
@@ -222,7 +252,7 @@ public class FlightSearchService : IFlightSearchService
         }
 
         return found.OrderBy(c => c.DurationMinutes).ThenBy(c => c.Fares.Values.Min()).ThenBy(c => c.DepartureAt)
-            .Take(ConnectionRules.MaxConnectionsPerSearch).ToList();
+            .Take(limit ?? ConnectionRules.MaxConnectionsPerSearch).ToList();
     }
 
     private async Task<Domain.Entities.Airport> GetAirportAsync(string code, CancellationToken cancellationToken)
