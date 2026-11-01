@@ -115,6 +115,22 @@ public class ConnectionJourneyTests : IClassFixture<ApiFactory>
     }
 
     [Fact]
+    public async Task TheCalendar_PricesEachCabinSeparately_AndOnlyDaysWithAJourneyAreOffered()
+    {
+        await PrepareAsync();
+        var client = _factory.CreateClient();
+        var query = $"/api/flights/lowest-fares?originCode=GYD&destinationCode=JTR&from={Monday:yyyy-MM-dd}&to={Monday.AddDays(6):yyyy-MM-dd}&passengers=1";
+
+        var economy = await (await client.GetAsync(query + "&cabinClass=Economy")).ReadAsync<List<DayFareDto>>();
+        var business = await (await client.GetAsync(query + "&cabinClass=Business")).ReadAsync<List<DayFareDto>>();
+
+        Assert.NotEmpty(economy);
+        Assert.Equal(economy.Select(d => d.Date), business.Select(d => d.Date)); // the same days: every day of the week flies in both cabins
+        Assert.All(economy.Zip(business), pair => Assert.True(pair.Second.LowestFare > pair.First.LowestFare));
+        Assert.All(economy.Select(d => d.Date), day => Assert.Contains(day.DayOfWeek, new[] { DayOfWeek.Monday, DayOfWeek.Wednesday, DayOfWeek.Friday, DayOfWeek.Sunday }));
+    }
+
+    [Fact]
     public async Task AConnectionIsBookedAsOneJourney_WithOnePnr_AndFlightsThatDoNotJoinAreRefused()
     {
         await PrepareAsync();

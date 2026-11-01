@@ -125,7 +125,7 @@ public static class DestinationCatalogData
             "Бескрайний силуэт Токио, а в ясный день на горизонте виднеется гора Фудзи.",
             "japan-tokyo.jpg", new[]
             {
-                C("Tokyo", "Tokio", "Токио", new[] { "Tokyo", "Tokio" }, A("HND", "Tokyo Haneda Airport", "Asia/Tokyo")).Info("japan-tokyo.jpg", "Tokyo's sprawling skyline, with Mount Fuji on the horizon on a clear day.", "Tokionun geniş silueti; açıq havada üfüqdə Fuji dağı görünür.", "Бескрайний силуэт Токио, а в ясный день на горизонте виднеется гора Фудзи."),
+                C("Tokyo", "Tokio", "Токио", new[] { "Tokyo", "Tokio", "Tokiyo" }, A("HND", "Tokyo Haneda Airport", "Asia/Tokyo")).Info("japan-tokyo.jpg", "Tokyo's sprawling skyline, with Mount Fuji on the horizon on a clear day.", "Tokionun geniş silueti; açıq havada üfüqdə Fuji dağı görünür.", "Бескрайний силуэт Токио, а в ясный день на горизонте виднеется гора Фудзи."),
                 C("Osaka", "Osaka", "Осака", new[] { "Осаки", "Осаку" }, A("KIX", "Kansai International Airport", "Asia/Tokyo")).Info("japan-osaka.jpg", "Osaka Castle, with its stone walls, among the towers of the business district.", "Osaka qalası, daş divarları ilə, iş rayonunun göydələnləri arasında.", "Замок Осаки с каменными стенами среди башен делового района."),
             }),
         new CatalogCountrySeed("MV", "Maldives", "Maldiv", "Мальдивы",

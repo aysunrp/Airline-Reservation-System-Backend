@@ -148,6 +148,8 @@ public class FlightSearchService : IFlightSearchService
         var now = _timeProvider.GetUtcNow().UtcDateTime;
         var candidates = flights
             .Where(f => f.Status != Domain.Enums.FlightStatus.Completed && f.DepartureAt > now)
+            // A flight that stops at, or starts from, an airport that is switched off is not sold any more.
+            .Where(f => f.Segments.All(s => s.Origin.IsActive && s.Destination.IsActive))
             .Where(f => cabinClass is null || f.Fares.Any(fare => fare.CabinClass == cabinClass))
             .ToList();
         if (candidates.Count == 0)
