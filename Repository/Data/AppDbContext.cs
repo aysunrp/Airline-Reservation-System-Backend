@@ -17,6 +17,7 @@ public class AppDbContext : DbContext
     public DbSet<Aircraft> Aircrafts => Set<Aircraft>();
     public DbSet<AircraftSeat> AircraftSeats => Set<AircraftSeat>();
     public DbSet<BaggageOption> BaggageOptions => Set<BaggageOption>();
+    public DbSet<SiteContent> SiteContents => Set<SiteContent>();
     public DbSet<MealOption> MealOptions => Set<MealOption>();
     public DbSet<PromoCode> PromoCodes => Set<PromoCode>();
     public DbSet<CancellationRule> CancellationRules => Set<CancellationRule>();

@@ -27,6 +27,7 @@ namespace Repository
             services.AddScoped<IPromoCodeRepository, PromoCodeRepository>();
             services.AddScoped<IBaggageOptionRepository, BaggageOptionRepository>();
             services.AddScoped<IMealOptionRepository, MealOptionRepository>();
+            services.AddScoped<ISiteContentRepository, SiteContentRepository>();
             services.AddScoped<ICancellationRuleRepository, CancellationRuleRepository>();
             services.AddScoped<IFlightRepository, FlightRepository>();
             services.AddScoped<IFlightSeatRepository, FlightSeatRepository>();

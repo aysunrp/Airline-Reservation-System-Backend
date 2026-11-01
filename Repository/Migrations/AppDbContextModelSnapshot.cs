@@ -1681,6 +1681,43 @@ namespace Repository.Migrations
                     b.ToTable("SavedPassengers");
                 });
 
+            modelBuilder.Entity("Domain.Entities.SiteContent", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Key")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("Page")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<string>("TextAz")
+                        .IsRequired()
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Page", "Key")
+                        .IsUnique();
+
+                    b.ToTable("SiteContents");
+                });
+
             modelBuilder.Entity("Domain.Entities.StripeWebhookEvent", b =>
                 {
                     b.Property<int>("Id")
