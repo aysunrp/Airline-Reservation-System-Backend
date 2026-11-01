@@ -60,11 +60,11 @@ public class CheckoutServiceTests
 
         // Opening the page confirms nothing.
         Assert.Equal(BookingStatus.Pending, booking.Status);
-        Assert.Equal(SeatStatus.Held, _context.Data.Seat(103).Status);
+        Assert.Equal(SeatStatus.Available, _context.Data.Seat(103).Status);
     }
 
     [Fact]
-    public async Task OpeningThePage_KeepsTheSeatsHeldUntilItCloses()
+    public async Task OpeningThePage_KeepsTheBookingUntilItCloses_ButHoldsNoSeat()
     {
         var pnr = await CreateBookingAsync();
 
@@ -72,7 +72,7 @@ public class CheckoutServiceTests
 
         var holdUntil = TestData.Now.AddMinutes(31 + 2);
         Assert.Equal(holdUntil, (await _context.Bookings.GetByPnrAsync(pnr))!.ExpiresAt);
-        Assert.Equal(holdUntil, _context.Data.Seat(103).HeldUntil);
+        Assert.Equal((SeatStatus.Available, (DateTime?)null), (_context.Data.Seat(103).Status, _context.Data.Seat(103).HeldUntil));
     }
 
     [Fact]

@@ -95,7 +95,8 @@ public static class BookingMappings
                 f.Flight.ArrivalAt,
                 f.CabinClass,
                 f.Flight.Aircraft.Model,
-                booking.SeatLabels(f)))
+                booking.SeatLabels(f),
+                f.JourneyNo))
             .ToList();
 
     // Compared by id: no-tracking queries do not link tickets to legs loaded through another include.

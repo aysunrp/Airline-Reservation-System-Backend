@@ -42,7 +42,7 @@ public class ProfileService : IProfileService
         var email = AuthService.NormalizeEmail(request.Email);
         if (email != user.Email && await _userRepository.EmailExistsAsync(email, cancellationToken))
         {
-            throw new ConflictException("An account with this email already exists.");
+            throw new ConflictException("Bu e-poçt ünvanı ilə hesab artıq mövcuddur.");
         }
 
         user.Title = request.Title;
@@ -111,7 +111,7 @@ public class ProfileService : IProfileService
 
     private async Task<User> GetUserAsync(int userId, CancellationToken cancellationToken)
         => await _userRepository.GetByIdAsync(userId, cancellationToken)
-           ?? throw new NotFoundException("User not found.");
+           ?? throw new NotFoundException("İstifadəçi tapılmadı.");
 
     // Another user's passenger is reported as "not found" so ids cannot be probed.
     private async Task<SavedPassenger> GetOwnedPassengerAsync(int userId, int passengerId, CancellationToken cancellationToken)
@@ -119,6 +119,6 @@ public class ProfileService : IProfileService
         var passenger = await _savedPassengerRepository.GetByIdAsync(passengerId, cancellationToken);
         return passenger is not null && passenger.UserId == userId
             ? passenger
-            : throw new NotFoundException("Saved passenger not found.");
+            : throw new NotFoundException("Saxlanılmış sərnişin tapılmadı.");
     }
 }

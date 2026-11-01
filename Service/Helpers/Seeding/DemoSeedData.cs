@@ -22,7 +22,9 @@ public sealed record ScheduleSeed(
     decimal Economy,
     decimal Comfort,
     decimal Business,
-    StopSeed[]? Stops = null);
+    StopSeed[]? Stops = null,
+    ScheduleDays Days = ScheduleDays.Everyday,
+    DateOnly? ValidTo = null);
 
 public sealed record BaggageSeed(string Code, string Name, int WeightKg, decimal Price);
 

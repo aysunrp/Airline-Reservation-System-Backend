@@ -3,6 +3,7 @@ using Domain.Constants;
 using Domain.Enums;
 using FluentValidation;
 using Service.Helpers.DTOs.Reservation;
+using Service.Helpers.Scheduling;
 
 namespace Service.Helpers.Validators;
 
@@ -10,7 +11,6 @@ public class CreateBookingRequestValidator : AbstractValidator<CreateBookingRequ
 {
     /// <summary>Travellers on one booking, infants included.</summary>
     public const int MaxPassengers = 9;
-    private const int MaxMultiCityLegs = 6;
 
     // Document formats used by the passenger details page.
     private static readonly Regex PassportNumber = new("^[A-Z0-9]{6,9}$");
@@ -20,12 +20,9 @@ public class CreateBookingRequestValidator : AbstractValidator<CreateBookingRequ
     {
         RuleFor(x => x.TripType).IsInEnum();
         RuleFor(x => x.Legs).NotEmpty();
-        RuleFor(x => x.Legs.Count).Equal(1).When(x => x.TripType == TripType.OneWay)
-            .WithMessage("A one-way booking has exactly one flight.");
-        RuleFor(x => x.Legs.Count).Equal(2).When(x => x.TripType == TripType.RoundTrip)
-            .WithMessage("A round-trip booking has an outbound and a return flight.");
-        RuleFor(x => x.Legs.Count).InclusiveBetween(2, MaxMultiCityLegs).When(x => x.TripType == TripType.MultiCity)
-            .WithMessage($"A multi-city booking has between 2 and {MaxMultiCityLegs} flights.");
+        RuleFor(x => x).Must(x => x.TripType is TripType.OneWay or TripType.RoundTrip && ConnectionRules.JourneyNumbers(x.TripType, x.Legs) is not null)
+            .WithName("Legs").OverridePropertyName("Legs")
+            .WithMessage("A one-way booking is one journey and a round trip an outbound and a return journey, each of up to three flights.");
         RuleFor(x => x.Legs).Must(l => l.Select(leg => leg.FlightId).Distinct().Count() == l.Count)
             .WithMessage("The same flight cannot be booked twice.");
         RuleForEach(x => x.Legs).ChildRules(leg =>

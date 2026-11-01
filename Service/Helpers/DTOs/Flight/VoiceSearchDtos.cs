@@ -38,8 +38,10 @@ public record VoiceAirportDto(string Code, string City, string Name);
 
 /// <summary>
 /// Something the traveller has to clear up before the search can run. <c>Code</c> is one of: missing_text, missing_origin,
-/// missing_destination, same_airport, ambiguous_origin, ambiguous_destination (Options lists the airports), unknown_city
-/// (Value is the name), past_date (Value is the date), invalid_date, ambiguous_date, bad_passengers (Value is the number).
+/// missing_destination, same_airport, ambiguous_origin, ambiguous_destination (Options lists the airports), unknown_origin and
+/// unknown_destination (Value is the name that was not understood), past_date (Value is the date), invalid_date, ambiguous_date,
+/// bad_passengers (Value is the number), missing_return_date (a round trip without its return day), return_before_departure (Value is the
+/// return day) and return_needs_departure_date (a return day without one exact departure day).
 /// The page turns the code into a sentence in the language of the site.
 /// </summary>
 public record VoiceIssueDto(string Code, string? Value = null, IReadOnlyList<VoiceAirportDto>? Options = null);
@@ -61,8 +63,20 @@ public record VoiceSearchInterpretationDto(
     bool CheapestSingle,
     bool DefaultPeriod,
     string InterpretedBy,
-    IReadOnlyList<VoiceIssueDto> Issues)
+    IReadOnlyList<VoiceIssueDto> Issues,
+    bool Fastest = false,
+    string? Stops = null,
+    DateOnly? ReturnDate = null,
+    int Adults = 0,
+    int Children = 0,
+    int Infants = 0)
 {
+    /// <summary>Only flights without a stop.</summary>
+    public const string StopsDirect = "direct";
+
+    /// <summary>Only flights with a stop.</summary>
+    public const string StopsConnecting = "connecting";
+
     public const string Ready = "ready";
     public const string NeedsClarification = "needs_clarification";
 }
@@ -85,8 +99,11 @@ public class FlightRangeSearchRequestDto
     /// <summary>When set, only flights that leave in this part of the day (origin airport time) are returned.</summary>
     public DepartureTimeOfDay? TimeOfDay { get; set; }
 
-    /// <summary>"price" (cheapest first, the default) or "departure" (earliest first).</summary>
+    /// <summary>"price" (cheapest first, the default), "departure" (earliest first) or "duration" (shortest flight first).</summary>
     public string SortBy { get; set; } = "price";
+
+    /// <summary>"direct" keeps only flights without a stop, "connecting" only flights with a stop; left out, both are returned.</summary>
+    public string? Stops { get; set; }
 
     /// <summary>
     /// When true, only the flights at the lowest price of the whole period are returned (every one of them, however many tie), and no dearer flight.
@@ -105,4 +122,12 @@ public record FlightRangeSearchResultDto(
     int TotalFound,
     int LowestPriceCount,
     string Currency,
-    IReadOnlyList<FlightResultDto> Flights);
+    IReadOnlyList<FlightResultDto> Flights,
+    string? Stops = null)
+{
+    /// <summary>
+    /// Journeys of two flights through one transfer airport that belong to the period, in the same order as <see cref="Flights"/> and cut
+    /// with them (together they are at most MaxResults). Not returned for "direct" only.
+    /// </summary>
+    public IReadOnlyList<ConnectionResultDto> Connections { get; init; } = Array.Empty<ConnectionResultDto>();
+}

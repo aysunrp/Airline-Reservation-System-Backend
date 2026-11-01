@@ -11,10 +11,13 @@ public class AppDbContext : DbContext
     }
 
     public DbSet<Airport> Airports => Set<Airport>();
+    public DbSet<Country> Countries => Set<Country>();
+    public DbSet<DestinationCity> DestinationCities => Set<DestinationCity>();
     public DbSet<Route> Routes => Set<Route>();
     public DbSet<Aircraft> Aircrafts => Set<Aircraft>();
     public DbSet<AircraftSeat> AircraftSeats => Set<AircraftSeat>();
     public DbSet<BaggageOption> BaggageOptions => Set<BaggageOption>();
+    public DbSet<SiteContent> SiteContents => Set<SiteContent>();
     public DbSet<MealOption> MealOptions => Set<MealOption>();
     public DbSet<PromoCode> PromoCodes => Set<PromoCode>();
     public DbSet<CancellationRule> CancellationRules => Set<CancellationRule>();
@@ -52,12 +55,14 @@ public class AppDbContext : DbContext
         // Domain.Configurations contains one IEntityTypeConfiguration<T> per entity.
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(Domain.Entities.Airport).Assembly);
 
-        // A seat can be held by only one non-cancelled ticket per flight leg.
+        // A seat belongs to only one paid ticket per flight leg. A ticket that is still Pending (its payment not taken yet) only records the
+        // traveller's choice and owns nothing, so any number of unpaid bookings may point at the same seat; the first payment to be confirmed
+        // issues its ticket, and the index refuses every later one.
         // Relational filtered indexes are provider specific, so this lives in the Repository layer.
         modelBuilder.Entity<Ticket>()
             .HasIndex(t => t.FlightSeatId)
             .IsUnique()
-            .HasFilter($"[FlightSeatId] IS NOT NULL AND [Status] <> '{nameof(TicketStatus.Cancelled)}'");
+            .HasFilter($"[FlightSeatId] IS NOT NULL AND [Status] <> '{nameof(TicketStatus.Cancelled)}' AND [Status] <> '{nameof(TicketStatus.Pending)}'");
 
         // A schedule produces at most one flight per operating day. Flights created by hand have no
         // scheduled date and stay unrestricted (SQL Server would otherwise treat NULLs as equal).

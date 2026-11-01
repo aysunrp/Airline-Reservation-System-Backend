@@ -23,7 +23,7 @@ namespace Service.Services;
 /// </summary>
 public class CancellationLinkService : ICancellationLinkService
 {
-    private const string EmailUnavailableMessage = "We cannot send e-mail right now. Please try again later.";
+    private const string EmailUnavailableMessage = "Hazırda e-poçt göndərə bilmirik. Bir az sonra yenidən cəhd edin.";
 
     private readonly ICancellationService _cancellations;
     private readonly IBookingRepository _bookings;
@@ -91,7 +91,7 @@ public class CancellationLinkService : ICancellationLinkService
             var wait = latest.Value + TimeSpan.FromSeconds(Math.Max(0, _settings.EmailCooldownSeconds)) - now;
             if (wait > TimeSpan.Zero)
             {
-                throw new TooManyAttemptsException("A confirmation link was sent a moment ago. Please wait before asking for another.", wait);
+                throw new TooManyAttemptsException("Təsdiq keçidi bir az əvvəl göndərilib. Yenisini istəməzdən əvvəl gözləyin.", wait);
             }
         }
 
@@ -148,22 +148,22 @@ public class CancellationLinkService : ICancellationLinkService
         var stored = value.Length is < 20 or > 200 ? null : await _tokens.GetByHashAsync(Hash(value), EmailTokenPurpose.CancelBooking, cancellationToken);
         if (stored?.BookingId is null)
         {
-            throw new BusinessRuleException("This link is not valid.", "link_invalid");
+            throw new BusinessRuleException("Bu keçid etibarsızdır.", "link_invalid");
         }
 
         var booking = await _bookings.GetByIdAsync(stored.BookingId.Value, cancellationToken)
-                      ?? throw new BusinessRuleException("This link is not valid.", "link_invalid");
+                      ?? throw new BusinessRuleException("Bu keçid etibarsızdır.", "link_invalid");
 
         if (stored.UsedAt is not null)
         {
             throw booking.Status == BookingStatus.Cancelled
-                ? new BusinessRuleException("This link was already used. The booking is cancelled.", "link_confirmed")
-                : new BusinessRuleException("This link was already used. Ask for a new one from your booking.", "link_used");
+                ? new BusinessRuleException("Bu keçid artıq istifadə olunub. Bron ləğv edilib.", "link_confirmed")
+                : new BusinessRuleException("Bu keçid artıq istifadə olunub. Bronunuzdan yenisini istəyin.", "link_used");
         }
 
         if (stored.ExpiresAt <= Now())
         {
-            throw new BusinessRuleException("This link has expired. Ask for a new one from your booking.", "link_expired");
+            throw new BusinessRuleException("Bu keçidin vaxtı bitib. Bronunuzdan yenisini istəyin.", "link_expired");
         }
 
         Payload? payload = null;

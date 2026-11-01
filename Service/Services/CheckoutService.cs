@@ -16,17 +16,19 @@ namespace Service.Services;
 
 public class CheckoutService : ICheckoutService
 {
-    internal const string UnavailableMessage = "Card payments are not available right now. Please try again later.";
-    private const string PaymentNotFoundMessage = "Payment not found.";
+    internal const string UnavailableMessage = "Kartla ödəniş hazırda əlçatan deyil. Bir az sonra yenidən cəhd edin.";
+    private const string PaymentNotFoundMessage = "Ödəniş tapılmadı.";
 
     // Stripe's page may close at its own pace; the seats stay held a little longer so a payment made in its last second still finds them.
     private static readonly TimeSpan HoldMargin = TimeSpan.FromMinutes(2);
 
     private readonly IBookingRepository _bookingRepository;
     private readonly IPaymentRepository _paymentRepository;
+    private readonly IFlightSeatRepository _flightSeatRepository;
     private readonly IPromoCodeRepository _promoCodeRepository;
     private readonly IBookingExpiryService _expiryService;
     private readonly IStripeCheckoutGateway _gateway;
+    private readonly IStripeWebhookService _webhook;
     private readonly IValidator<CreateCheckoutSessionRequestDto> _validator;
     private readonly StripeSettings _stripe;
     private readonly AuthSettings _auth;
@@ -35,9 +37,11 @@ public class CheckoutService : ICheckoutService
     public CheckoutService(
         IBookingRepository bookingRepository,
         IPaymentRepository paymentRepository,
+        IFlightSeatRepository flightSeatRepository,
         IPromoCodeRepository promoCodeRepository,
         IBookingExpiryService expiryService,
         IStripeCheckoutGateway gateway,
+        IStripeWebhookService webhook,
         IValidator<CreateCheckoutSessionRequestDto> validator,
         IOptions<StripeSettings> stripe,
         IOptions<AuthSettings> auth,
@@ -45,9 +49,11 @@ public class CheckoutService : ICheckoutService
     {
         _bookingRepository = bookingRepository;
         _paymentRepository = paymentRepository;
+        _flightSeatRepository = flightSeatRepository;
         _promoCodeRepository = promoCodeRepository;
         _expiryService = expiryService;
         _gateway = gateway;
+        _webhook = webhook;
         _validator = validator;
         _stripe = stripe.Value;
         _auth = auth.Value;
@@ -71,25 +77,32 @@ public class CheckoutService : ICheckoutService
 
         if (booking.Status == BookingStatus.Confirmed || booking.Payments.Any(p => p.Status == PaymentStatus.Paid))
         {
-            throw new ConflictException("This booking has already been paid.");
+            throw new ConflictException("Bu bron artıq ödənilib.");
         }
 
         if (booking.Status != BookingStatus.Pending)
         {
-            throw new BusinessRuleException("This booking can no longer be paid.");
+            throw new BusinessRuleException("Bu bronu artıq ödəmək mümkün deyil.");
         }
 
         // Each booking of an account is paid only after its own e-mail link was opened.
         if (_auth.RequireBookingEmailConfirmation && booking.UserId is not null && booking.ContactConfirmedAt is null)
         {
-            throw new BusinessRuleException("Confirm this booking with the link we e-mailed before paying.", "booking_unconfirmed");
+            throw new BusinessRuleException("Ödəniş etməzdən əvvəl bronu e-poçtla göndərdiyimiz keçidlə təsdiqləyin.", "booking_unconfirmed");
         }
 
         var now = _timeProvider.GetUtcNow().UtcDateTime;
         if (booking.ExpiresAt is not null && booking.ExpiresAt <= now)
         {
             await _expiryService.ReleaseExpiredAsync(cancellationToken);
-            throw new BusinessRuleException("The time to pay for this booking has run out and the seats were released. Please book again.");
+            throw new BusinessRuleException("Bu bronun ödəniş vaxtı bitib və oturacaqlar azad edilib. Yenidən bron edin.");
+        }
+
+        // Nothing is held while the traveller pays, so the seats are checked again now: nobody is sent to Stripe for a seat that is gone.
+        var seatIds = booking.Passengers.SelectMany(p => p.Tickets).Select(t => t.FlightSeatId).OfType<int>().ToList();
+        if ((await _flightSeatRepository.GetTrackedByIdsAsync(seatIds, cancellationToken)).Any(s => s.Status is SeatStatus.Booked or SeatStatus.Blocked))
+        {
+            throw new ConflictException("Seçilmiş oturacaqlardan bir və ya bir neçəsi indicə tutuldu. Başqa oturacaqlar seçin.");
         }
 
         var waiting = booking.Payments
@@ -173,6 +186,14 @@ public class CheckoutService : ICheckoutService
             throw new NotFoundException(PaymentNotFoundMessage);
         }
 
+        // The webhook confirms a payment, but it may not reach this server (a development machine) or may be late: a payment still
+        // waiting is checked at Stripe itself, with the secret key, and handled exactly like the webhook would.
+        if (payment.Status == PaymentStatus.Pending && payment.Method == PaymentMethod.StripeCheckout && !string.IsNullOrEmpty(payment.StripeCheckoutSessionId)
+            && await _webhook.ReconcileAsync(payment.StripeCheckoutSessionId, cancellationToken))
+        {
+            payment = await _paymentRepository.GetWithBookingAsync(paymentId, cancellationToken) ?? payment;
+        }
+
         return new PaymentStatusDto(payment.Id, payment.Status, payment.Booking.Pnr, payment.Booking.Status, payment.Amount, payment.Currency, payment.PaidAt);
     }
 
@@ -186,7 +207,7 @@ public class CheckoutService : ICheckoutService
         var minor = amount * 100m;
         if (amount <= 0 || minor != decimal.Truncate(minor))
         {
-            throw new BusinessRuleException("This booking has no amount that can be charged.");
+            throw new BusinessRuleException("Bu bron üzrə ödənilə biləcək məbləğ yoxdur.");
         }
 
         return (long)minor;
@@ -219,7 +240,7 @@ public class CheckoutService : ICheckoutService
         var promoCode = await _promoCodeRepository.GetByIdAsync(promoCodeId, cancellationToken);
         if (promoCode is { MaxUses: not null } && promoCode.UsedCount >= promoCode.MaxUses)
         {
-            throw new BusinessRuleException("This promo code has reached its usage limit. Please book again without it.");
+            throw new BusinessRuleException("Bu promo kodun istifadə limiti dolub. Onsuz yenidən bron edin.");
         }
     }
 
@@ -231,7 +252,7 @@ public class CheckoutService : ICheckoutService
         }
         catch (DbUpdateConcurrencyException)
         {
-            throw new ConflictException("This booking was changed at the same moment, for example in another window. Please refresh and try again.");
+            throw new ConflictException("Bu bron eyni anda, məsələn başqa pəncərədə dəyişdirilib. Səhifəni yeniləyib yenidən cəhd edin.");
         }
     }
 

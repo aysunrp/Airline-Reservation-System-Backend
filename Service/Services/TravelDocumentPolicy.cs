@@ -46,15 +46,26 @@ public class TravelDocumentPolicy : ITravelDocumentPolicy
             if (!requirement.Documents.Contains(passenger.DocumentType))
             {
                 throw new BusinessRuleException(
-                    $"A {Describe(passenger.DocumentType)} is not accepted for {name} on this trip. Use a {string.Join(" or ", requirement.Documents.Select(Describe))}.");
+                    $"{name} üçün bu səyahətdə {Describe(passenger.DocumentType)} qəbul edilmir. {string.Join(" və ya ", requirement.Documents.Select(Describe))} təqdim edin.");
+            }
+
+            if (passenger.DocumentType == DocumentType.NationalIdCard
+                && !string.Equals(passenger.DocumentIssuingCountry?.Trim(), "AZ", StringComparison.OrdinalIgnoreCase))
+            {
+                throw new BusinessRuleException($"{name} üçün şəxsiyyət vəsiqəsi yalnız Azərbaycan tərəfindən verilmiş ola bilər.");
+            }
+
+            if (passenger.DocumentExpiryDate is not DateOnly expiry)
+            {
+                throw new BusinessRuleException($"{name} üçün sənədin etibarlılıq müddətini daxil edin.");
             }
 
             var validUntil = lastTravelDate.AddDays(requirement.MinValidityDays);
-            if (passenger.DocumentExpiryDate is DateOnly expiry && expiry < validUntil)
+            if (expiry < validUntil)
             {
                 throw new BusinessRuleException(requirement.MinValidityDays == 0
-                    ? $"The travel document of {name} expires before the trip ends."
-                    : $"The travel document of {name} must stay valid until at least {validUntil:dd MMM yyyy} ({requirement.MinValidityDays} days after the trip).");
+                    ? $"{name} adlı sərnişinin səyahət sənədinin müddəti səyahət bitməmiş başa çatır."
+                    : $"{name} adlı sərnişinin səyahət sənədi ən azı {validUntil:dd.MM.yyyy} tarixinədək (səyahətdən {requirement.MinValidityDays} gün sonra) etibarlı olmalıdır.");
             }
         }
     }
@@ -111,5 +122,5 @@ public class TravelDocumentPolicy : ITravelDocumentPolicy
 
     private static IReadOnlyList<DocumentType>? NonEmpty(List<DocumentType>? documents) => documents is { Count: > 0 } ? documents : null;
 
-    private static string Describe(DocumentType type) => type == DocumentType.NationalIdCard ? "national ID card" : "passport";
+    private static string Describe(DocumentType type) => type == DocumentType.NationalIdCard ? "şəxsiyyət vəsiqəsi" : "pasport";
 }

@@ -87,7 +87,12 @@ public class AdminFlightEndpointTests : IClassFixture<ApiFactory>
     {
         var (admin, _) = await SetUpAsync();
         var seed = await _factory.GetSeedAsync();
-        Assert.Equal(HttpStatusCode.Created, (await _factory.CreateClient().PostAsJsonAsync("/api/bookings", BookingEndpointTests.Request(seed, "11A"), Json)).StatusCode);
+        var customer = _factory.CreateClient();
+        customer.WithToken((await customer.RegisterAsync()).AccessToken);
+        var created = await customer.PostAsJsonAsync("/api/bookings", BookingEndpointTests.Request(seed, "11A"), Json);
+        Assert.Equal(HttpStatusCode.Created, created.StatusCode);
+        var paid = await customer.PostAsJsonAsync("/api/payments", new Service.Helpers.DTOs.Payment.PaymentRequestDto { Pnr = (await created.ReadAsync<Service.Helpers.DTOs.Reservation.BookingDto>()).Pnr, Method = Domain.Enums.PaymentMethod.ApplePay }, Json);
+        Assert.Equal(HttpStatusCode.OK, paid.StatusCode);
 
         Assert.Equal(HttpStatusCode.UnprocessableEntity, (await admin.DeleteAsync($"/api/admin/flights/{seed.FlightId}")).StatusCode);
 

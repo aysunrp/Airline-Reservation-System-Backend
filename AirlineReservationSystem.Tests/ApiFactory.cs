@@ -161,6 +161,9 @@ public class ApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
                 settings.SuperAdminPassword = null;
             });
 
+            // The destination catalog is seeded by the tests that need it, so every other test keeps its own airports.
+            services.PostConfigure<DestinationCatalogSettings>(settings => settings.SeedOnStartup = false);
+
             // A developer's local Seed:* user-secrets must not seed test databases; tests switch these on themselves.
             services.PostConfigure<SeedSettings>(settings =>
             {

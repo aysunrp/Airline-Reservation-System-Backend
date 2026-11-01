@@ -14,7 +14,8 @@ public record BookingLegDto(
     DateTime ArrivalAt,
     CabinClass CabinClass,
     string AircraftModel,
-    IReadOnlyList<string> Seats);
+    IReadOnlyList<string> Seats,
+    int JourneyNo = 1);
 
 public record TicketDto(
     int LegOrder,

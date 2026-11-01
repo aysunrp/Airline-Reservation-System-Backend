@@ -19,7 +19,8 @@ public class FlightRangeSearchRequestValidator : AbstractValidator<FlightRangeSe
         RuleFor(x => x.CabinClass).IsInEnum();
         RuleFor(x => x.TimeOfDay).IsInEnum();
         RuleFor(x => x.Passengers).InclusiveBetween(1, CreateBookingRequestValidator.MaxPassengers);
-        RuleFor(x => x.SortBy).Must(s => s is "price" or "departure").WithMessage("Sort by \"price\" or \"departure\".");
+        RuleFor(x => x.SortBy).Must(s => s is "price" or "departure" or "duration").WithMessage("Sort by \"price\", \"departure\" or \"duration\".");
+        RuleFor(x => x.Stops).Must(s => s is null or "direct" or "connecting").WithMessage("Stops must be \"direct\" or \"connecting\".");
         RuleFor(x => x.From)
             .Must(d => d >= DateOnly.FromDateTime(timeProvider.GetUtcNow().UtcDateTime))
             .WithMessage("The travel date cannot be in the past.");

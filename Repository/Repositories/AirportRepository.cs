@@ -16,9 +16,28 @@ public class AirportRepository : BaseRepository<Airport>, IAirportRepository
 
     public async Task<IReadOnlyList<Airport>> GetActiveAsync(CancellationToken cancellationToken = default)
         => await Set.AsNoTracking()
+            .Include(a => a.CityRecord).ThenInclude(c => c!.Country)
             .Where(a => a.IsActive)
             .OrderBy(a => a.City)
             .ToListAsync(cancellationToken);
+
+    public async Task<IReadOnlySet<int>> GetAirportIdsWithActiveRoutesAsync(CancellationToken cancellationToken = default)
+    {
+        var routes = await Context.Set<Route>().AsNoTracking().Where(r => r.IsActive)
+            .Select(r => new { r.OriginAirportId, r.DestinationAirportId })
+            .ToListAsync(cancellationToken);
+        return routes.SelectMany(r => new[] { r.OriginAirportId, r.DestinationAirportId }).ToHashSet();
+    }
+
+    public Task<bool> HasActiveRouteAsync(string originCode, string destinationCode, CancellationToken cancellationToken = default)
+        => Context.Set<Route>().AnyAsync(r => r.IsActive
+            && ((r.Origin.Code == originCode && r.Destination.Code == destinationCode) || (r.Origin.Code == destinationCode && r.Destination.Code == originCode)), cancellationToken);
+
+    public Task<bool> HasActiveConnectionAsync(string originCode, string destinationCode, CancellationToken cancellationToken = default)
+        => Context.Set<Route>().Where(first => first.IsActive && first.Origin.Code == originCode && first.Destination.IsActive)
+            .AnyAsync(first => Context.Set<Route>().Any(second => second.IsActive && second.OriginAirportId == first.DestinationAirportId
+                                                              && second.Destination.Code == destinationCode
+                                                              && second.DestinationAirportId != first.OriginAirportId), cancellationToken);
 
     public Task<bool> CodeExistsAsync(string code, int? excludeId = null, CancellationToken cancellationToken = default)
         => Set.AnyAsync(a => a.Code == code && a.Id != excludeId, cancellationToken);

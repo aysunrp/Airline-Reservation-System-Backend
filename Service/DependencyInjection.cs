@@ -28,6 +28,7 @@ namespace Service
             services.Configure<TravelDocumentSettings>(configuration.GetSection(TravelDocumentSettings.SectionName));
             services.Configure<BookingLifecycleSettings>(configuration.GetSection(BookingLifecycleSettings.SectionName));
             services.Configure<SeedSettings>(configuration.GetSection(SeedSettings.SectionName));
+            services.Configure<DestinationCatalogSettings>(configuration.GetSection(DestinationCatalogSettings.SectionName));
             services.Configure<BootstrapSettings>(configuration.GetSection(BootstrapSettings.SectionName));
             services.Configure<StripeSettings>(configuration.GetSection(StripeSettings.SectionName));
             services.Configure<PaymentSettings>(configuration.GetSection(PaymentSettings.SectionName));
@@ -50,6 +51,10 @@ namespace Service
             services.AddScoped<INotificationService, NotificationService>();
             services.AddScoped<INotificationEmailService, NotificationEmailService>();
             services.AddScoped<IAirportService, AirportService>();
+            services.AddScoped<IDestinationCatalogService, DestinationCatalogService>();
+            services.AddScoped<IDestinationCatalogSeeder, DestinationCatalogSeeder>();
+            services.AddScoped<ISiteContentService, SiteContentService>();
+            services.AddScoped<ISiteContentSeeder, SiteContentSeeder>();
             services.AddScoped<IFlightSearchService, FlightSearchService>();
             services.AddScoped<ISeatService, SeatService>();
             services.AddScoped<IExtraServiceOptionsService, ExtraServiceOptionsService>();
@@ -100,6 +105,7 @@ namespace Service
             services.AddScoped<IAuditLogService, AuditLogService>();
             services.AddScoped<IAdminUserService, AdminUserService>();
             services.AddScoped<ISuperAdminProvisioningService, SuperAdminProvisioningService>();
+            services.AddHostedService<StartupWarmUpWorker>();
             services.AddHostedService<BookingExpiryWorker>();
             services.AddHostedService<FlightGenerationWorker>();
             services.AddHostedService<BookingLifecycleWorker>();

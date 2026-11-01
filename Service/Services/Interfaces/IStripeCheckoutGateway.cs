@@ -23,4 +23,7 @@ public interface IStripeCheckoutGateway
 
     /// <summary>Closes an open Checkout page so it can no longer be paid. A page that is already closed is fine.</summary>
     Task ExpireSessionAsync(string sessionId, CancellationToken cancellationToken = default);
+
+    /// <summary>Reads a Checkout page from Stripe with the secret key. Null when Stripe cannot be reached or does not know the page.</summary>
+    Task<Stripe.Checkout.Session?> GetSessionAsync(string sessionId, CancellationToken cancellationToken = default);
 }

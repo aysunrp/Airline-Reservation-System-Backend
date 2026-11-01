@@ -20,7 +20,7 @@ public class SignInToBookTests
 
         var error = await Assert.ThrowsAsync<UnauthorizedException>(() => _context.CreateBookingService().CreateBookingAsync(null, request));
 
-        Assert.Equal("Sign in to book a flight.", error.Message);
+        Assert.Equal("Uçuşu bron etmək üçün daxil olun.", error.Message);
         Assert.Empty(_context.Bookings.All);
         Assert.Equal(SeatStatus.Available, _context.Data.Seat(103).Status);
     }

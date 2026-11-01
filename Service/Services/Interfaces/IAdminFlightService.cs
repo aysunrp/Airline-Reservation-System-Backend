@@ -1,4 +1,5 @@
 using Domain.Enums;
+using Repository.Repositories.Interfaces;
 using Service.Helpers.DTOs.Flight;
 using Service.Helpers.DTOs.Seat;
 
@@ -12,6 +13,15 @@ public interface IAdminFlightService
 
     /// <summary>One page of flights, oldest departure first. take is limited to 1-500.</summary>
     Task<IReadOnlyList<FlightResultDto>> GetPageAsync(string? search, FlightStatus? status, DateOnly? date, int skip, int take, CancellationToken cancellationToken = default);
+
+    /// <summary>One page of the admin list with every filter applied (origin, destination, month, year, aircraft, type, active), with seat counts.</summary>
+    Task<IReadOnlyList<AdminFlightRowDto>> GetFilteredPageAsync(AdminFlightFilter filter, int skip, int take, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// The journeys with a transfer from one airport to another on the departure days in [from, to] (at most 62 days), as the search builds them,
+    /// with no seat filter: the admin sees every journey, whether or not it still has seats.
+    /// </summary>
+    Task<IReadOnlyList<AdminJourneyDto>> GetJourneysAsync(string originCode, string destinationCode, DateOnly from, DateOnly to, CancellationToken cancellationToken = default);
 
     /// <summary>Creates the flight with its fares, a direct segment and a seat inventory built from the aircraft's seats.</summary>
     Task<FlightResultDto> CreateAsync(FlightRequestDto request, CancellationToken cancellationToken = default);

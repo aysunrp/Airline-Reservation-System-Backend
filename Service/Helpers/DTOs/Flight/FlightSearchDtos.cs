@@ -2,7 +2,7 @@ using Domain.Enums;
 
 namespace Service.Helpers.DTOs.Flight;
 
-/// <summary>One-way = 1 leg, round trip = 2 legs, multi-city = one leg per city pair.</summary>
+/// <summary>One-way = 1 leg, round trip = 2 legs (outbound and return).</summary>
 public class FlightSearchRequestDto
 {
     public List<FlightSearchLegDto> Legs { get; set; } = new();
@@ -26,6 +26,24 @@ public record FlightSearchLegResultDto(
     string OriginCode,
     string DestinationCode,
     DateOnly Date,
+    IReadOnlyList<FlightResultDto> Flights)
+{
+    /// <summary>Journeys of two flights through one transfer airport, found by the same rules booking applies. Empty when none fits.</summary>
+    public IReadOnlyList<ConnectionResultDto> Connections { get; init; } = Array.Empty<ConnectionResultDto>();
+}
+
+/// <summary>
+/// One journey with a transfer: its flights in order, the airport where the passenger changes, the wait there and the whole duration.
+/// A cabin appears in <see cref="Fares"/> only when both flights sell it; the fare is the sum of the two flights' fares.
+/// </summary>
+public record ConnectionResultDto(
+    string TransferCode,
+    string TransferCity,
+    int TransferMinutes,
+    int DurationMinutes,
+    DateTime DepartureAt,
+    DateTime ArrivalAt,
+    IReadOnlyDictionary<CabinClass, decimal> Fares,
     IReadOnlyList<FlightResultDto> Flights);
 
 public record FlightStopDto(string AirportCode, int LayoverMinutes);

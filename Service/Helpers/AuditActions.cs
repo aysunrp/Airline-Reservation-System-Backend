@@ -20,4 +20,5 @@ public static class AuditActions
     public const string RefundRetried = "RefundRetried";
     public const string AccessDenied = "AccessDenied";
     public const string SuperAdminBootstrapped = "SuperAdminBootstrapped";
+    public const string SiteContentUpdated = "SiteContentUpdated";
 }

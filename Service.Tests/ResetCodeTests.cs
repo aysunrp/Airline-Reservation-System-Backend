@@ -61,7 +61,7 @@ public class ResetCodeTests
         var (context, service, user) = await CustomerAsync();
 
         var none = await Assert.ThrowsAsync<NotFoundException>(() => service.ForgotPasswordAsync(Forgot("nobody@example.com")));
-        Assert.Equal("No account was found for this email address.", none.Message);
+        Assert.Equal("Bu e-poçt ünvanı üçün hesab tapılmadı.", none.Message);
         Assert.Empty(context.Sender.Sent);
         Assert.Empty(context.Tokens.All);
 
@@ -76,10 +76,10 @@ public class ResetCodeTests
     }
 
     [Theory]
-    [InlineData(null, "Your AEROVA password reset code")]
+    [InlineData(null, "AEROVA şifrə sıfırlama kodu")]
     [InlineData("az", "AEROVA şifrə sıfırlama kodu")]
     [InlineData("ru", "Код для сброса пароля AEROVA")]
-    [InlineData("fr", "Your AEROVA password reset code")]
+    [InlineData("fr", "AEROVA şifrə sıfırlama kodu")]
     public async Task TheCodeEmail_IsInTheChosenLanguage(string? language, string subject)
     {
         var (context, service, _) = await CustomerAsync();
@@ -380,7 +380,7 @@ public class ResetCodeTests
 
         var used = await Assert.ThrowsAsync<BusinessRuleException>(() => service.VerifyEmailAsync(new VerifyEmailRequestDto { Token = fresh }));
         Assert.Equal("link_confirmed", used.Code);
-        Assert.Contains("confirmed", used.Message);
+        Assert.Contains("təsdiqlənib", used.Message);
     }
 
     [Fact]

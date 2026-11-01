@@ -8,6 +8,12 @@ public class SeedSettings
     /// <summary>Seeds the demo airports, aircraft, routes, schedules and booking options when the API starts.</summary>
     public bool Enabled { get; set; }
 
+    /// <summary>
+    /// With <see cref="Enabled"/>, also adds the demonstration network (the 16-country catalog, extra aircraft, routes and the schedules of
+    /// November 2026 to January 2027). Off by default: it adds a few thousand flights.
+    /// </summary>
+    public bool Network { get; set; }
+
     /// <summary>After seeding, creates the flights of all active schedules for FlightGeneration:DaysAhead days.</summary>
     public bool GenerateFlights { get; set; } = true;
 

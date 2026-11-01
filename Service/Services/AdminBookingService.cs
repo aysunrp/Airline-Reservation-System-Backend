@@ -26,7 +26,7 @@ public class AdminBookingService : IAdminBookingService
 
     public async Task<BookingDto> GetDetailsAsync(string pnr, CancellationToken cancellationToken = default)
         => (await _bookingRepository.GetByPnrAsync(BookingService.NormalizePnr(pnr), cancellationToken))?.ToDto()
-           ?? throw new NotFoundException("Booking not found.");
+           ?? throw new NotFoundException("Bron tapılmadı.");
 
     public Task<BookingDto> CancelAsync(string pnr, string? reason = null, int? adminUserId = null, CancellationToken cancellationToken = default)
         => _cancellationService.CancelByAdminAsync(pnr, reason, adminUserId, cancellationToken);

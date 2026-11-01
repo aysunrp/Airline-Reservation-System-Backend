@@ -9,7 +9,7 @@ public class VerifyEmailRequestDto
 /// <summary>Sends a new verification e-mail to the signed-in account.</summary>
 public class ResendVerificationRequestDto
 {
-    /// <summary>Language of the e-mail: en, az or ru (anything else gives en).</summary>
+    /// <summary>Language of the e-mail: az (the site is Azerbaijani only; anything else gives az).</summary>
     public string? Language { get; set; }
 }
 
@@ -17,7 +17,7 @@ public class ForgotPasswordRequestDto
 {
     public string Email { get; set; } = string.Empty;
 
-    /// <summary>Language of the e-mail: en, az or ru (anything else gives en).</summary>
+    /// <summary>Language of the e-mail: az (the site is Azerbaijani only; anything else gives az).</summary>
     public string? Language { get; set; }
 }
 

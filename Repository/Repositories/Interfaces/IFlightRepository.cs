@@ -20,6 +20,12 @@ public interface IFlightRepository : IBaseRepository<Flight>
     /// </summary>
     Task<IReadOnlyList<Flight>> GetAdminPageAsync(string? search, FlightStatus? status, DateOnly? date, int skip, int take, CancellationToken cancellationToken = default);
 
+    /// <summary>One page of flights for the admin list with every filter applied, oldest departure first (no tracking).</summary>
+    Task<IReadOnlyList<Flight>> GetAdminFilteredAsync(AdminFlightFilter filter, int skip, int take, CancellationToken cancellationToken = default);
+
+    /// <summary>Total and free seats of the given flights, in one query.</summary>
+    Task<IReadOnlyDictionary<int, (int Total, int Available)>> GetSeatCountsAsync(IReadOnlyCollection<int> flightIds, CancellationToken cancellationToken = default);
+
     /// <summary>Next non-cancelled departures from the given time (no tracking).</summary>
     Task<IReadOnlyList<Flight>> GetUpcomingAsync(DateTime from, int take, CancellationToken cancellationToken = default);
 

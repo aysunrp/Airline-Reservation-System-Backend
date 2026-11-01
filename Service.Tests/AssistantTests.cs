@@ -182,8 +182,8 @@ public class AssistantTests
     [Theory]
     [InlineData("ru", "reply in Russian")]
     [InlineData("en", "reply in English")]
-    [InlineData("xx", "reply in English")]
-    [InlineData(null, "reply in English")]
+    [InlineData("xx", "reply in Azerbaijani")]
+    [InlineData(null, "reply in Azerbaijani")]
     public void TheFallbackLanguage_FollowsThePage(string? language, string expected)
         => Assert.Contains(expected, AssistantPrompt.Build(language, "x"));
 

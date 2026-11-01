@@ -98,11 +98,7 @@ internal sealed class TestData
         },
         International =
         {
-            ["TR"] = new CountryDocumentRule
-            {
-                Documents = { DocumentType.Passport },
-                ByNationality = { ["AZ"] = new() { DocumentType.Passport, DocumentType.NationalIdCard } }
-            },
+            ["TR"] = new CountryDocumentRule { Documents = { DocumentType.Passport } },
             ["AE"] = new CountryDocumentRule { Documents = { DocumentType.Passport }, MinValidityDays = 180 }
         },
         InternationalDefault = new CountryDocumentRule { Documents = { DocumentType.Passport } }

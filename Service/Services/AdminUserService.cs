@@ -47,7 +47,7 @@ public class AdminUserService : IAdminUserService
         var email = AuthService.NormalizeEmail(request.Email);
         if (await _users.EmailExistsAsync(email, cancellationToken))
         {
-            throw new ConflictException("An account with this email already exists.");
+            throw new ConflictException("Bu e-poçt ünvanı ilə hesab artıq mövcuddur.");
         }
 
         var user = new User
@@ -139,7 +139,7 @@ public class AdminUserService : IAdminUserService
     }
 
     private async Task<User> FindAsync(int id, CancellationToken cancellationToken)
-        => await _users.GetByIdAsync(id, cancellationToken) ?? throw new NotFoundException("User not found.");
+        => await _users.GetByIdAsync(id, cancellationToken) ?? throw new NotFoundException("İstifadəçi tapılmadı.");
 
     private static void EnsureNotYourself(AuditActor actor, User user, string what)
     {

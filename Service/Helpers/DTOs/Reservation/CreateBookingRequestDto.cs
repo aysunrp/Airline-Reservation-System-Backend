@@ -6,7 +6,7 @@ public class CreateBookingRequestDto
 {
     public TripType TripType { get; set; }
 
-    /// <summary>Flights in travel order: one for one-way, outbound + return for round trip, one per city pair for multi-city.</summary>
+    /// <summary>Flights in travel order: one for one-way, outbound + return for round trip.</summary>
     public List<BookingLegRequestDto> Legs { get; set; } = new();
 
     public List<BookingPassengerRequestDto> Passengers { get; set; } = new();
@@ -23,6 +23,9 @@ public class BookingLegRequestDto
 {
     public int FlightId { get; set; }
     public CabinClass CabinClass { get; set; }
+
+    /// <summary>1 for the outbound journey, 2 for the return. Left out (0), a one-way booking is journey 1 and a two-flight round trip is 1 and 2.</summary>
+    public int JourneyNo { get; set; }
 }
 
 public class BookingPassengerRequestDto

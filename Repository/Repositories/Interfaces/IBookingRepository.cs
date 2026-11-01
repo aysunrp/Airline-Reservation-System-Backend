@@ -16,6 +16,9 @@ public interface IBookingRepository : IBaseRepository<Booking>
     /// <summary>A user's bookings with legs (route airports, aircraft), passenger seats and refunds, newest first (no tracking).</summary>
     Task<IReadOnlyList<Booking>> GetByUserIdAsync(int userId, CancellationToken cancellationToken = default);
 
+    /// <summary>The same trips as <see cref="GetByUserIdAsync"/> in the shape the "my trips" list needs, read with narrow projections (no tracking).</summary>
+    Task<IReadOnlyList<BookingSummaryRow>> GetSummariesByUserIdAsync(int userId, CancellationToken cancellationToken = default);
+
     /// <summary>
     /// Admin bookings table: optional PNR fragment, passenger name fragment and status filters, newest first,
     /// with legs, route airports and seats (no tracking).

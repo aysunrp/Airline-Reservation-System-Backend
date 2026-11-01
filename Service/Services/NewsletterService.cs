@@ -23,8 +23,8 @@ namespace Service.Services;
 /// </summary>
 public class NewsletterService : INewsletterService
 {
-    private const string InvalidLinkMessage = "This link is invalid or has expired.";
-    private const string EmailUnavailableMessage = "We cannot send e-mail right now. Please try again later.";
+    private const string InvalidLinkMessage = "Bu keçid etibarsızdır və ya vaxtı bitib.";
+    private const string EmailUnavailableMessage = "Hazırda e-poçt göndərə bilmirik. Bir az sonra yenidən cəhd edin.";
 
     private readonly INewsletterSubscriberRepository _subscribers;
     private readonly IEmailSender _sender;

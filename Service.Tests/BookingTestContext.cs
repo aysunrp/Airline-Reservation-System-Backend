@@ -19,6 +19,7 @@ internal sealed class BookingTestContext
         {
             PromoCodeLookup = id => PromoCodes.GetByIdAsync(id).Result
         };
+        WebhookEvents = new FakeStripeWebhookEventRepository(Bookings);
     }
 
     public TestData Data { get; } = new();
@@ -98,7 +99,7 @@ internal sealed class BookingTestContext
         Options.Create(Stripe),
         Options.Create(PaymentSettings));
 
-    public FakeStripeWebhookEventRepository WebhookEvents { get; } = new();
+    public FakeStripeWebhookEventRepository WebhookEvents { get; }
 
     public StripeWebhookService CreateWebhookService() => new(
         WebhookEvents,
@@ -108,6 +109,7 @@ internal sealed class BookingTestContext
         Refunds,
         CreateRefundService(),
         CreateConfirmationService(),
+        Gateway,
         Options.Create(Stripe),
         Clock,
         new ListLogger<StripeWebhookService>());
@@ -115,9 +117,11 @@ internal sealed class BookingTestContext
     public CheckoutService CreateCheckoutService() => new(
         Bookings,
         new FakePaymentRepository(Bookings),
+        FlightSeats(),
         PromoCodes,
         CreateExpiryService(),
         Gateway,
+        CreateWebhookService(),
         new CreateCheckoutSessionRequestValidator(),
         Options.Create(Stripe),
         Options.Create(new AuthSettings { FrontendBaseUrl = "https://aerova.test/", RequireBookingEmailConfirmation = AuthSettings.RequireBookingEmailConfirmation }),

@@ -61,6 +61,59 @@ public class StripeWebhookServiceTests
         Assert.NotNull(record.ProcessedAt);
     }
 
+    private Stripe.Checkout.Session StripeAnswer(Payment payment, string paymentStatus, string status, long? amount = null)
+        => new()
+        {
+            Id = payment.StripeCheckoutSessionId!,
+            PaymentStatus = paymentStatus,
+            Status = status,
+            AmountTotal = amount ?? Cents(payment),
+            Currency = "usd",
+            PaymentIntentId = "pi_test_0001",
+            ClientReferenceId = payment.Id.ToString(),
+            Metadata = new Dictionary<string, string> { ["payment_id"] = payment.Id.ToString(), ["booking_id"] = payment.BookingId.ToString() }
+        };
+
+    [Fact]
+    public async Task ReconcilingAPaidPage_ConfirmsTheBookingJustLikeTheWebhook()
+    {
+        var (booking, payment) = await OpenCheckoutAsync();
+        _context.Gateway.Known[payment.StripeCheckoutSessionId!] = StripeAnswer(payment, "paid", "complete");
+
+        var changed = await _context.CreateWebhookService().ReconcileAsync(payment.StripeCheckoutSessionId!);
+
+        Assert.True(changed);
+        Assert.Equal(BookingStatus.Confirmed, booking.Status);
+        Assert.Equal(PaymentStatus.Paid, payment.Status);
+        Assert.Equal(SeatStatus.Booked, _context.Data.Seat(103).Status);
+    }
+
+    [Fact]
+    public async Task ReconcilingAnUnpaidOrUnknownPage_ChangesNothing()
+    {
+        var (booking, payment) = await OpenCheckoutAsync();
+        var service = _context.CreateWebhookService();
+
+        Assert.False(await service.ReconcileAsync(payment.StripeCheckoutSessionId!));
+
+        _context.Gateway.Known[payment.StripeCheckoutSessionId!] = StripeAnswer(payment, "unpaid", "open");
+        Assert.False(await service.ReconcileAsync(payment.StripeCheckoutSessionId!));
+
+        Assert.Equal((BookingStatus.Pending, PaymentStatus.Pending), (booking.Status, payment.Status));
+    }
+
+    [Fact]
+    public async Task ReconcilingAPageWithAnotherAmount_ConfirmsNothing()
+    {
+        var (booking, payment) = await OpenCheckoutAsync();
+        _context.Gateway.Known[payment.StripeCheckoutSessionId!] = StripeAnswer(payment, "paid", "complete", amount: 100);
+
+        var changed = await _context.CreateWebhookService().ReconcileAsync(payment.StripeCheckoutSessionId!);
+
+        Assert.False(changed);
+        Assert.Equal((BookingStatus.Pending, PaymentStatus.Pending), (booking.Status, payment.Status));
+    }
+
     [Fact]
     public async Task TheSameEventAgain_ChangesNothing()
     {

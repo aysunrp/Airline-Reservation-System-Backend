@@ -53,21 +53,19 @@ public class AdminSeatMapEndpointTests : IClassFixture<ApiFactory>
     }
 
     [Fact]
-    public async Task AnUnpaidBooking_OnlyHoldsTheSeat_ItBecomesBookedWhenPaid_AndNobodyCanTakeItMeanwhile()
+    public async Task AnUnpaidBooking_HoldsNothing_TheSeatBecomesBookedOnlyWhenPaid_AndThenNobodyCanTakeIt()
     {
         var admin = await _factory.CreateSuperAdminClientAsync();
         Assert.Equal(SeatStatus.Available, await StatusOfAsync(admin, "11A"));
 
         var (client, booking) = await BookAsync("11A", "Held", pay: false);
-        Assert.Equal(SeatStatus.Held, await StatusOfAsync(admin, "11A")); // reserved, not occupied: not grey
+        Assert.Equal(SeatStatus.Available, await StatusOfAsync(admin, "11A")); // chosen, not reserved
 
-        // The same seat cannot be booked again, nor blocked by an admin, while it is held.
+        // Somebody else can choose the same seat meanwhile.
         var seed = await _factory.GetSeedAsync();
         var other = _factory.CreateClient();
         other.WithToken((await other.RegisterAsync()).AccessToken);
-        Assert.Equal(HttpStatusCode.Conflict, (await other.PostAsJsonAsync("/api/bookings", BookingEndpointTests.Request(seed, "11A", lastName: "Other"), Json)).StatusCode);
-        Assert.Equal(HttpStatusCode.UnprocessableEntity,
-            (await admin.PatchAsJsonAsync($"/api/admin/flights/{seed.FlightId}/seats/{seed.SeatIds["11A"]}", new SeatBlockRequestDto { Blocked = true }, Json)).StatusCode);
+        Assert.Equal(HttpStatusCode.Created, (await other.PostAsJsonAsync("/api/bookings", BookingEndpointTests.Request(seed, "11A", lastName: "Other"), Json)).StatusCode);
 
         var paid = await client.PostAsJsonAsync("/api/payments", new PaymentRequestDto { Pnr = booking.Pnr, Method = PaymentMethod.ApplePay }, Json);
         Assert.Equal(HttpStatusCode.OK, paid.StatusCode);
@@ -92,12 +90,12 @@ public class AdminSeatMapEndpointTests : IClassFixture<ApiFactory>
     }
 
     [Fact]
-    public async Task AnExpiredUnpaidBooking_ReleasesItsSeat_ButAPaidOneKeepsIt()
+    public async Task AnExpiredUnpaidBooking_ChangesNoSeat_AndAPaidOneKeepsIt()
     {
         var admin = await _factory.CreateSuperAdminClientAsync();
         await BookAsync("11B", "Unpaid", pay: false);
         await BookAsync("11C", "Paid", pay: true);
-        Assert.Equal(SeatStatus.Held, await StatusOfAsync(admin, "11B"));
+        Assert.Equal(SeatStatus.Available, await StatusOfAsync(admin, "11B"));
         Assert.Equal(SeatStatus.Booked, await StatusOfAsync(admin, "11C"));
 
         using (var scope = _factory.Services.CreateScope())

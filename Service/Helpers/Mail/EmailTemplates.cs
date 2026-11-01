@@ -2,7 +2,7 @@ using System.Net;
 
 namespace Service.Helpers.Mail;
 
-/// <summary>The two account e-mails in English, Azerbaijani and Russian. The name and the link are the only parts that change.</summary>
+/// <summary>The account e-mails. The site speaks Azerbaijani, so that is the language of every e-mail unless a caller names another one. The name and the link are the only parts that change.</summary>
 public static class EmailTemplates
 {
     public static readonly string[] Languages = { "en", "az", "ru" };
@@ -10,7 +10,7 @@ public static class EmailTemplates
     public static string NormalizeLanguage(string? language)
     {
         var value = (language ?? string.Empty).Trim().ToLowerInvariant();
-        return Languages.Contains(value) ? value : "en";
+        return Languages.Contains(value) ? value : "az";
     }
 
     /// <summary>Asks the person to confirm the address by opening the link.</summary>

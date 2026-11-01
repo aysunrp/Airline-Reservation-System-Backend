@@ -106,12 +106,14 @@ public class CancellationService : ICancellationService
         _bookingRepository.Update(booking);
 
         var tickets = booking.Passengers.SelectMany(p => p.Tickets).ToList();
+        var wasPaid = tickets.Any(t => t.Status != TicketStatus.Pending);
         foreach (var ticket in tickets)
         {
             ticket.Status = TicketStatus.Cancelled;
         }
 
-        await _seatService.ReleaseSeatsAsync(tickets.Select(t => t.FlightSeatId).OfType<int>().ToList(), cancellationToken);
+        // Only a paid booking owns its seats; an unpaid one only pointed at them.
+        await _seatService.ReleaseSeatsAsync(tickets.Select(t => t.FlightSeatId).OfType<int>().ToList(), includeBooked: wasPaid, cancellationToken);
 
         // A hold that was never paid is not a trip: releasing it (for example when the traveller changes seats) is not news.
         if (booking.UserId is int userId && payment is not null)
@@ -131,7 +133,7 @@ public class CancellationService : ICancellationService
         catch (DbUpdateConcurrencyException)
         {
             // The booking changed while it was being cancelled (a second cancel, or a payment arriving): nothing was saved.
-            throw new ConflictException("This booking was changed at the same time. Please check it and try again.");
+            throw new ConflictException("Bu bron eyni anda dəyişdirilib. Onu yoxlayıb yenidən cəhd edin.");
         }
 
         // The booking is cancelled for good once it is saved. Asking Stripe happens after that, so a failure there can only
@@ -169,7 +171,7 @@ public class CancellationService : ICancellationService
         {
             if (userId is null)
             {
-                throw new UnauthorizedException("Sign in to the account that made this booking to cancel it.");
+                throw new UnauthorizedException("Bronu ləğv etmək üçün onu yaratmış hesaba daxil olun.");
             }
 
             if (userId != owner)
@@ -181,15 +183,15 @@ public class CancellationService : ICancellationService
         switch (booking.Status)
         {
             case BookingStatus.Cancelled:
-                throw new ConflictException("This booking has already been cancelled.");
+                throw new ConflictException("Bu bron artıq ləğv edilib.");
             case BookingStatus.Expired:
             case BookingStatus.Completed:
-                throw new BusinessRuleException("This booking can no longer be cancelled.");
+                throw new BusinessRuleException("Bu bronu artıq ləğv etmək mümkün deyil.");
         }
 
         if (FirstLeg(booking).Flight.DepartureAt <= _timeProvider.GetUtcNow().UtcDateTime)
         {
-            throw new BusinessRuleException("The trip has already started, so the booking can no longer be cancelled online.");
+            throw new BusinessRuleException("Səyahət artıq başlayıb, ona görə bronu onlayn ləğv etmək mümkün deyil.");
         }
 
         return booking;

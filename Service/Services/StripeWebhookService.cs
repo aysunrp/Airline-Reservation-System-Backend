@@ -1,6 +1,7 @@
 using Domain.Constants;
 using Domain.Entities;
 using Domain.Enums;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Repository.Repositories.Interfaces;
@@ -33,9 +34,11 @@ public class StripeWebhookService : IStripeWebhookService
     private readonly IRefundRepository _refunds;
     private readonly IRefundService _refundService;
     private readonly IBookingConfirmationService _confirmation;
+    private readonly IStripeCheckoutGateway _gateway;
     private readonly StripeSettings _stripe;
     private readonly TimeProvider _timeProvider;
     private readonly ILogger<StripeWebhookService> _logger;
+    private readonly List<Domain.Entities.Refund> _refundsToSend = new();
 
     public StripeWebhookService(
         IStripeWebhookEventRepository events,
@@ -45,6 +48,7 @@ public class StripeWebhookService : IStripeWebhookService
         IRefundRepository refunds,
         IRefundService refundService,
         IBookingConfirmationService confirmation,
+        IStripeCheckoutGateway gateway,
         IOptions<StripeSettings> stripe,
         TimeProvider timeProvider,
         ILogger<StripeWebhookService> logger)
@@ -56,6 +60,7 @@ public class StripeWebhookService : IStripeWebhookService
         _refunds = refunds;
         _refundService = refundService;
         _confirmation = confirmation;
+        _gateway = gateway;
         _stripe = stripe.Value;
         _timeProvider = timeProvider;
         _logger = logger;
@@ -115,9 +120,47 @@ public class StripeWebhookService : IStripeWebhookService
         // One save for the record, the payment and the booking. A clash with another change (the expiry job, say) throws:
         // Stripe gets an error, sends the event again, and it is handled against the new state.
         await _events.SaveChangesAsync(cancellationToken);
+        await SendStagedRefundsAsync(cancellationToken);
 
         _logger.LogInformation("Stripe event {EventId} ({EventType}): {Outcome}", stripeEvent.Id, stripeEvent.Type, outcome);
         return StripeWebhookResult.Handled;
+    }
+
+    public async Task<bool> ReconcileAsync(string checkoutSessionId, CancellationToken cancellationToken = default)
+    {
+        if (!_stripe.IsConfigured || string.IsNullOrWhiteSpace(checkoutSessionId))
+        {
+            return false;
+        }
+
+        var session = await _gateway.GetSessionAsync(checkoutSessionId, cancellationToken);
+        if (session is null || session.Id != checkoutSessionId)
+        {
+            return false;
+        }
+
+        // Stripe's own answer goes through the very checks a webhook event does (references, amount, currency).
+        var outcome = session.PaymentStatus == "paid"
+            ? await ConfirmAsync(session, cancellationToken)
+            : session.Status == "expired" ? await CloseAsync(session, PaymentStatus.Cancelled, cancellationToken) : null;
+        if (outcome is null)
+        {
+            return false;
+        }
+
+        try
+        {
+            await _events.SaveChangesAsync(cancellationToken);
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+            // The webhook or the expiry job got there first; the caller reads the payment again.
+            return false;
+        }
+
+        await SendStagedRefundsAsync(cancellationToken);
+        _logger.LogInformation("Checkout page checked at Stripe: {Outcome}", outcome);
+        return outcome is "Confirmed" or "Checkout page closed unpaid" or "Seat taken: booking cancelled, refund requested";
     }
 
     private async Task<string> ConfirmAsync(Session session, CancellationToken cancellationToken)
@@ -159,14 +202,72 @@ public class StripeWebhookService : IStripeWebhookService
 
         if (booking.Status == BookingStatus.Pending)
         {
-            await CountPromoCodeUseAsync(booking, cancellationToken);
-            await _confirmation.ConfirmAsync(booking, payment.Amount, cancellationToken);
-            return "Confirmed";
+            if (await _confirmation.ConfirmAsync(booking, payment.Amount, cancellationToken))
+            {
+                await CountPromoCodeUseAsync(booking, cancellationToken);
+                return "Confirmed";
+            }
+
+            // The first paid ticket owns the seat: this payment arrived second. The booking is cancelled and the money is sent back.
+            return CancelAndRefund(booking, payment);
         }
 
         // The money is taken but the booking cannot be confirmed (it ran out, was cancelled, or was already paid): it must be refunded.
         _logger.LogError("Payment {PaymentId} was taken by Stripe but its booking is {BookingStatus}; it needs a refund.", payment.Id, booking.Status);
         return $"Paid while the booking was {booking.Status}: refund needed";
+    }
+
+    /// <summary>A seat of a booking that was paid for was sold to someone else first: nothing is confirmed, the whole payment is refunded.</summary>
+    private string CancelAndRefund(Booking booking, Payment payment)
+    {
+        var cancellation = new Cancellation
+        {
+            RequestedAt = Now(),
+            Reason = "A seat was no longer available when the payment was confirmed.",
+            AmountPaid = payment.Amount,
+            FeeAmount = 0,
+            RefundAmount = payment.Amount
+        };
+        var refund = new Domain.Entities.Refund
+        {
+            PaymentId = payment.Id,
+            Amount = payment.Amount,
+            Currency = payment.Currency,
+            Reason = cancellation.Reason,
+            Status = RefundStatus.Pending
+        };
+        cancellation.Refunds.Add(refund);
+
+        booking.Cancellation = cancellation;
+        booking.Status = BookingStatus.Cancelled;
+        booking.ExpiresAt = null;
+        _bookings.Update(booking);
+        foreach (var ticket in booking.Passengers.SelectMany(p => p.Tickets))
+        {
+            ticket.Status = TicketStatus.Cancelled;
+        }
+
+        _refundsToSend.Add(refund);
+        _logger.LogWarning("Payment {PaymentId} was taken but a seat of booking {BookingId} had been sold to someone else; the booking was cancelled and a refund requested.", payment.Id, booking.Id);
+        return "Seat taken: booking cancelled, refund requested";
+    }
+
+    /// <summary>Asks Stripe for the refunds staged by this call. Run after the save; a failure leaves them queued for the background job.</summary>
+    private async Task SendStagedRefundsAsync(CancellationToken cancellationToken)
+    {
+        foreach (var refund in _refundsToSend)
+        {
+            try
+            {
+                await _refundService.SubmitAsync(refund.Id, cancellationToken);
+            }
+            catch (Exception exception) when (exception is not OperationCanceledException)
+            {
+                _logger.LogError(exception, "Refund {RefundId} could not be sent to Stripe; the background job will try again.", refund.Id);
+            }
+        }
+
+        _refundsToSend.Clear();
     }
 
     /// <summary>

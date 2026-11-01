@@ -19,4 +19,11 @@ public enum StripeWebhookResult
 public interface IStripeWebhookService
 {
     Task<StripeWebhookResult> HandleAsync(string payload, string? signatureHeader, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// The same outcome as the webhook, read from Stripe itself: asks Stripe (server to server, with the secret key) about the Checkout page
+    /// of a payment that is still waiting, and confirms or closes it by what Stripe answers. For when the webhook has not arrived (it cannot
+    /// reach a development machine) or is late. Returns true when the payment or its booking changed.
+    /// </summary>
+    Task<bool> ReconcileAsync(string checkoutSessionId, CancellationToken cancellationToken = default);
 }

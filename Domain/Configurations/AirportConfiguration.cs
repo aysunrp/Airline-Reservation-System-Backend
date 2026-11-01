@@ -14,5 +14,7 @@ public class AirportConfiguration : IEntityTypeConfiguration<Airport>
         builder.Property(x => x.CountryCode).IsRequired().HasMaxLength(2);
         builder.Property(x => x.TimeZoneId).IsRequired().HasMaxLength(64);
         builder.HasIndex(x => x.Code).IsUnique();
+        // A city with airports cannot be removed by accident: the catalog is switched off, not deleted.
+        builder.HasOne(x => x.CityRecord).WithMany(c => c.Airports).HasForeignKey(x => x.CityId).OnDelete(DeleteBehavior.Restrict);
     }
 }

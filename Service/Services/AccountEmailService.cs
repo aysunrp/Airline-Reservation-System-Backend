@@ -22,10 +22,10 @@ namespace Service.Services;
 /// </summary>
 public class AccountEmailService : IAccountEmailService
 {
-    private const string InvalidLinkMessage = "This link is invalid or has expired.";
-    private const string InvalidCodeMessage = "That code is not correct or has expired. Ask for a new one.";
-    private const string NoAccountMessage = "No account was found for this email address.";
-    private const string EmailUnavailableMessage = "We cannot send e-mail right now. Please try again later.";
+    private const string InvalidLinkMessage = "Bu keçid etibarsızdır və ya vaxtı bitib.";
+    private const string InvalidCodeMessage = "Kod düzgün deyil və ya vaxtı bitib. Yenisini istəyin.";
+    private const string NoAccountMessage = "Bu e-poçt ünvanı üçün hesab tapılmadı.";
+    private const string EmailUnavailableMessage = "Hazırda e-poçt göndərə bilmirik. Bir az sonra yenidən cəhd edin.";
 
     private readonly IUserRepository _users;
     private readonly IEmailTokenRepository _tokens;
@@ -117,20 +117,20 @@ public class AccountEmailService : IAccountEmailService
         var token = await _tokens.GetByHashAsync(Hash(request.Token.Trim()), EmailTokenPurpose.VerifyEmail, cancellationToken);
         if (token is null)
         {
-            throw new BusinessRuleException("This link is not valid.", "link_invalid");
+            throw new BusinessRuleException("Bu keçid etibarsızdır.", "link_invalid");
         }
 
         if (token.UsedAt is not null)
         {
             // Opened twice (or a mail scanner opened it first): when the address is confirmed the person only needs to sign in.
             throw token.User.EmailVerifiedAt is null
-                ? new BusinessRuleException("This link was already used. Ask for a new one.", "link_used")
-                : new BusinessRuleException("This link was already used. Your email address is confirmed.", "link_confirmed");
+                ? new BusinessRuleException("Bu keçid artıq istifadə olunub. Yenisini istəyin.", "link_used")
+                : new BusinessRuleException("Bu keçid artıq istifadə olunub. E-poçt ünvanınız təsdiqlənib.", "link_confirmed");
         }
 
         if (token.ExpiresAt <= now)
         {
-            throw new BusinessRuleException("This link has expired. Ask for a new one.", "link_expired");
+            throw new BusinessRuleException("Bu keçidin vaxtı bitib. Yenisini istəyin.", "link_expired");
         }
 
         token.UsedAt = now;
@@ -150,12 +150,12 @@ public class AccountEmailService : IAccountEmailService
         var user = await _users.GetByIdAsync(userId, cancellationToken);
         if (user is null || !user.IsActive)
         {
-            throw new UnauthorizedException("Please sign in again.");
+            throw new UnauthorizedException("Zəhmət olmasa, yenidən daxil olun.");
         }
 
         if (user.EmailVerifiedAt is not null)
         {
-            throw new ConflictException("Your email address is already verified.");
+            throw new ConflictException("E-poçt ünvanınız artıq təsdiqlənib.");
         }
 
         if (!_sender.IsConfigured)
@@ -166,7 +166,7 @@ public class AccountEmailService : IAccountEmailService
         var wait = await RetryAfterAsync(user.Id, EmailTokenPurpose.VerifyEmail, cancellationToken);
         if (wait > TimeSpan.Zero)
         {
-            throw new TooManyAttemptsException("A message was sent a moment ago. Please wait before asking for another.", wait);
+            throw new TooManyAttemptsException("Mesaj bir az əvvəl göndərilib. Yenisini istəməzdən əvvəl gözləyin.", wait);
         }
 
         if (!await IssueAndSendAsync(user, EmailTokenPurpose.VerifyEmail, language, cancellationToken))
@@ -196,13 +196,13 @@ public class AccountEmailService : IAccountEmailService
         var wait = await RetryAfterAsync(user.Id, EmailTokenPurpose.ResetCode, cancellationToken);
         if (wait > TimeSpan.Zero)
         {
-            throw new TooManyAttemptsException("A code was sent a moment ago. Please wait before asking for another.", wait);
+            throw new TooManyAttemptsException("Kod bir az əvvəl göndərilib. Yenisini istəməzdən əvvəl gözləyin.", wait);
         }
 
         // At most a few codes an hour per account: neither endless guessing nor a flood of mail to somebody's inbox.
         if (await _tokens.CountCreatedSinceAsync(user.Id, EmailTokenPurpose.ResetCode, Now().AddHours(-1), cancellationToken) >= Math.Max(1, _settings.ResetCodesPerHour))
         {
-            throw new TooManyAttemptsException("Too many codes were asked for this account. Please try again in a while.", TimeSpan.FromHours(1));
+            throw new TooManyAttemptsException("Bu hesab üçün çox sayda kod istənilib. Bir qədər sonra yenidən cəhd edin.", TimeSpan.FromHours(1));
         }
 
         // A code that did not go out is never reported as sent.

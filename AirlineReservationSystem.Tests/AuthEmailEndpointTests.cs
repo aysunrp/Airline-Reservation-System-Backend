@@ -65,7 +65,7 @@ public class AuthEmailEndpointTests : IClassFixture<ApiFactory>
         var wrong = await client.PostAsJsonAsync("/api/auth/verify-email", new VerifyEmailRequestDto { Token = "definitely-not-a-token" }, Json);
         Assert.Equal(HttpStatusCode.UnprocessableEntity, wrong.StatusCode);
         var problem = await wrong.ReadJsonAsync();
-        Assert.Equal("This link is not valid.", problem.GetProperty("detail").GetString());
+        Assert.Equal("Bu keçid etibarsızdır.", problem.GetProperty("detail").GetString());
         Assert.Equal("link_invalid", problem.GetProperty("code").GetString());
 
         Assert.Equal(HttpStatusCode.BadRequest, (await client.PostAsJsonAsync("/api/auth/verify-email", new VerifyEmailRequestDto { Token = "" }, Json)).StatusCode);
@@ -102,7 +102,7 @@ public class AuthEmailEndpointTests : IClassFixture<ApiFactory>
 
         Assert.Equal(HttpStatusCode.Accepted, known.StatusCode);
         Assert.Equal(HttpStatusCode.NotFound, stranger.StatusCode);
-        Assert.Equal("No account was found for this email address.", (await stranger.ReadJsonAsync()).GetProperty("detail").GetString());
+        Assert.Equal("Bu e-poçt ünvanı üçün hesab tapılmadı.", (await stranger.ReadJsonAsync()).GetProperty("detail").GetString());
 
         // A second request a moment later is held back and says how long to wait.
         var again = await client.PostAsJsonAsync("/api/auth/forgot-password", new ForgotPasswordRequestDto { Email = email }, Json);

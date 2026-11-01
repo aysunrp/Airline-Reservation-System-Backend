@@ -9,6 +9,9 @@ public interface IRouteRepository : IBaseRepository<Route>
 
     Task<int> CountActiveAsync(CancellationToken cancellationToken = default);
 
+    /// <summary>The (origin, destination) airport ids of every active route; the graph connections are found in.</summary>
+    Task<IReadOnlyList<(int Origin, int Destination)>> GetActivePairsAsync(CancellationToken cancellationToken = default);
+
     /// <summary>One route with its airports, tracked so it can be edited.</summary>
     Task<Route?> GetWithAirportsAsync(int id, CancellationToken cancellationToken = default);
 

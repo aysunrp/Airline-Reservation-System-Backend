@@ -17,8 +17,10 @@ public class FlightRepository : BaseRepository<Flight>, IFlightRepository
         => await WithDetails()
             .Where(f => f.Route.OriginAirportId == originAirportId
                         && f.Route.DestinationAirportId == destinationAirportId
+                        && f.Route.IsActive
                         && f.DepartureAt >= fromUtc && f.DepartureAt < toUtc
-                        && f.Status != FlightStatus.Cancelled)
+                        && f.Status != FlightStatus.Cancelled
+                        && (f.FlightScheduleId == null || f.FlightSchedule!.IsActive))
             .OrderBy(f => f.DepartureAt)
             .ToListAsync(cancellationToken);
 
@@ -135,7 +137,102 @@ public class FlightRepository : BaseRepository<Flight>, IFlightRepository
             .Include(f => f.Route).ThenInclude(r => r.Origin)
             .Include(f => f.Route).ThenInclude(r => r.Destination)
             .Include(f => f.Aircraft)
+            .Include(f => f.FlightSchedule)
             .Include(f => f.Segments.OrderBy(s => s.SequenceNo)).ThenInclude(s => s.Origin)
             .Include(f => f.Segments).ThenInclude(s => s.Destination)
             .Include(f => f.Fares);
+
+    public async Task<IReadOnlyList<Flight>> GetAdminFilteredAsync(AdminFlightFilter filter, int skip, int take, CancellationToken cancellationToken = default)
+    {
+        var query = WithDetails();
+
+        if (filter.Status is not null)
+        {
+            query = query.Where(f => f.Status == filter.Status);
+        }
+
+        if (filter.Date is not null)
+        {
+            var from = filter.Date.Value.ToDateTime(TimeOnly.MinValue, DateTimeKind.Utc);
+            query = query.Where(f => f.DepartureAt >= from && f.DepartureAt < from.AddDays(1));
+        }
+
+        if (filter.Year is not null)
+        {
+            query = query.Where(f => f.DepartureAt.Year == filter.Year);
+        }
+
+        if (filter.Month is not null)
+        {
+            query = query.Where(f => f.DepartureAt.Month == filter.Month);
+        }
+
+        if (!string.IsNullOrWhiteSpace(filter.OriginCode))
+        {
+            var code = filter.OriginCode.Trim().ToUpperInvariant();
+            query = query.Where(f => f.Route.Origin.Code == code);
+        }
+
+        if (!string.IsNullOrWhiteSpace(filter.DestinationCode))
+        {
+            var code = filter.DestinationCode.Trim().ToUpperInvariant();
+            query = query.Where(f => f.Route.Destination.Code == code);
+        }
+
+        if (filter.AircraftId is not null)
+        {
+            query = query.Where(f => f.AircraftId == filter.AircraftId);
+        }
+
+        if (filter.FlightType == "direct")
+        {
+            query = query.Where(f => f.Segments.Count() == 1);
+        }
+        else if (filter.FlightType == "withStops")
+        {
+            query = query.Where(f => f.Segments.Count() > 1);
+        }
+
+        if (filter.Active is true)
+        {
+            query = query.Where(f => f.FlightScheduleId == null || f.FlightSchedule!.IsActive);
+        }
+        else if (filter.Active is false)
+        {
+            query = query.Where(f => f.FlightScheduleId != null && !f.FlightSchedule!.IsActive);
+        }
+
+        if (!string.IsNullOrWhiteSpace(filter.Search))
+        {
+            var term = filter.Search.Trim();
+            var code = term.ToUpperInvariant();
+            query = query.Where(f => f.FlightNumber.Contains(term)
+                                     || f.Route.Origin.Code == code
+                                     || f.Route.Destination.Code == code
+                                     || f.Route.Origin.City.Contains(term)
+                                     || f.Route.Destination.City.Contains(term)
+                                     || f.Aircraft.Model.Contains(term));
+        }
+
+        return await query
+            .OrderBy(f => f.DepartureAt).ThenBy(f => f.Id)
+            .Skip(skip)
+            .Take(take)
+            .ToListAsync(cancellationToken);
+    }
+
+    public async Task<IReadOnlyDictionary<int, (int Total, int Available)>> GetSeatCountsAsync(IReadOnlyCollection<int> flightIds, CancellationToken cancellationToken = default)
+    {
+        if (flightIds.Count == 0)
+        {
+            return new Dictionary<int, (int Total, int Available)>();
+        }
+
+        var counts = await Context.Set<FlightSeat>().AsNoTracking()
+            .Where(s => flightIds.Contains(s.FlightId))
+            .GroupBy(s => s.FlightId)
+            .Select(g => new { FlightId = g.Key, Total = g.Count(), Available = g.Count(s => s.Status == SeatStatus.Available) })
+            .ToListAsync(cancellationToken);
+        return counts.ToDictionary(c => c.FlightId, c => (c.Total, c.Available));
+    }
 }

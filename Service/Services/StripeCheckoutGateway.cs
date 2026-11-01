@@ -14,7 +14,7 @@ namespace Service.Services;
 /// </summary>
 public class StripeCheckoutGateway : IStripeCheckoutGateway
 {
-    private const string UnavailableMessage = "Card payments are not available right now. Please try again later.";
+    private const string UnavailableMessage = "Kartla ödəniş hazırda əlçatan deyil. Bir az sonra yenidən cəhd edin.";
 
     private readonly StripeSettings _settings;
     private readonly ILogger<StripeCheckoutGateway> _logger;
@@ -81,6 +81,20 @@ public class StripeCheckoutGateway : IStripeCheckoutGateway
         {
             // Already closed, paid or unknown: nothing left to close.
             _logger.LogInformation("A Checkout Session could not be closed ({ErrorCode}); it is no longer open.", exception.StripeError?.Code);
+        }
+    }
+
+    public async Task<Session?> GetSessionAsync(string sessionId, CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            return await Sessions().GetAsync(sessionId, new SessionGetOptions(), null, cancellationToken);
+        }
+        catch (Exception exception) when (exception is StripeException or HttpRequestException or ServiceUnavailableException
+                                          || (exception is TaskCanceledException && !cancellationToken.IsCancellationRequested))
+        {
+            _logger.LogWarning("A Checkout Session could not be read from Stripe ({ExceptionType}).", exception.GetType().Name);
+            return null;
         }
     }
 

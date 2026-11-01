@@ -89,6 +89,6 @@ public class PassengerDetailsEndpointTests : IClassFixture<ApiFactory>
         var response = await _factory.CreateClient().PostAsJsonAsync("/api/bookings", request, Json);
 
         Assert.Equal(HttpStatusCode.UnprocessableEntity, response.StatusCode);
-        Assert.Contains("national ID card is not accepted", await response.Content.ReadAsStringAsync());
+        Assert.Contains("şəxsiyyət vəsiqəsi qəbul edilmir", await response.Content.ReadAsStringAsync());
     }
 }

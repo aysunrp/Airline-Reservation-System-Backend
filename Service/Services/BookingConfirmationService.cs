@@ -18,20 +18,28 @@ public class BookingConfirmationService : IBookingConfirmationService
         _notificationService = notificationService;
     }
 
-    public async Task ConfirmAsync(Booking booking, decimal amountPaid, CancellationToken cancellationToken = default)
+    public async Task<bool> ConfirmAsync(Booking booking, decimal amountPaid, CancellationToken cancellationToken = default)
     {
+        var tickets = booking.Passengers.SelectMany(p => p.Tickets).ToList();
+        var seatIds = tickets.Select(t => t.FlightSeatId).OfType<int>().ToList();
+        var seats = await _flightSeatRepository.GetTrackedByIdsAsync(seatIds, cancellationToken);
+
+        // Every seat is checked before any is claimed: a seat sold to someone else leaves the whole booking unconfirmed.
+        if (seats.Count != seatIds.Distinct().Count() || seats.Any(s => s.Status is SeatStatus.Booked or SeatStatus.Blocked))
+        {
+            return false;
+        }
+
         booking.Status = BookingStatus.Confirmed;
         booking.ExpiresAt = null;
         _bookingRepository.Update(booking);
 
-        var tickets = booking.Passengers.SelectMany(p => p.Tickets).ToList();
         foreach (var ticket in tickets)
         {
             ticket.Status = TicketStatus.Issued;
         }
 
-        var seatIds = tickets.Select(t => t.FlightSeatId).OfType<int>().ToList();
-        foreach (var seat in await _flightSeatRepository.GetTrackedByIdsAsync(seatIds, cancellationToken))
+        foreach (var seat in seats)
         {
             seat.Status = SeatStatus.Booked;
             seat.HeldUntil = null;
@@ -45,5 +53,7 @@ public class BookingConfirmationService : IBookingConfirmationService
             await _notificationService.QueueAsync(userId, booking.Id, NotificationType.PaymentSuccessful,
                 "Payment Successful", $"We received your payment of {amountPaid:0.00} for booking {booking.Pnr}.", cancellationToken);
         }
+
+        return true;
     }
 }

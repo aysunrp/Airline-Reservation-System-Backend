@@ -260,7 +260,7 @@ public class RefundEmailTests
     [InlineData(RefundEmailKind.Cancelled, "en", "is cancelled")]
     [InlineData(RefundEmailKind.RefundPending, "ru", "начат")]
     [InlineData(RefundEmailKind.RefundCompleted, "az", "təsdiqləndi")]
-    [InlineData(RefundEmailKind.RefundFailed, "xx", "could not be completed")]
+    [InlineData(RefundEmailKind.RefundFailed, "xx", "tamamlanmadı")]
     public void TheTemplate_IsWrittenInTheLanguage_AndEncodesWhatItShows(RefundEmailKind kind, string language, string inSubject)
     {
         var details = new RefundEmailDetails("ABC123", new[] { new RefundEmailFlight("AV 205", "GYD", "LHR", TestData.Now) }, TestData.Now,
