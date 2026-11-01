@@ -57,12 +57,29 @@ public class DestinationCatalogRepository : BaseRepository<Country>, IDestinatio
         return (routes.Count, schedules.Count);
     }
 
+    public async Task<(int Routes, int Schedules)> DeactivateRoutesBetweenAsync(IReadOnlyCollection<(string Origin, string Destination)> pairs, CancellationToken cancellationToken = default)
+    {
+        if (pairs.Count == 0)
+        {
+            return (0, 0);
+        }
+
+        var wanted = pairs.ToHashSet();
+        var active = await Context.Set<Route>().Include(r => r.Origin).Include(r => r.Destination).Where(r => r.IsActive).ToListAsync(cancellationToken);
+        var routes = active.Where(r => wanted.Contains((r.Origin.Code, r.Destination.Code))).ToList();
+        var routeIds = routes.Select(r => r.Id).ToList();
+        var schedules = await Context.Set<FlightSchedule>().Where(s => s.IsActive && routeIds.Contains(s.RouteId)).ToListAsync(cancellationToken);
+        routes.ForEach(r => r.IsActive = false);
+        schedules.ForEach(s => s.IsActive = false);
+        return (routes.Count, schedules.Count);
+    }
+
     public async Task<IReadOnlyList<Flight>> GetUpcomingFlightsAsync(int originAirportId, IReadOnlyCollection<int> destinationAirportIds, DateTime from, int take, CancellationToken cancellationToken = default)
         => await Context.Set<Flight>().AsNoTracking()
             .Include(f => f.Route).ThenInclude(r => r.Origin)
             .Include(f => f.Route).ThenInclude(r => r.Destination)
             .Include(f => f.Fares)
-            .Where(f => f.Route.OriginAirportId == originAirportId
+            .Where(f => f.Route.OriginAirportId == originAirportId && f.Route.IsActive
                         && destinationAirportIds.Contains(f.Route.DestinationAirportId)
                         && f.DepartureAt >= from
                         && f.Status != Domain.Enums.FlightStatus.Cancelled)

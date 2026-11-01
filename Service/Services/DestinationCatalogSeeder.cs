@@ -167,6 +167,9 @@ public class DestinationCatalogSeeder : IDestinationCatalogSeeder
         }
 
         var (routesOff, schedulesOff) = await _catalog.DeactivateRoutesOfAirportsAsync(switchedOff, cancellationToken);
+        var (retiredRoutes, retiredSchedules) = await _catalog.DeactivateRoutesBetweenAsync(DestinationCatalogData.RetiredRoutes, cancellationToken);
+        routesOff += retiredRoutes;
+        schedulesOff += retiredSchedules;
 
         if (countriesAdded + citiesAdded + airportsAdded + airportsLinked + cityFilled + countriesOff + citiesOff + airportsOff + reactivated + routesOff + schedulesOff > 0)
         {

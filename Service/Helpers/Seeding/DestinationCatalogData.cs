@@ -200,6 +200,16 @@ public static class DestinationCatalogData
         "NAP", "BLQ", "FLR", "NRT", "NGO", "FUK", "CTS", "SAW", "ESB", "ADB", "TZX", "TBS"
     };
 
+    /// <summary>
+    /// Routes of an earlier demo network that AEROVA no longer sells: the far destinations were first given invented direct flights from Baku
+    /// and are reached through Istanbul instead. The routes and their schedules are switched off (never deleted), both directions.
+    /// </summary>
+    public static readonly IReadOnlyList<(string Origin, string Destination)> RetiredRoutes = new (string, string)[]
+    {
+        ("GYD", "JFK"), ("JFK", "GYD"), ("GYD", "BKK"), ("BKK", "GYD"), ("GYD", "LIS"), ("LIS", "GYD"), ("GYD", "OPO"), ("OPO", "GYD"),
+        ("LIS", "FAO"), ("FAO", "LIS"), ("BKK", "HKT"), ("HKT", "BKK"), ("JFK", "LAX"), ("LAX", "JFK"), ("JFK", "MIA"), ("MIA", "JFK")
+    };
+
     /// <summary>Countries that had been switched off earlier and are in the catalog again: the country, its catalog cities and their airports are switched back on.</summary>
     public static readonly IReadOnlyList<string> ReactivatedCountryCodes = new[] { "US", "TH" };
 }

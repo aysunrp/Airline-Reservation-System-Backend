@@ -38,7 +38,16 @@ public static class DemoNetworkData
         new AircraftSeed("AEROVA A321neo 3", "A321neo", "4K-AV09", 12, 25, 60),
         new AircraftSeed("AEROVA A350-900 2", "A350-900", "4K-AV10", 12, 25, 60),
         new AircraftSeed("AEROVA 787-9 2", "787-9", "4K-AV11", 12, 25, 60),
-        new AircraftSeed("AEROVA 787-9 3", "787-9", "4K-AV12", 12, 25, 60)
+        new AircraftSeed("AEROVA 787-9 3", "787-9", "4K-AV12", 12, 25, 60),
+        new AircraftSeed("AEROVA A321neo 7", "A321neo", "4K-AV18", 12, 25, 60),
+        new AircraftSeed("AEROVA A320neo 5", "A320neo", "4K-AV19", 12, 25, 60),
+        new AircraftSeed("AEROVA A320neo 8", "A320neo", "4K-AV22", 12, 25, 60),
+        new AircraftSeed("AEROVA 787-9 6", "787-9", "4K-AV23", 12, 25, 60),
+        new AircraftSeed("AEROVA 787-9 7", "787-9", "4K-AV24", 12, 25, 60),
+        new AircraftSeed("AEROVA 787-9 8", "787-9", "4K-AV25", 12, 25, 60),
+        new AircraftSeed("AEROVA A321neo 8", "A321neo", "4K-AV26", 12, 25, 60),
+        new AircraftSeed("AEROVA A321neo 9", "A321neo", "4K-AV27", 12, 25, 60),
+        new AircraftSeed("AEROVA A321neo 10", "A321neo", "4K-AV28", 12, 25, 60)
     };
 
     public static readonly IReadOnlyList<RouteSeed> Routes = new[]
@@ -95,6 +104,30 @@ public static class DemoNetworkData
         new RouteSeed("DXB", "IST", 3028, 285),
         new RouteSeed("DXB", "MLE", 3040, 290),
         new RouteSeed("MLE", "DXB", 3040, 290),
+        new RouteSeed("GYD", "ATH", 2258, 223),
+        new RouteSeed("ATH", "GYD", 2258, 223),
+        new RouteSeed("ATH", "JTR", 218, 53),
+        new RouteSeed("JTR", "ATH", 218, 53),
+        new RouteSeed("ATH", "JMK", 136, 46),
+        new RouteSeed("JMK", "ATH", 136, 46),
+        new RouteSeed("GYD", "BJV", 1965, 199),
+        new RouteSeed("BJV", "GYD", 1965, 199),
+        new RouteSeed("IST", "JFK", 8027, 704),
+        new RouteSeed("JFK", "IST", 8027, 704),
+        new RouteSeed("IST", "LAX", 11002, 952),
+        new RouteSeed("LAX", "IST", 11002, 952),
+        new RouteSeed("IST", "MIA", 9585, 834),
+        new RouteSeed("MIA", "IST", 9585, 834),
+        new RouteSeed("IST", "BKK", 7512, 661),
+        new RouteSeed("BKK", "IST", 7512, 661),
+        new RouteSeed("IST", "HKT", 7710, 678),
+        new RouteSeed("HKT", "IST", 7710, 678),
+        new RouteSeed("IST", "LIS", 3212, 303),
+        new RouteSeed("LIS", "IST", 3212, 303),
+        new RouteSeed("IST", "OPO", 3104, 294),
+        new RouteSeed("OPO", "IST", 3104, 294),
+        new RouteSeed("IST", "FAO", 3178, 300),
+        new RouteSeed("FAO", "IST", 3178, 300)
     };
 
     public static readonly IReadOnlyList<ScheduleSeed> Schedules = new[]
@@ -151,5 +184,29 @@ public static class DemoNetworkData
         S("AV 1100", "DXB", "IST", "4K-AV09", 18, 50, 22, 35, 0, 310, 430, 700, Wed | Sat),
         S("AV 1101", "DXB", "MLE", "4K-AV03", 23, 40, 5, 30, 1, 315, 435, 710, Mon | Wed | Fri),
         S("AV 1102", "MLE", "DXB", "4K-AV08", 7, 10, 11, 0, 0, 315, 435, 710, Tue | Thu | Sat),
+        S("AV 1105", "GYD", "ATH", "4K-AV18", 8, 15, 9, 58, 0, 244, 337, 549, Mon | Wed | Fri | Sun),
+        S("AV 1106", "ATH", "GYD", "4K-AV18", 15, 30, 21, 13, 0, 244, 337, 549, Mon | Wed | Fri | Sun),
+        S("AV 1107", "ATH", "JTR", "4K-AV19", 12, 40, 13, 33, 0, 64, 88, 144, Mon | Wed | Fri | Sun),
+        S("AV 1108", "JTR", "ATH", "4K-AV19", 10, 0, 10, 53, 0, 64, 88, 144, Mon | Wed | Fri | Sun),
+        S("AV 1109", "ATH", "JMK", "4K-AV22", 13, 20, 14, 6, 0, 57, 79, 128, Mon | Wed | Fri | Sun),
+        S("AV 1110", "JMK", "ATH", "4K-AV22", 10, 40, 11, 26, 0, 57, 79, 128, Mon | Wed | Fri | Sun),
+        S("AV 1111", "GYD", "BJV", "4K-AV19", 10, 40, 12, 59, 0, 218, 301, 490, Tue | Thu | Sat),
+        S("AV 1112", "BJV", "GYD", "4K-AV19", 14, 20, 18, 39, 0, 218, 301, 490, Tue | Thu | Sat),
+        S("AV 1129", "IST", "JFK", "4K-AV23", 17, 10, 20, 54, 0, 751, 1036, 1690, Mon | Wed | Fri | Sun),
+        S("AV 1130", "JFK", "IST", "4K-AV23", 16, 56, 12, 40, 1, 751, 1036, 1690, Mon | Wed | Fri | Sun),
+        S("AV 1131", "IST", "LAX", "4K-AV23", 17, 50, 22, 42, 0, 1013, 1398, 2279, Tue | Thu | Sat),
+        S("AV 1132", "LAX", "IST", "4K-AV23", 10, 18, 13, 10, 1, 1013, 1398, 2279, Tue | Thu | Sat),
+        S("AV 1133", "IST", "MIA", "4K-AV24", 18, 20, 0, 14, 1, 888, 1225, 1998, Mon | Thu | Sat),
+        S("AV 1134", "MIA", "IST", "4K-AV24", 15, 36, 13, 30, 1, 888, 1225, 1998, Mon | Thu | Sat),
+        S("AV 1135", "IST", "BKK", "4K-AV25", 17, 0, 8, 1, 1, 706, 974, 1588, Mon | Wed | Fri | Sun),
+        S("AV 1136", "BKK", "IST", "4K-AV25", 5, 19, 12, 20, 0, 706, 974, 1588, Mon | Tue | Thu | Sat),
+        S("AV 1137", "IST", "HKT", "4K-AV24", 18, 40, 9, 58, 1, 723, 998, 1627, Tue | Fri | Sun),
+        S("AV 1138", "HKT", "IST", "4K-AV24", 6, 32, 13, 50, 0, 723, 998, 1627, Mon | Wed | Sat),
+        S("AV 1139", "IST", "LIS", "4K-AV26", 17, 20, 19, 23, 0, 328, 453, 738, Mon | Thu | Sat),
+        S("AV 1140", "LIS", "IST", "4K-AV26", 5, 57, 14, 0, 0, 328, 453, 738, Tue | Fri | Sun),
+        S("AV 1141", "IST", "OPO", "4K-AV28", 16, 50, 18, 44, 0, 318, 439, 716, Wed | Sun),
+        S("AV 1142", "OPO", "IST", "4K-AV28", 5, 26, 13, 20, 0, 318, 439, 716, Mon | Thu),
+        S("AV 1143", "IST", "FAO", "4K-AV27", 18, 0, 20, 0, 0, 325, 448, 731, Tue | Sat),
+        S("AV 1144", "FAO", "IST", "4K-AV27", 6, 20, 14, 20, 0, 325, 448, 731, Wed | Sun)
     };
 }

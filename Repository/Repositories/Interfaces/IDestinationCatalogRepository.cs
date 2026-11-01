@@ -25,6 +25,9 @@ public interface IDestinationCatalogRepository : IBaseRepository<Country>
     /// <summary>Switches off the active routes that start or end at one of the airports, and the active schedules of those routes. Flights and bookings are not touched. Tracked; the caller saves.</summary>
     Task<(int Routes, int Schedules)> DeactivateRoutesOfAirportsAsync(IReadOnlyCollection<int> airportIds, CancellationToken cancellationToken = default);
 
+    /// <summary>Switches off the active routes between the given airport pairs (IATA codes, one direction each) and their active schedules. Flights and bookings are not touched. Tracked; the caller saves.</summary>
+    Task<(int Routes, int Schedules)> DeactivateRoutesBetweenAsync(IReadOnlyCollection<(string Origin, string Destination)> pairs, CancellationToken cancellationToken = default);
+
     /// <summary>Upcoming, not cancelled flights from one airport to any of the given airports (one query), earliest first.</summary>
     Task<IReadOnlyList<Flight>> GetUpcomingFlightsAsync(int originAirportId, IReadOnlyCollection<int> destinationAirportIds, DateTime from, int take, CancellationToken cancellationToken = default);
 
