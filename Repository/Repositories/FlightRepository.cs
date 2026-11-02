@@ -202,6 +202,17 @@ public class FlightRepository : BaseRepository<Flight>, IFlightRepository
             query = query.Where(f => f.FlightScheduleId != null && !f.FlightSchedule!.IsActive);
         }
 
+        if (filter.Timing == "upcoming")
+        {
+            var now = DateTime.UtcNow;
+            query = query.Where(f => f.DepartureAt >= now);
+        }
+        else if (filter.Timing == "past")
+        {
+            var now = DateTime.UtcNow;
+            query = query.Where(f => f.DepartureAt < now);
+        }
+
         if (!string.IsNullOrWhiteSpace(filter.Search))
         {
             var term = filter.Search.Trim();
