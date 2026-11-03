@@ -26,7 +26,7 @@ public class StartupWarmUpWorker : BackgroundService
         try
         {
             // Let the application start answering before the warm-up uses the database.
-            await Task.Delay(TimeSpan.FromSeconds(1), stoppingToken);
+            await Task.Delay(TimeSpan.FromMilliseconds(50), stoppingToken);
 
             using var scope = _scopeFactory.CreateScope();
             await scope.ServiceProvider.GetRequiredService<IAirportRepository>().GetActiveAsync(stoppingToken);

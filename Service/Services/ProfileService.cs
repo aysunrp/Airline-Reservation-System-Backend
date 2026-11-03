@@ -45,7 +45,7 @@ public class ProfileService : IProfileService
             throw new ConflictException("Bu e-poçt ünvanı ilə hesab artıq mövcuddur.");
         }
 
-        user.Title = request.Title;
+        user.Title = null;
         user.FirstName = request.FirstName.Trim();
         user.LastName = request.LastName.Trim();
         user.DateOfBirth = request.DateOfBirth;

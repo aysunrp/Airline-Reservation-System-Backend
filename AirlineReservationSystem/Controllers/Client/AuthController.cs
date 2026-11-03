@@ -58,6 +58,21 @@ public class AuthController : ControllerBase
         return NoContent();
     }
 
+    /// <summary>Sends a new verification e-mail before sign-in (same address rules as forgot-password).</summary>
+    [HttpPost("resend-verification-email")]
+    [EnableRateLimiting(RateLimitPolicies.Auth)]
+    [ProducesResponseType(StatusCodes.Status202Accepted)]
+    [ProducesResponseType<ValidationProblemDetails>(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status429TooManyRequests)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status503ServiceUnavailable)]
+    public async Task<IActionResult> ResendVerificationEmail(ResendVerificationEmailRequestDto request, CancellationToken cancellationToken)
+    {
+        await _accountEmailService.ResendVerificationByEmailAsync(request, cancellationToken);
+        return Accepted();
+    }
+
     /// <summary>Sends a new verification e-mail to the signed-in account (one per minute).</summary>
     [HttpPost("resend-verification")]
     [Authorize]

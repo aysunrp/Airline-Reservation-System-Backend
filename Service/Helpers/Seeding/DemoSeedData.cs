@@ -123,9 +123,9 @@ public static class DemoSeedData
 
     public static readonly IReadOnlyList<MealSeed> MealOptions = new[]
     {
-        new MealSeed("classic", "Classic Dining", "A carefully prepared classic meal served with seasonal sides.", 18),
-        new MealSeed("wellness", "Wellness Dining", "A fresh and balanced selection prepared with wholesome ingredients.", 25),
-        new MealSeed("signature", "Signature Dining", "A premium chef-inspired dining experience with elevated presentation and ingredients.", 35)
+        new MealSeed("classic", "Klassik yemək", "Mövsümi garnirlərlə diqqətlə hazırlanmış klassik yemək.", 18),
+        new MealSeed("wellness", "Sağlam yemək", "Faydalı inqrediyentlərlə təzə və balanslı seçim.", 25),
+        new MealSeed("signature", "Premium yemək", "Şef təqdimatı və seçilmiş inqrediyentlərlə yüksək səviyyəli yemək təcrübəsi.", 35)
     };
 
     public static readonly IReadOnlyList<(string Code, int DiscountPercent)> PromoCodes = new[]

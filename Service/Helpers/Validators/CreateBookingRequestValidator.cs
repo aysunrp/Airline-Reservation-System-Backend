@@ -1,5 +1,4 @@
 using System.Text.RegularExpressions;
-using Domain.Constants;
 using Domain.Enums;
 using FluentValidation;
 using Service.Helpers.DTOs.Reservation;
@@ -35,7 +34,6 @@ public class CreateBookingRequestValidator : AbstractValidator<CreateBookingRequ
             .WithMessage($"A booking can have at most {MaxPassengers} passengers.");
         RuleForEach(x => x.Passengers).ChildRules(passenger =>
         {
-            passenger.RuleFor(p => p.Title).Must(PersonTitles.IsValid).WithMessage($"Title must be {PersonTitles.Description}.");
             passenger.RuleFor(p => p.FirstName).NotEmpty().MaximumLength(100);
             passenger.RuleFor(p => p.MiddleName).MaximumLength(100);
             passenger.RuleFor(p => p.LastName).NotEmpty().MaximumLength(100);

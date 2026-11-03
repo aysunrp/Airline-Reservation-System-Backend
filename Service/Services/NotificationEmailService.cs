@@ -68,6 +68,13 @@ public class NotificationEmailService : INotificationEmailService
 
         foreach (var notification in due)
         {
+            // The booking confirmation stays in the app's notifications only; it is no longer e-mailed to the traveller.
+            if (notification.Type == NotificationType.BookingConfirmed)
+            {
+                notification.EmailSentAt = _timeProvider.GetUtcNow().UtcDateTime;
+                continue;
+            }
+
             var (subject, text, html) = await RefundEmailAsync(notification, cancellationToken)
                                         ?? EmailTemplates.Notification(notification.User.FirstName, notification.Title, notification.Message,
                                             notification.Type == NotificationType.SupportUpdate ? supportLink : link);

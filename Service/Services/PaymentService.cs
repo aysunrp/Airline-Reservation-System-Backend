@@ -52,7 +52,7 @@ public class PaymentService : IPaymentService
     public async Task<BookingDto> PayAsync(PaymentRequestDto request, CancellationToken cancellationToken = default)
     {
         // Card details must never reach this server once real payments exist.
-        if (_stripe.IsConfigured)
+        if (_stripe.CanAcceptCheckout)
         {
             throw new BusinessRuleException("Kartla ödəniş təhlükəsiz Stripe səhifəsi vasitəsilə aparılır. Ödənişi orada edin.");
         }

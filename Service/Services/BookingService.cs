@@ -4,6 +4,7 @@ using Domain.Entities;
 using Domain.Enums;
 using FluentValidation;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 using Repository.Repositories.Interfaces;
 using Service.Helpers.DTOs.Reservation;
@@ -37,6 +38,7 @@ public class BookingService : IBookingService
     private readonly ITravelDocumentPolicy _documentPolicy;
     private readonly IValidator<CreateBookingRequestDto> _validator;
     private readonly IBookingEmailConfirmationService _confirmation;
+    private readonly IServiceScopeFactory? _scopeFactory;
     private readonly IAdminAlertService? _adminAlerts;
     private readonly BookingSettings _settings;
     private readonly TimeProvider _timeProvider;
@@ -59,8 +61,10 @@ public class BookingService : IBookingService
         IEmailSender emailSender,
         IOptions<AuthSettings> authSettings,
         IBookingEmailConfirmationService confirmation,
-        IAdminAlertService? adminAlerts = null)
+        IAdminAlertService? adminAlerts = null,
+        IServiceScopeFactory? scopeFactory = null)
     {
+        _scopeFactory = scopeFactory;
         _adminAlerts = adminAlerts;
         _confirmation = confirmation;
         _userRepository = userRepository;
@@ -137,7 +141,7 @@ public class BookingService : IBookingService
             {
                 SavedPassengerId = passengerRequest.SavedPassengerId,
                 PassengerType = quote.PassengerTypes[p],
-                Title = passengerRequest.Title,
+                Title = string.Empty,
                 FirstName = passengerRequest.FirstName.Trim(),
                 MiddleName = string.IsNullOrWhiteSpace(passengerRequest.MiddleName) ? null : passengerRequest.MiddleName.Trim(),
                 LastName = passengerRequest.LastName.Trim(),
@@ -193,16 +197,14 @@ public class BookingService : IBookingService
             throw new ConflictException("Seçilmiş oturacaqlardan bir və ya bir neçəsi indicə tutuldu. Başqa oturacaqlar seçin.");
         }
 
-        if (_adminAlerts is not null)
-        {
-            await _adminAlerts.QueueAndSaveAsync($"booking:{booking.Id}:created", "New booking created",
-                $"Booking {booking.Pnr} was created for {booking.Passengers.Count} passenger(s), total {booking.TotalAmount:0.00} {Domain.Constants.AppConstants.Currency}. Payment is still pending.\n\nBooking id: {booking.Id}", cancellationToken);
-        }
+        QueueAdminAlertInBackground(
+            $"booking:{booking.Id}:created",
+            "New booking created",
+            $"Booking {booking.Pnr} was created for {booking.Passengers.Count} passenger(s), total {booking.TotalAmount:0.00} {AppConstants.Currency}. Payment is still pending.\n\nBooking id: {booking.Id}");
 
         if (booking.ContactConfirmedAt is null)
         {
-            // Best effort: when the message does not go out the page offers to send it again.
-            await _confirmation.SendAsync(booking, request.Language, cancellationToken);
+            SendConfirmationInBackground(booking.Pnr, request.Language);
         }
 
         return await GetByPnrInternalAsync(booking.Pnr, cancellationToken);
@@ -257,6 +259,60 @@ public class BookingService : IBookingService
         }
 
         return booking.ToDto();
+    }
+
+    /// <summary>
+    /// The confirmation e-mail goes out in the background, so the booking answer does not wait for the mail server. When it does not go
+    /// out, the page offers to send it again.
+    /// </summary>
+    /// <summary>Admin alerts use their own scope so they never share the request's database context with the booking response.</summary>
+    private void QueueAdminAlertInBackground(string eventKey, string subject, string body)
+    {
+        if (_scopeFactory is null)
+        {
+            return;
+        }
+
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                using var scope = _scopeFactory.CreateScope();
+                var alerts = scope.ServiceProvider.GetRequiredService<IAdminAlertService>();
+                await alerts.QueueAndSaveAsync(eventKey, subject, body, CancellationToken.None);
+            }
+            catch (Exception)
+            {
+                // Best effort: a failed alert must not affect the booking.
+            }
+        });
+    }
+
+    private void SendConfirmationInBackground(string pnr, string? language)
+    {
+        if (_scopeFactory is null)
+        {
+            return;
+        }
+
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                using var scope = _scopeFactory.CreateScope();
+                var bookings = scope.ServiceProvider.GetRequiredService<IBookingRepository>();
+                var confirmation = scope.ServiceProvider.GetRequiredService<IBookingEmailConfirmationService>();
+                var fresh = await bookings.GetByPnrAsync(pnr, CancellationToken.None);
+                if (fresh is not null)
+                {
+                    await confirmation.SendAsync(fresh, language, CancellationToken.None);
+                }
+            }
+            catch (Exception)
+            {
+                // Best effort, as before: a failed e-mail is offered again on the payment page.
+            }
+        });
     }
 
     internal static string NormalizePnr(string pnr) => (pnr ?? string.Empty).Trim().ToUpperInvariant();
@@ -403,7 +459,7 @@ public class BookingService : IBookingService
         var user = await _userRepository.GetByIdAsync(userId.Value, cancellationToken);
         if (user is not null && user.Role == UserRole.User && user.EmailVerifiedAt is null)
         {
-            throw new BusinessRuleException("Bron etməzdən əvvəl e-poçt ünvanınızı təsdiqləyin. Göndərdiyimiz keçidi açın və ya profilinizdən yenisini istəyin.");
+            throw new BusinessRuleException("Bron etməzdən əvvəl e-poçt ünvanınızı təsdiqləyin. Göndərdiyimiz keçidi açın və ya profilinizdən yenisini istəyin.", "email_not_verified");
         }
     }
 

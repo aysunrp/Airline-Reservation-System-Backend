@@ -26,7 +26,7 @@ public class StripeRefundGateway : IStripeRefundGateway
 
     public async Task<StripeRefundResult> CreateRefundAsync(StripeRefundRequest request, CancellationToken cancellationToken = default)
     {
-        if (!_settings.IsConfigured)
+        if (!_settings.CanAcceptCheckout)
         {
             throw new ServiceUnavailableException(UnavailableMessage);
         }

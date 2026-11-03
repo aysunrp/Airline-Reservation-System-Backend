@@ -100,7 +100,7 @@ public class StripeCheckoutGateway : IStripeCheckoutGateway
 
     private SessionService Sessions()
     {
-        if (!_settings.IsConfigured)
+        if (!_settings.CanAcceptCheckout)
         {
             throw new ServiceUnavailableException(UnavailableMessage);
         }

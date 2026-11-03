@@ -102,9 +102,6 @@ public class AuthAndProfileEndpointTests : IClassFixture<ApiFactory>
         Assert.Equal(HttpStatusCode.OK, updated.StatusCode);
         Assert.Equal("+994508343943", (await updated.ReadAsync<ProfileDto>()).Phone);
 
-        update.Title = "Dr";
-        Assert.Equal(HttpStatusCode.BadRequest, (await client.PutAsJsonAsync("/api/profile", update, Json)).StatusCode);
-
         var other = await _factory.CreateClient().RegisterAsync();
         update.Title = "Ms";
         update.Email = other.User.Email;

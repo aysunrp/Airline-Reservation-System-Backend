@@ -13,7 +13,7 @@ public class CreateCheckoutSessionRequestDto
 }
 
 /// <summary>Where to send the customer, and until when that page can be paid.</summary>
-public record CheckoutSessionDto(int PaymentId, string CheckoutUrl, DateTime ExpiresAt);
+public record CheckoutSessionDto(int PaymentId, string CheckoutUrl, DateTime ExpiresAt, string? SessionId = null);
 
 /// <summary>What the success page asks for. Only the webhook ever changes these values.</summary>
 public record PaymentStatusDto(
