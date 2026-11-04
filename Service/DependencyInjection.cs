@@ -32,6 +32,8 @@ namespace Service
             services.Configure<BootstrapSettings>(configuration.GetSection(BootstrapSettings.SectionName));
             services.Configure<StripeSettings>(configuration.GetSection(StripeSettings.SectionName));
             services.Configure<PaymentSettings>(configuration.GetSection(PaymentSettings.SectionName));
+            services.Configure<HeroMediaSettings>(configuration.GetSection(HeroMediaSettings.SectionName));
+            services.Configure<SiteMediaSettings>(configuration.GetSection(SiteMediaSettings.SectionName));
 
             services.TryAddSingleton(TimeProvider.System);
             services.AddValidatorsFromAssembly(typeof(DependencyInjection).Assembly);
@@ -54,7 +56,14 @@ namespace Service
             services.AddScoped<IDestinationCatalogService, DestinationCatalogService>();
             services.AddScoped<IDestinationCatalogSeeder, DestinationCatalogSeeder>();
             services.AddScoped<ISiteContentService, SiteContentService>();
+            services.AddScoped<ILandingHeroVideoService, LandingHeroVideoService>();
+            services.AddScoped<ILandingHeroVideoSeeder, LandingHeroVideoSeeder>();
+            services.AddScoped<ISiteMediaStorage, SiteMediaStorage>();
+            services.AddScoped<IHeroMediaStorage, HeroMediaStorage>();
+            services.AddScoped<ISiteMediaReferenceService, SiteMediaReferenceService>();
+            services.AddScoped<ISightMediaService, SightMediaService>();
             services.AddScoped<ISiteContentSeeder, SiteContentSeeder>();
+            services.AddScoped<ICmsListSeeder, CmsListSeeder>();
             services.AddScoped<IFlightSearchService, FlightSearchService>();
             services.AddScoped<ISeatService, SeatService>();
             services.AddScoped<IExtraServiceOptionsService, ExtraServiceOptionsService>();
@@ -92,6 +101,9 @@ namespace Service
             services.AddScoped<IAdminPromoCodeService, AdminPromoCodeService>();
             services.AddScoped<IAdminBookingOptionService, AdminBookingOptionService>();
             services.AddScoped<IAdminCancellationRuleService, AdminCancellationRuleService>();
+            services.AddScoped<IAdminFaqService, AdminFaqService>();
+            services.AddScoped<IAdminHomeCardService, AdminHomeCardService>();
+            services.AddScoped<IAdminMediaService, AdminMediaService>();
             services.AddScoped<IAdminAircraftService, AdminAircraftService>();
             services.AddScoped<IAdminRouteService, AdminRouteService>();
             services.AddScoped<IAdminScheduleService, AdminScheduleService>();

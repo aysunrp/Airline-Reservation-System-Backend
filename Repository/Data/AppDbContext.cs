@@ -18,6 +18,9 @@ public class AppDbContext : DbContext
     public DbSet<AircraftSeat> AircraftSeats => Set<AircraftSeat>();
     public DbSet<BaggageOption> BaggageOptions => Set<BaggageOption>();
     public DbSet<SiteContent> SiteContents => Set<SiteContent>();
+    public DbSet<LandingHeroVideo> LandingHeroVideos => Set<LandingHeroVideo>();
+    public DbSet<FaqItem> FaqItems => Set<FaqItem>();
+    public DbSet<HomeCard> HomeCards => Set<HomeCard>();
     public DbSet<MealOption> MealOptions => Set<MealOption>();
     public DbSet<PromoCode> PromoCodes => Set<PromoCode>();
     public DbSet<CancellationRule> CancellationRules => Set<CancellationRule>();

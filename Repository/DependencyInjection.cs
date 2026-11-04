@@ -28,6 +28,9 @@ namespace Repository
             services.AddScoped<IBaggageOptionRepository, BaggageOptionRepository>();
             services.AddScoped<IMealOptionRepository, MealOptionRepository>();
             services.AddScoped<ISiteContentRepository, SiteContentRepository>();
+            services.AddScoped<ILandingHeroVideoRepository, LandingHeroVideoRepository>();
+            services.AddScoped<IFaqItemRepository, FaqItemRepository>();
+            services.AddScoped<IHomeCardRepository, HomeCardRepository>();
             services.AddScoped<ICancellationRuleRepository, CancellationRuleRepository>();
             services.AddScoped<IFlightRepository, FlightRepository>();
             services.AddScoped<IFlightSeatRepository, FlightSeatRepository>();
@@ -43,6 +46,7 @@ namespace Repository
             services.AddScoped<IPaymentRepository, PaymentRepository>();
             services.AddScoped<IStripeWebhookEventRepository, StripeWebhookEventRepository>();
             services.AddScoped<IRefundRepository, RefundRepository>();
+            services.AddScoped<IMediaUsageRepository, MediaUsageRepository>();
 
             return services;
         }

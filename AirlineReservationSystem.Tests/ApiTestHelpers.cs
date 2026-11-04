@@ -1,5 +1,6 @@
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
+using System.Net.Mime;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using Domain.Entities;
@@ -94,6 +95,20 @@ internal static class ApiTestHelpers
 
     public static async Task<JsonElement> ReadJsonAsync(this HttpResponseMessage response)
         => (await JsonDocument.ParseAsync(await response.Content.ReadAsStreamAsync())).RootElement;
+
+    /// <summary>1×1 PNG for multipart upload tests.</summary>
+    public static byte[] TinyPng { get; } = Convert.FromBase64String(
+        "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==");
+
+    public static Task<HttpResponseMessage> PostImageFileAsync(this HttpClient client, string url, byte[]? bytes = null, string fileName = "upload.png")
+    {
+        bytes ??= TinyPng;
+        var form = new MultipartFormDataContent();
+        var file = new ByteArrayContent(bytes);
+        file.Headers.ContentType = MediaTypeHeaderValue.Parse(MediaTypeNames.Image.Png);
+        form.Add(file, "file", fileName);
+        return client.PostAsync(url, form);
+    }
 }
 
 /// <summary>An account made for a test and the client that is signed in as it.</summary>
