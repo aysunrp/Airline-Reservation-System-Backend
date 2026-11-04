@@ -21,6 +21,9 @@ public static class SiteContentStartup
 
             var result = await scope.ServiceProvider.GetRequiredService<ISiteContentSeeder>().SeedAsync();
             app.Logger.LogInformation("Site content: {Added} texts added, {Present} already present.", result.Added, result.AlreadyPresent);
+
+            var lists = await scope.ServiceProvider.GetRequiredService<ICmsListSeeder>().SeedAsync();
+            app.Logger.LogInformation("Home cards and support questions: {Added} rows added.", lists);
         }
         catch (Exception exception)
         {

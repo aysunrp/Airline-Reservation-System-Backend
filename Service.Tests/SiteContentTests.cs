@@ -26,6 +26,16 @@ internal sealed class FakeSiteContentRepository : FakeRepository<SiteContent>, I
     public Task<HashSet<string>> GetKeysAsync(string page, CancellationToken cancellationToken = default)
         => Task.FromResult(Items.Where(c => c.Page == page).Select(c => c.Key).ToHashSet());
 
+    public Task<SiteContent?> FindTrackedAsync(string page, string key, CancellationToken cancellationToken = default)
+        => Task.FromResult(Items.FirstOrDefault(c => c.Page == page && c.Key == key));
+
+    public Task<bool> IsSightMediaPathUsedAsync(string relativePath, string? exceptKey = null, CancellationToken cancellationToken = default)
+    {
+        var normalized = (relativePath ?? string.Empty).Trim();
+        var used = Items.Any(c => c.Page == "sight-media" && c.TextAz == normalized && (exceptKey == null || c.Key != exceptKey));
+        return Task.FromResult(used);
+    }
+
     public override Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
     {
         Saves++;
@@ -81,7 +91,8 @@ public class SiteContentServiceTests
 {
     private static SiteContent Row(int id, string key, string text, string page = "about") => new() { Id = id, Page = page, Key = key, TextAz = text };
 
-    private static SiteContentService Create(FakeSiteContentRepository repository) => new(repository, new SiteContentRequestValidator());
+    private static SiteContentService Create(FakeSiteContentRepository repository)
+        => new(repository, new SiteContentRequestValidator(), new SiteContentCreateRequestValidator());
 
     [Fact]
     public async Task APage_ListsItsTexts_ByKey_WithTheirIds()
@@ -121,7 +132,7 @@ public class SiteContentServiceTests
 
         var saved = await Create(repository).UpdateAsync(1, new SiteContentRequestDto { TextAz = "  Yeni mətn  " });
 
-        Assert.Equal(new SiteContentDto(1, "about", "heroTitle", "Yeni mətn"), saved);
+        Assert.Equal(new SiteContentDto(1, "about", "heroTitle", "Yeni mətn", CanDelete: false), saved);
         Assert.Equal("Yeni mətn", repository.All.Single(c => c.Id == 1).TextAz);
         Assert.Equal("Toxunulmaz", repository.All.Single(c => c.Id == 2).TextAz);
         Assert.Equal(1, repository.Saves);
@@ -209,8 +220,34 @@ public class SiteContentServiceTests
     {
         var names = typeof(SiteContentDto).GetProperties().Select(p => p.Name).ToArray();
 
-        Assert.Equal(new[] { "Id", "Page", "Key", "TextAz" }, names);
+        Assert.Equal(new[] { "CanDelete", "Id", "Key", "Page", "TextAz" }, names.OrderBy(n => n, StringComparer.Ordinal).ToArray());
         Assert.DoesNotContain(typeof(SiteContent).GetProperties(), p => p.Name is "TextEn" or "TextRu");
+    }
+
+    [Fact]
+    public async Task ACustomKey_CanBeCreated_AndDeleted()
+    {
+        var repository = new FakeSiteContentRepository(Row(1, "heroTitle", "Seed", "about"));
+        var service = Create(repository);
+
+        var created = await service.CreateAsync(new SiteContentCreateRequestDto { Page = "about", Key = "custom.promo", TextAz = "Xüsusi" });
+
+        Assert.True(created.CanDelete);
+        Assert.Equal("custom.promo", created.Key);
+        Assert.Equal(2, repository.All.Count);
+
+        await service.DeleteAsync(created.Id);
+        Assert.Single(repository.All);
+    }
+
+    [Fact]
+    public async Task ASeedKey_CannotBeDeleted()
+    {
+        var repository = new FakeSiteContentRepository(Row(1, "heroTitle", "Seed", "about"));
+
+        var exception = await Assert.ThrowsAsync<ValidationException>(() => Create(repository).DeleteAsync(1));
+
+        Assert.Contains("Default mətn silinə bilməz", Assert.Single(exception.Errors).ErrorMessage);
     }
 }
 
@@ -219,17 +256,16 @@ public class SiteContentSeederTests
     private static SiteContentSeeder Create(FakeSiteContentRepository repository) => new(repository);
 
     [Fact]
-    public async Task AnEmptyStore_GetsEveryText_OfTheAboutPage()
+    public async Task AnEmptyStore_GetsEverySeededPageText()
     {
         var repository = new FakeSiteContentRepository();
 
         var result = await Create(repository).SeedAsync();
 
-        Assert.Equal(new SiteContentSeedResultDto(SiteContentData.About.Count, 0), result);
-        Assert.Equal(78, repository.All.Count);
-        Assert.All(repository.All, c => Assert.Equal("about", c.Page));
-        Assert.Equal(SiteContentData.About.Select(i => i.Key), repository.All.Select(c => c.Key));
-        Assert.Equal(SiteContentData.About.Select(i => i.TextAz), repository.All.Select(c => c.TextAz));
+        Assert.Equal(new SiteContentSeedResultDto(SiteContentData.TotalSeedCount, 0), result);
+        Assert.Equal(SiteContentData.TotalSeedCount, repository.All.Count);
+        Assert.Equal(SiteContentData.About.Count, repository.All.Count(c => c.Page == SiteContentData.AboutPage));
+        Assert.Equal(SiteContentData.Home.Count, repository.All.Count(c => c.Page == SiteContentData.HomePage));
         Assert.Equal(1, repository.Saves);
     }
 
@@ -242,8 +278,8 @@ public class SiteContentSeederTests
 
         var again = await seeder.SeedAsync();
 
-        Assert.Equal(new SiteContentSeedResultDto(0, SiteContentData.About.Count), again);
-        Assert.Equal(78, repository.All.Count);
+        Assert.Equal(new SiteContentSeedResultDto(0, SiteContentData.TotalSeedCount), again);
+        Assert.Equal(SiteContentData.TotalSeedCount, repository.All.Count);
         Assert.Equal(1, repository.Saves);
     }
 
@@ -255,7 +291,7 @@ public class SiteContentSeederTests
         var result = await Create(repository).SeedAsync();
 
         Assert.Equal("Admin redaktəsi", repository.All.Single(c => c.Key == "heroTitle").TextAz);
-        Assert.Equal(SiteContentData.About.Count - 1, result.Added);
+        Assert.Equal(SiteContentData.TotalSeedCount - 1, result.Added);
         Assert.Equal(1, result.AlreadyPresent);
     }
 
@@ -267,7 +303,7 @@ public class SiteContentSeederTests
 
         var result = await Create(repository).SeedAsync();
 
-        Assert.Equal(68, result.Added);
+        Assert.Equal(SiteContentData.TotalSeedCount - 10, result.Added);
         Assert.Equal(10, result.AlreadyPresent);
         Assert.All(repository.All.Take(10), c => Assert.Equal("Dəyişdirilib", c.TextAz));
     }
@@ -279,7 +315,7 @@ public class SiteContentSeederTests
 
         var result = await Create(repository).SeedAsync();
 
-        Assert.Equal(SiteContentData.About.Count, result.Added);
+        Assert.Equal(SiteContentData.TotalSeedCount, result.Added);
         Assert.Equal("Başqa səhifə", repository.All.Single(c => c.Page == "contact").TextAz);
     }
 

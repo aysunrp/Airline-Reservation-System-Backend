@@ -18,15 +18,26 @@ public class SiteContentSeeder : ISiteContentSeeder
 
     public async Task<SiteContentSeedResultDto> SeedAsync(CancellationToken cancellationToken = default)
     {
-        var existing = await _contents.GetKeysAsync(SiteContentData.AboutPage, cancellationToken);
         var added = 0;
-        foreach (var item in SiteContentData.About.Where(i => !existing.Contains(i.Key)))
+        var alreadyPresent = 0;
+
+        foreach (var page in SiteContentData.GetSeedPages())
         {
-            await _contents.AddAsync(new SiteContent
+            var existing = await _contents.GetKeysAsync(page.Page, cancellationToken);
+            foreach (var item in page.Items)
             {
-                Page = SiteContentData.AboutPage, Key = item.Key, TextAz = item.TextAz
-            }, cancellationToken);
-            added++;
+                if (existing.Contains(item.Key))
+                {
+                    alreadyPresent++;
+                    continue;
+                }
+
+                await _contents.AddAsync(new SiteContent
+                {
+                    Page = page.Page, Key = item.Key, TextAz = item.TextAz
+                }, cancellationToken);
+                added++;
+            }
         }
 
         if (added > 0)
@@ -34,6 +45,6 @@ public class SiteContentSeeder : ISiteContentSeeder
             await _contents.SaveChangesAsync(cancellationToken);
         }
 
-        return new SiteContentSeedResultDto(added, SiteContentData.About.Count - added);
+        return new SiteContentSeedResultDto(added, alreadyPresent);
     }
 }
