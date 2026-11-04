@@ -23,7 +23,7 @@ public class DestinationCatalogDataTests
         => Assert.Equal(ExpectedCountries, DestinationCatalogData.Countries.Select(c => c.Code));
 
     [Fact]
-    public void TheCatalog_HasThe39AgreedCities_AndEachCountryItsOwn()
+    public void TheCatalog_HasThe38AgreedCities_AndEachCountryItsOwn()
     {
         var expected = new Dictionary<string, string[]>
         {
@@ -31,7 +31,7 @@ public class DestinationCatalogDataTests
             ["TR"] = new[] { "Istanbul", "Antalya", "Bodrum" },
             ["AE"] = new[] { "Dubai", "Abu Dhabi" },
             ["GB"] = new[] { "London", "Manchester", "Edinburgh" },
-            ["FR"] = new[] { "Paris", "Nice", "Marseille" },
+            ["FR"] = new[] { "Paris", "Marseille" },
             ["DE"] = new[] { "Berlin", "Frankfurt", "Munich" },
             ["IT"] = new[] { "Rome", "Milan", "Venice" },
             ["ES"] = new[] { "Madrid", "Barcelona", "Malaga" },
@@ -49,8 +49,8 @@ public class DestinationCatalogDataTests
             Assert.Equal(expected[country.Code], country.Cities.Select(c => c.Name));
         }
 
-        Assert.Equal(39, Cities.Count());
-        Assert.Equal(39, Airports.Count()); // one airport per city
+        Assert.Equal(38, Cities.Count());
+        Assert.Equal(38, Airports.Count()); // one airport per city
     }
 
     [Fact]

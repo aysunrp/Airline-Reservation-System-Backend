@@ -90,4 +90,21 @@ public class DestinationCatalogRepository : BaseRepository<Country>, IDestinatio
     public Task<DestinationCity?> FindCityAsync(string countryCode, string cityName, CancellationToken cancellationToken = default)
         => Context.Set<DestinationCity>().AsNoTracking()
             .FirstOrDefaultAsync(c => c.Country.Code == countryCode && c.Name == cityName, cancellationToken);
+
+    public async Task<bool> IsImageFileUsedElsewhereAsync(string imageFile, int? exceptCountryId, int? exceptCityId, CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(imageFile))
+        {
+            return false;
+        }
+
+        var normalized = imageFile.Trim();
+        var countryMatch = await Set.AnyAsync(c => c.ImageFile == normalized && (!exceptCountryId.HasValue || c.Id != exceptCountryId.Value), cancellationToken);
+        if (countryMatch)
+        {
+            return true;
+        }
+
+        return await Context.Set<DestinationCity>().AnyAsync(c => c.ImageFile == normalized && (!exceptCityId.HasValue || c.Id != exceptCityId.Value), cancellationToken);
+    }
 }

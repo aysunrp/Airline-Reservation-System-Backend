@@ -57,7 +57,7 @@ public class DemoNetworkSeedTests : IClassFixture<ApiFactory>
 
         Assert.Empty(first.Skipped);
         Assert.Equal(15, first.Added["Countries"]);
-        Assert.Equal(39, first.Added["Cities"]);
+        Assert.Equal(38, first.Added["Cities"]);
         Assert.Equal(DemoNetworkData.Aircraft.Count, first.Added["Aircraft"]);
         Assert.Equal(DemoNetworkData.Routes.Count, first.Added["Routes"]);
         Assert.Equal(DemoNetworkData.Schedules.Count, first.Added["Schedules"]);
