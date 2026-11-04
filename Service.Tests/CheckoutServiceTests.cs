@@ -64,6 +64,21 @@ public class CheckoutServiceTests
     }
 
     [Fact]
+    public async Task ReturnOrigin_when_allowed_replaces_configured_frontend_base_in_stripe_urls()
+    {
+        var pnr = await CreateBookingAsync();
+        var session = await _context.CreateCheckoutService().CreateSessionAsync(Owner, new CreateCheckoutSessionRequestDto
+        {
+            Pnr = pnr,
+            ReturnOrigin = "https://aerova.test"
+        });
+
+        var sent = _context.Gateway.Created[^1];
+        Assert.Equal($"https://aerova.test/payment-success.html?payment={session.PaymentId}&session={{CHECKOUT_SESSION_ID}}", sent.SuccessUrl);
+        Assert.Equal($"https://aerova.test/payment-cancel.html?payment={session.PaymentId}", sent.CancelUrl);
+    }
+
+    [Fact]
     public async Task OpeningThePage_KeepsTheBookingUntilItCloses_ButHoldsNoSeat()
     {
         var pnr = await CreateBookingAsync();

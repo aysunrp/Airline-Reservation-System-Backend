@@ -7,6 +7,7 @@ using FluentValidation;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 using Repository.Repositories.Interfaces;
+using Service.Helpers;
 using Service.Helpers.DTOs.Payment;
 using Service.Helpers.Exceptions;
 using Service.Helpers.Settings;
@@ -144,7 +145,7 @@ public class CheckoutService : ICheckoutService
         StripeCheckoutSession session;
         try
         {
-            var site = _auth.FrontendBaseUrl.TrimEnd('/');
+            var site = FrontendOrigin.ResolveBaseUrl(request.ReturnOrigin, _auth.FrontendBaseUrl);
             session = await _gateway.CreateSessionAsync(new StripeCheckoutRequest(
                 payment.Id,
                 booking.Id,
