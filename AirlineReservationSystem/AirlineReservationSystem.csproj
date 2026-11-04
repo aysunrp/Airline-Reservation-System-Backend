@@ -23,6 +23,10 @@
   </ItemGroup>
 
   <ItemGroup>
+    <None Include="Media\hero\**\*" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <ItemGroup>
     <Folder Include="Controllers\Admin\" />
     <Folder Include="Controllers\Client\" />
     <Folder Include="Helpers\" />
