@@ -21,4 +21,26 @@ public static class AuditActions
     public const string AccessDenied = "AccessDenied";
     public const string SuperAdminBootstrapped = "SuperAdminBootstrapped";
     public const string SiteContentUpdated = "SiteContentUpdated";
+    public const string SiteContentCreated = "SiteContentCreated";
+    public const string SiteContentDeleted = "SiteContentDeleted";
+    public const string HeroVideoCreated = "HeroVideoCreated";
+    public const string HeroVideoUpdated = "HeroVideoUpdated";
+    public const string HeroVideoActivated = "HeroVideoActivated";
+    public const string HeroVideoDeleted = "HeroVideoDeleted";
+    public const string DestinationImageUpdated = "DestinationImageUpdated";
+    public const string DestinationImageRemoved = "DestinationImageRemoved";
+    public const string SightMediaUpdated = "SightMediaUpdated";
+    public const string FaqItemCreated = "FaqItemCreated";
+    public const string FaqItemUpdated = "FaqItemUpdated";
+    public const string FaqItemDeleted = "FaqItemDeleted";
+    public const string HomeCardCreated = "HomeCardCreated";
+    public const string HomeCardUpdated = "HomeCardUpdated";
+    public const string HomeCardDeleted = "HomeCardDeleted";
+    public const string HomeCardImageUpdated = "HomeCardImageUpdated";
+    public const string HomeCardImageRemoved = "HomeCardImageRemoved";
+    public const string MediaFileReplaced = "MediaFileReplaced";
+    public const string MediaFileDeleted = "MediaFileDeleted";
+    public const string SiteImageUpdated = "SiteImageUpdated";
+    public const string SiteImageRemoved = "SiteImageRemoved";
+    public const string SightMediaRemoved = "SightMediaRemoved";
 }

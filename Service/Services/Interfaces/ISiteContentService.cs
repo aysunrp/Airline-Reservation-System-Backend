@@ -9,6 +9,12 @@ public interface ISiteContentService
 
     /// <summary>Changes the text of one entry. Validation error for an empty or too long text, NotFound for an unknown id.</summary>
     Task<SiteContentDto> UpdateAsync(int id, SiteContentRequestDto? request, CancellationToken cancellationToken = default);
+
+    Task<SiteContentDto> GetByIdAsync(int id, CancellationToken cancellationToken = default);
+
+    Task<SiteContentDto> CreateAsync(SiteContentCreateRequestDto request, CancellationToken cancellationToken = default);
+
+    Task DeleteAsync(int id, CancellationToken cancellationToken = default);
 }
 
 public interface ISiteContentSeeder

@@ -1,6 +1,9 @@
 using FluentValidation;
+using Microsoft.AspNetCore.Http;
 using Repository.Repositories.Interfaces;
+using Service.Helpers;
 using Service.Helpers.DTOs.Destinations;
+using Service.Helpers.DTOs.Media;
 using Service.Helpers.Exceptions;
 using Service.Services.Interfaces;
 
@@ -9,13 +12,21 @@ namespace Service.Services;
 public class DestinationCatalogService : IDestinationCatalogService
 {
     private readonly IDestinationCatalogRepository _catalog;
+    private readonly ISiteMediaStorage _media;
+    private readonly ISiteMediaReferenceService _mediaReferences;
     private readonly IValidator<DestinationCountryRequestDto> _countryValidator;
     private readonly IValidator<DestinationCityRequestDto> _cityValidator;
 
     public DestinationCatalogService(
-        IDestinationCatalogRepository catalog, IValidator<DestinationCountryRequestDto> countryValidator, IValidator<DestinationCityRequestDto> cityValidator)
+        IDestinationCatalogRepository catalog,
+        ISiteMediaStorage media,
+        ISiteMediaReferenceService mediaReferences,
+        IValidator<DestinationCountryRequestDto> countryValidator,
+        IValidator<DestinationCityRequestDto> cityValidator)
     {
         _catalog = catalog;
+        _media = media;
+        _mediaReferences = mediaReferences;
         _countryValidator = countryValidator;
         _cityValidator = cityValidator;
     }
@@ -122,6 +133,58 @@ public class DestinationCatalogService : IDestinationCatalogService
         await _catalog.SaveChangesAsync(cancellationToken);
         return (await BuildAsync(cancellationToken)).Single(c => c.Id == city.CountryId);
     }
+
+    public async Task<MediaUploadResultDto> ReplaceCountryImageAsync(int id, IFormFile file, CancellationToken cancellationToken = default)
+    {
+        var country = await _catalog.GetCountryAsync(id, cancellationToken) ?? throw new NotFoundException("Ölkə tapılmadı.");
+        var relative = await _media.SaveImageAsync(SiteMediaCategories.Destinations, file, cancellationToken: cancellationToken);
+        var previous = country.ImageFile;
+        country.ImageFile = relative;
+        _catalog.Update(country);
+        await _catalog.SaveChangesAsync(cancellationToken);
+        await TryDeletePreviousImageAsync(previous, exceptCountryId: id, exceptCityId: null, cancellationToken);
+        return new MediaUploadResultDto(relative, _media.ToPublicUrl(relative));
+    }
+
+    public async Task<MediaUploadResultDto> ReplaceCityImageAsync(int id, IFormFile file, CancellationToken cancellationToken = default)
+    {
+        var city = await _catalog.GetCityAsync(id, cancellationToken) ?? throw new NotFoundException("Şəhər tapılmadı.");
+        var relative = await _media.SaveImageAsync(SiteMediaCategories.Destinations, file, cancellationToken: cancellationToken);
+        var previous = city.ImageFile;
+        city.ImageFile = relative;
+        city.UpdatedAt = DateTime.UtcNow;
+        await _catalog.SaveChangesAsync(cancellationToken);
+        await TryDeletePreviousImageAsync(previous, exceptCountryId: null, exceptCityId: id, cancellationToken);
+        return new MediaUploadResultDto(relative, _media.ToPublicUrl(relative));
+    }
+
+    public async Task<DestinationCountryDto> RemoveCountryImageAsync(int id, CancellationToken cancellationToken = default)
+    {
+        var country = await _catalog.GetCountryAsync(id, cancellationToken) ?? throw new NotFoundException("Ölkə tapılmadı.");
+        var previous = country.ImageFile;
+        country.ImageFile = string.Empty;
+        _catalog.Update(country);
+        await _catalog.SaveChangesAsync(cancellationToken);
+        await TryDeletePreviousImageAsync(previous, exceptCountryId: id, exceptCityId: null, cancellationToken);
+        return (await BuildAsync(cancellationToken)).Single(c => c.Id == id);
+    }
+
+    public async Task<DestinationCountryDto> RemoveCityImageAsync(int id, CancellationToken cancellationToken = default)
+    {
+        var city = await _catalog.GetCityAsync(id, cancellationToken) ?? throw new NotFoundException("Şəhər tapılmadı.");
+        var previous = city.ImageFile;
+        city.ImageFile = string.Empty;
+        city.UpdatedAt = DateTime.UtcNow;
+        await _catalog.SaveChangesAsync(cancellationToken);
+        await TryDeletePreviousImageAsync(previous, exceptCountryId: null, exceptCityId: id, cancellationToken);
+        return (await BuildAsync(cancellationToken)).Single(c => c.Id == city.CountryId);
+    }
+
+    private Task TryDeletePreviousImageAsync(string? previous, int? exceptCountryId, int? exceptCityId, CancellationToken cancellationToken)
+        => _mediaReferences.TryDeleteFileIfUnreferencedAsync(
+            previous,
+            new SiteMediaReferenceExclusions(exceptCountryId, exceptCityId),
+            cancellationToken);
 
     private async Task<IReadOnlyList<DestinationCountryDto>> BuildAsync(CancellationToken cancellationToken)
     {

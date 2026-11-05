@@ -1,4 +1,6 @@
+using Microsoft.AspNetCore.Http;
 using Service.Helpers.DTOs.Destinations;
+using Service.Helpers.DTOs.Media;
 
 namespace Service.Services.Interfaces;
 
@@ -23,6 +25,14 @@ public interface IDestinationCatalogService
     Task<DestinationCountryDto> SetCountryActiveAsync(int id, bool isActive, CancellationToken cancellationToken = default);
 
     Task<DestinationCountryDto> SetCityActiveAsync(int id, bool isActive, CancellationToken cancellationToken = default);
+
+    Task<MediaUploadResultDto> ReplaceCountryImageAsync(int id, IFormFile file, CancellationToken cancellationToken = default);
+
+    Task<MediaUploadResultDto> ReplaceCityImageAsync(int id, IFormFile file, CancellationToken cancellationToken = default);
+
+    Task<DestinationCountryDto> RemoveCountryImageAsync(int id, CancellationToken cancellationToken = default);
+
+    Task<DestinationCountryDto> RemoveCityImageAsync(int id, CancellationToken cancellationToken = default);
 }
 
 public interface IDestinationCatalogSeeder

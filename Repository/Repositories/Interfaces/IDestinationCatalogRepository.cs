@@ -33,4 +33,6 @@ public interface IDestinationCatalogRepository : IBaseRepository<Country>
 
     /// <summary>The catalog city with this name in the country (case-insensitive), or null.</summary>
     Task<DestinationCity?> FindCityAsync(string countryCode, string cityName, CancellationToken cancellationToken = default);
+
+    Task<bool> IsImageFileUsedElsewhereAsync(string imageFile, int? exceptCountryId, int? exceptCityId, CancellationToken cancellationToken = default);
 }

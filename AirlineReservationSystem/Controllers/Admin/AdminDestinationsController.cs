@@ -1,8 +1,10 @@
 using AirlineReservationSystem.Helpers;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Service.Helpers;
 using Service.Helpers.DTOs.Account;
 using Service.Helpers.DTOs.Destinations;
+using Service.Helpers.DTOs.Media;
 using Service.Services.Interfaces;
 
 namespace AirlineReservationSystem.Controllers.Admin;
@@ -18,10 +20,12 @@ namespace AirlineReservationSystem.Controllers.Admin;
 public class AdminDestinationsController : ControllerBase
 {
     private readonly IDestinationCatalogService _catalog;
+    private readonly IAuditLogService _audit;
 
-    public AdminDestinationsController(IDestinationCatalogService catalog)
+    public AdminDestinationsController(IDestinationCatalogService catalog, IAuditLogService audit)
     {
         _catalog = catalog;
+        _audit = audit;
     }
 
     [HttpGet]
@@ -56,4 +60,42 @@ public class AdminDestinationsController : ControllerBase
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
     public async Task<ActionResult<DestinationCountryDto>> SetCityActive(int id, [FromBody] SetActiveRequestDto request, CancellationToken cancellationToken)
         => Ok(await _catalog.SetCityActiveAsync(id, request.IsActive, cancellationToken));
+
+    [HttpPost("countries/{id:int}/image")]
+    [RequestSizeLimit(12_000_000)]
+    [ProducesResponseType<MediaUploadResultDto>(StatusCodes.Status200OK)]
+    public async Task<ActionResult<MediaUploadResultDto>> UploadCountryImage(int id, IFormFile file, CancellationToken cancellationToken)
+    {
+        var result = await _catalog.ReplaceCountryImageAsync(id, file, cancellationToken);
+        await _audit.RecordAsync(User.ToAuditActor(), AuditActions.DestinationImageUpdated, "Country", id.ToString(), result.RelativePath, cancellationToken);
+        return Ok(result);
+    }
+
+    [HttpPost("cities/{id:int}/image")]
+    [RequestSizeLimit(12_000_000)]
+    [ProducesResponseType<MediaUploadResultDto>(StatusCodes.Status200OK)]
+    public async Task<ActionResult<MediaUploadResultDto>> UploadCityImage(int id, IFormFile file, CancellationToken cancellationToken)
+    {
+        var result = await _catalog.ReplaceCityImageAsync(id, file, cancellationToken);
+        await _audit.RecordAsync(User.ToAuditActor(), AuditActions.DestinationImageUpdated, "DestinationCity", id.ToString(), result.RelativePath, cancellationToken);
+        return Ok(result);
+    }
+
+    [HttpDelete("countries/{id:int}/image")]
+    [ProducesResponseType<DestinationCountryDto>(StatusCodes.Status200OK)]
+    public async Task<ActionResult<DestinationCountryDto>> RemoveCountryImage(int id, CancellationToken cancellationToken)
+    {
+        var updated = await _catalog.RemoveCountryImageAsync(id, cancellationToken);
+        await _audit.RecordAsync(User.ToAuditActor(), AuditActions.DestinationImageRemoved, "Country", id.ToString(), null, cancellationToken);
+        return Ok(updated);
+    }
+
+    [HttpDelete("cities/{id:int}/image")]
+    [ProducesResponseType<DestinationCountryDto>(StatusCodes.Status200OK)]
+    public async Task<ActionResult<DestinationCountryDto>> RemoveCityImage(int id, CancellationToken cancellationToken)
+    {
+        var updated = await _catalog.RemoveCityImageAsync(id, cancellationToken);
+        await _audit.RecordAsync(User.ToAuditActor(), AuditActions.DestinationImageRemoved, "DestinationCity", id.ToString(), null, cancellationToken);
+        return Ok(updated);
+    }
 }

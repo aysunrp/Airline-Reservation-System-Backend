@@ -307,18 +307,15 @@ public class BookingServiceTests
         var result = await CreateService().CreateBookingAsync(1, OneWay(passenger));
 
         var stored = Assert.Single(result.Passengers);
-        Assert.Equal(("Mx", "Nur", Gender.PreferNotToSay), (stored.Title, stored.MiddleName, stored.Gender));
+        Assert.Equal(("", "Nur", Gender.PreferNotToSay), (stored.Title, stored.MiddleName, stored.Gender));
     }
 
     [Fact]
-    public async Task PassengerTitle_IsRequired_AndMustBeAKnownOne()
+    public async Task PassengerTitle_IsNotStored()
     {
-        foreach (var title in new[] { "", "Dr", "mr" })
-        {
-            var passenger = Passenger("Aysun", 1990, (1, 103));
-            passenger.Title = title;
-            await Assert.ThrowsAsync<ValidationException>(() => CreateService().CreateBookingAsync(1, OneWay(passenger)));
-        }
+        var passenger = Passenger("Aysun", 1990, (1, 103));
+        passenger.Title = "Dr";
+        Assert.Equal("", (await CreateService().CreateBookingAsync(1, OneWay(passenger))).Passengers.Single().Title);
 
         var longMiddleName = Passenger("Aysun", 1990, (1, 103));
         longMiddleName.MiddleName = new string('a', 101);

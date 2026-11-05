@@ -10,10 +10,13 @@ public class CreateCheckoutSessionRequestDto
 {
     public string Pnr { get; set; } = string.Empty;
     public string? LastName { get; set; }
+
+    /// <summary>Browser origin where checkout started, e.g. http://127.0.0.1:5500 — used for Stripe return URLs when allowed.</summary>
+    public string? ReturnOrigin { get; set; }
 }
 
 /// <summary>Where to send the customer, and until when that page can be paid.</summary>
-public record CheckoutSessionDto(int PaymentId, string CheckoutUrl, DateTime ExpiresAt);
+public record CheckoutSessionDto(int PaymentId, string CheckoutUrl, DateTime ExpiresAt, string? SessionId = null);
 
 /// <summary>What the success page asks for. Only the webhook ever changes these values.</summary>
 public record PaymentStatusDto(

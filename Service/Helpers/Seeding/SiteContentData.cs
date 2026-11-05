@@ -4,11 +4,13 @@ namespace Service.Helpers.Seeding;
 /// The Azerbaijani texts of the "AEROVA haqqında" page (about-aerova.html). They are what the page showed before it was stored in the
 /// database. The seeder adds only the keys that are missing, so an admin's edit is never overwritten.
 /// </summary>
-public static class SiteContentData
+public static partial class SiteContentData
 {
     public const string AboutPage = "about";
 
     public record Item(string Key, string TextAz);
+
+    public record PageSeed(string Page, IReadOnlyList<Item> Items);
 
     public static readonly IReadOnlyList<Item> About = new List<Item>
     {
@@ -91,4 +93,29 @@ public static class SiteContentData
         new("finalText", "AEROVA ilə dünyanın seçilmiş istiqamətlərini kəşf edin."),
         new("finalButton", "Uçuşları kəşf et"),
     };
+
+    public static bool IsSeedKey(string page, string key)
+    {
+        var normalizedPage = (page ?? string.Empty).Trim().ToLowerInvariant();
+        foreach (var seedPage in GetSeedPages())
+        {
+            if (!string.Equals(seedPage.Page, normalizedPage, StringComparison.Ordinal))
+            {
+                continue;
+            }
+
+            if (seedPage.Items.Any(item => item.Key == key))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    public static bool IsManagedCmsPage(string page)
+    {
+        var normalized = (page ?? string.Empty).Trim().ToLowerInvariant();
+        return normalized is AboutPage or HomePage or FooterPage or SupportPage or SitePage or DestinationsPage;
+    }
 }

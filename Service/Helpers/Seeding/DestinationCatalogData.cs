@@ -86,7 +86,6 @@ public static class DestinationCatalogData
             "france-paris.jpg", new[]
             {
                 C("Paris", "Paris", "Париж", None, A("CDG", "Paris Charles de Gaulle Airport", "Europe/Paris")).Info("france-paris.jpg", "The Eiffel Tower glowing over the Seine at dusk.", "Qürub çağı Sena çayı üzərində parlayan Eyfel qülləsi.", "Эйфелева башня, сияющая над Сеной в сумерках."),
-                C("Nice", "Nitsa", "Ницца", new[] { "Nice", "Nis", "Ниццы", "Ниццу" }, A("NCE", "Nice Côte d'Azur Airport", "Europe/Paris")).Info("france-nice.jpg", "The Bay of Angels and the seafront of the French Riviera.", "Mələklər körfəzi və Fransız Rivyerasının sahil xətti.", "Ангельская бухта и набережная Французской Ривьеры."),
                 C("Marseille", "Marsel", "Марсель", new[] { "Marseille", "Marseilles" }, A("MRS", "Marseille Provence Airport", "Europe/Paris")).Info("", "France's oldest port, with the Vieux-Port and Notre-Dame de la Garde above it.", "Fransanın ən qədim limanı: Vyö-Por və üzərində Notr-Dam-de-la-Qard bazilikası.", "Старейший порт Франции: Старая гавань и базилика Нотр-Дам-де-ла-Гард над ней."),
             }),
         new CatalogCountrySeed("DE", "Germany", "Almaniya", "Германия",

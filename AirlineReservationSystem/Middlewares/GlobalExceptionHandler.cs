@@ -68,6 +68,11 @@ public sealed class GlobalExceptionHandler : IExceptionHandler
             problem.Extensions["code"] = coded.Code;
         }
 
+        if (exception is UnauthorizedException { Code: not null } unauthorized)
+        {
+            problem.Extensions["code"] = unauthorized.Code;
+        }
+
         if (exception is ServiceUnavailableException { Code: not null } unavailable)
         {
             problem.Extensions["code"] = unavailable.Code;

@@ -17,7 +17,11 @@ public class SiteContentEndpointTests : IClassFixture<ApiFactory>
 {
     private readonly ApiFactory _factory;
 
-    public SiteContentEndpointTests(ApiFactory factory) => _factory = factory;
+    public SiteContentEndpointTests(ApiFactory factory)
+    {
+        _factory = factory;
+        _factory.Emails.IsConfigured = false;
+    }
 
     private async Task<SiteContentSeedResultDto> SeedAsync()
     {
@@ -59,12 +63,16 @@ public class SiteContentEndpointTests : IClassFixture<ApiFactory>
         Assert.All(items, i => Assert.False(string.IsNullOrWhiteSpace(i.TextAz)));
         Assert.Equal("AEROVA-nın hekayəsi", items.Single(i => i.Key == "storyTitle").TextAz);
 
+        var home = await (await _factory.CreateClient().GetAsync("/api/site-content/home")).ReadAsync<List<SiteContentDto>>();
+        Assert.Equal(SiteContentData.Home.Count, home.Count);
+        Assert.Equal("Lüks Səyahət Təcrübəsi", home.Single(i => i.Key == "home.heroEyebrow").TextAz);
+
         // Nothing but the Azerbaijani text is sent: no English or Russian field, in the public or the admin answer.
         var publicJson = JsonDocument.Parse(await response.Content.ReadAsStringAsync()).RootElement[0];
-        Assert.Equal(new[] { "id", "key", "page", "textAz" }, publicJson.EnumerateObject().Select(p => p.Name).OrderBy(n => n, StringComparer.Ordinal));
+        Assert.Equal(new[] { "canDelete", "id", "key", "page", "textAz" }, publicJson.EnumerateObject().Select(p => p.Name).OrderBy(n => n, StringComparer.Ordinal));
         var admin = (await _factory.CreateAccountAsync(UserRole.Admin)).Client;
         var adminJson = JsonDocument.Parse(await (await admin.GetAsync("/api/admin/site-content?page=about")).Content.ReadAsStringAsync()).RootElement[0];
-        Assert.Equal(new[] { "id", "key", "page", "textAz" }, adminJson.EnumerateObject().Select(p => p.Name).OrderBy(n => n, StringComparer.Ordinal));
+        Assert.Equal(new[] { "canDelete", "id", "key", "page", "textAz" }, adminJson.EnumerateObject().Select(p => p.Name).OrderBy(n => n, StringComparer.Ordinal));
     }
 
     [Fact]
@@ -95,7 +103,7 @@ public class SiteContentEndpointTests : IClassFixture<ApiFactory>
 
         var ok = await admin.PutAsJsonAsync($"/api/admin/site-content/{item.Id}", body, Json);
         Assert.Equal(HttpStatusCode.OK, ok.StatusCode);
-        Assert.Equal(new SiteContentDto(item.Id, item.Page, item.Key, "Yeni mətn"), await ok.ReadAsync<SiteContentDto>());
+        Assert.Equal(new SiteContentDto(item.Id, item.Page, item.Key, "Yeni mətn", item.CanDelete), await ok.ReadAsync<SiteContentDto>());
         var publicItems = await (await _factory.CreateClient().GetAsync("/api/site-content/about")).ReadAsync<List<SiteContentDto>>();
         Assert.Equal("Yeni mətn", publicItems.Single(i => i.Id == item.Id).TextAz); // the public page shows the edit
 
@@ -154,5 +162,40 @@ public class SiteContentEndpointTests : IClassFixture<ApiFactory>
         var list = await admin.GetAsync("/api/admin/site-content?page=nothing-here");
         Assert.Equal(HttpStatusCode.NotFound, list.StatusCode);
         Assert.Contains("Bu səhifənin mətnləri tapılmadı.", await list.Content.ReadAsStringAsync());
+    }
+
+    [Fact]
+    public async Task AdminCanFetchOneContentItem_ById()
+    {
+        await SeedAsync();
+        var admin = (await _factory.CreateAccountAsync(UserRole.Admin)).Client;
+        var item = (await (await admin.GetAsync("/api/admin/site-content?page=footer")).ReadAsync<List<SiteContentDto>>()).First();
+
+        var response = await admin.GetAsync($"/api/admin/site-content/{item.Id}");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Equal(item with { }, await response.ReadAsync<SiteContentDto>());
+    }
+
+    [Fact]
+    public async Task AdminCanCreateAndDelete_ACustomKey_ButNotASeedKey()
+    {
+        await SeedAsync();
+        var admin = (await _factory.CreateAccountAsync(UserRole.Admin)).Client;
+        var hero = (await (await admin.GetAsync("/api/admin/site-content?page=about")).ReadAsync<List<SiteContentDto>>()).Single(i => i.Key == "heroTitle");
+
+        var create = await admin.PostAsJsonAsync("/api/admin/site-content", new { page = "about", key = "custom.banner", textAz = "Banner" }, Json);
+        Assert.Equal(HttpStatusCode.Created, create.StatusCode);
+        var custom = await create.ReadAsync<SiteContentDto>();
+        Assert.True(custom.CanDelete);
+
+        Assert.Equal(HttpStatusCode.NoContent, (await admin.DeleteAsync($"/api/admin/site-content/{custom.Id}")).StatusCode);
+        Assert.DoesNotContain(
+            await (await admin.GetAsync("/api/admin/site-content?page=about")).ReadAsync<List<SiteContentDto>>(),
+            i => i.Id == custom.Id);
+
+        var seedDelete = await admin.DeleteAsync($"/api/admin/site-content/{hero.Id}");
+        Assert.Equal(HttpStatusCode.BadRequest, seedDelete.StatusCode);
+        Assert.Contains("Default mətn silinə bilməz", await seedDelete.Content.ReadAsStringAsync());
     }
 }

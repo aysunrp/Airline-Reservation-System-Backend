@@ -42,7 +42,7 @@ public class ProfileServiceTests
     {
         var result = await CreateService().UpdateProfileAsync(1, ProfileRequest(" AYSUN@example.com "));
 
-        Assert.Equal("Ms", result.Title);
+        Assert.Null(result.Title);
         Assert.Equal("AZ", result.NationalityCode);
         Assert.Equal("aysun@example.com", result.Email);
         Assert.Equal("+994508343943", result.Phone);
@@ -80,21 +80,12 @@ public class ProfileServiceTests
     }
 
     [Fact]
-    public async Task UpdateProfile_InvalidTitle_ThrowsValidation()
+    public async Task UpdateProfile_IgnoresSalutation()
     {
         var request = ProfileRequest();
         request.Title = "Dr";
 
-        await Assert.ThrowsAsync<ValidationException>(() => CreateService().UpdateProfileAsync(1, request));
-    }
-
-    [Fact]
-    public async Task UpdateProfile_AcceptsMx()
-    {
-        var request = ProfileRequest();
-        request.Title = "Mx";
-
-        Assert.Equal("Mx", (await CreateService().UpdateProfileAsync(1, request)).Title);
+        Assert.Null((await CreateService().UpdateProfileAsync(1, request)).Title);
     }
 
     [Fact]

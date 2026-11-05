@@ -13,6 +13,15 @@ public class ResendVerificationRequestDto
     public string? Language { get; set; }
 }
 
+/// <summary>Sends a new verification e-mail before the person has signed in (after register).</summary>
+public class ResendVerificationEmailRequestDto
+{
+    public string Email { get; set; } = string.Empty;
+
+    /// <summary>Language of the e-mail: az (the site is Azerbaijani only; anything else gives az).</summary>
+    public string? Language { get; set; }
+}
+
 public class ForgotPasswordRequestDto
 {
     public string Email { get; set; } = string.Empty;

@@ -68,7 +68,7 @@ public class StripeWebhookService : IStripeWebhookService
 
     public async Task<StripeWebhookResult> HandleAsync(string payload, string? signatureHeader, CancellationToken cancellationToken = default)
     {
-        if (!_stripe.IsConfigured)
+        if (!_stripe.CanVerifyWebhooks)
         {
             // Stripe retries later; by then the secrets may be in place.
             throw new ServiceUnavailableException("Stripe is not configured.");
@@ -128,7 +128,7 @@ public class StripeWebhookService : IStripeWebhookService
 
     public async Task<bool> ReconcileAsync(string checkoutSessionId, CancellationToken cancellationToken = default)
     {
-        if (!_stripe.IsConfigured || string.IsNullOrWhiteSpace(checkoutSessionId))
+        if (!_stripe.CanAcceptCheckout || string.IsNullOrWhiteSpace(checkoutSessionId))
         {
             return false;
         }
@@ -140,12 +140,20 @@ public class StripeWebhookService : IStripeWebhookService
         }
 
         // Stripe's own answer goes through the very checks a webhook event does (references, amount, currency).
-        var outcome = session.PaymentStatus == "paid"
+        var paidAtStripe = session.PaymentStatus == "paid"
+                           || (string.Equals(session.Status, "complete", StringComparison.OrdinalIgnoreCase)
+                               && !string.Equals(session.PaymentStatus, "unpaid", StringComparison.OrdinalIgnoreCase));
+        var outcome = paidAtStripe
             ? await ConfirmAsync(session, cancellationToken)
             : session.Status == "expired" ? await CloseAsync(session, PaymentStatus.Cancelled, cancellationToken) : null;
         if (outcome is null)
         {
             return false;
+        }
+
+        if (outcome is "Already confirmed")
+        {
+            return true;
         }
 
         try

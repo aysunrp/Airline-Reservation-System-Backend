@@ -153,6 +153,29 @@ public class AccountEmailService : IAccountEmailService
             throw new UnauthorizedException("Zəhmət olmasa, yenidən daxil olun.");
         }
 
+        await ResendVerificationCoreAsync(user, language, cancellationToken);
+    }
+
+    public async Task ResendVerificationByEmailAsync(ResendVerificationEmailRequestDto request, CancellationToken cancellationToken = default)
+    {
+        await _forgotValidator.ValidateAndThrowAsync(new ForgotPasswordRequestDto { Email = request.Email, Language = request.Language }, cancellationToken);
+
+        if (!_sender.IsConfigured)
+        {
+            throw new ServiceUnavailableException(EmailUnavailableMessage);
+        }
+
+        var user = await _users.GetByEmailAsync(AuthService.NormalizeEmail(request.Email), cancellationToken);
+        if (user is null || !user.IsActive)
+        {
+            throw new NotFoundException(NoAccountMessage);
+        }
+
+        await ResendVerificationCoreAsync(user, request.Language, cancellationToken);
+    }
+
+    private async Task ResendVerificationCoreAsync(User user, string? language, CancellationToken cancellationToken)
+    {
         if (user.EmailVerifiedAt is not null)
         {
             throw new ConflictException("E-poçt ünvanınız artıq təsdiqlənib.");

@@ -570,6 +570,8 @@ internal sealed class FakeAccountEmail : IAccountEmailService
 
     public Task ResendVerificationAsync(int userId, string? language, CancellationToken cancellationToken = default) => Task.CompletedTask;
 
+    public Task ResendVerificationByEmailAsync(ResendVerificationEmailRequestDto request, CancellationToken cancellationToken = default) => Task.CompletedTask;
+
     public Task ForgotPasswordAsync(ForgotPasswordRequestDto request, CancellationToken cancellationToken = default) => Task.CompletedTask;
 
     public Task<ResetTicketDto> VerifyResetCodeAsync(VerifyResetCodeRequestDto request, CancellationToken cancellationToken = default) => Task.FromResult(new ResetTicketDto("ticket", 10));

@@ -25,7 +25,7 @@ public class PassengerDetailsEndpointTests : IClassFixture<ApiFactory>
     {
         var seed = await _factory.GetSeedAsync();
         var request = BookingEndpointTests.Request(seed, "11A", lastName: "Karimova");
-        request.Passengers[0].Title = "Mx";
+        request.Passengers[0].Title = "Dr";
         request.Passengers[0].MiddleName = "Nur";
         request.Passengers[0].Gender = Gender.PreferNotToSay;
 
@@ -35,26 +35,13 @@ public class PassengerDetailsEndpointTests : IClassFixture<ApiFactory>
 
         var loaded = await (await _factory.CreateClient().GetAsync($"/api/bookings/{booking.Pnr}?lastName=Karimova")).ReadAsync<BookingDto>();
         var passenger = Assert.Single(loaded.Passengers);
-        Assert.Equal(("Mx", "Nur", Gender.PreferNotToSay), (passenger.Title, passenger.MiddleName, passenger.Gender));
+        Assert.Equal(("", "Nur", Gender.PreferNotToSay), (passenger.Title, passenger.MiddleName, passenger.Gender));
 
         // Admins see the full name, middle name included.
         var admin = await _factory.CreateAdminClientAsync();
         var row = (await (await admin.GetAsync($"/api/admin/bookings?pnr={booking.Pnr}")).ReadAsync<List<AdminBookingRowDto>>()).Single();
         Assert.Equal("Aysun Nur Karimova", row.LeadPassenger);
         Assert.Single(await (await admin.GetAsync("/api/admin/passengers?search=Aysun Nur")).ReadAsync<List<AdminPassengerDto>>());
-    }
-
-    [Fact]
-    public async Task Booking_WithoutAValidTitle_IsRejected()
-    {
-        var seed = await _factory.GetSeedAsync();
-        var request = BookingEndpointTests.Request(seed, "11B");
-        request.Passengers[0].Title = "Dr";
-
-        var response = await _factory.CreateClient().PostAsJsonAsync("/api/bookings", request, Json);
-
-        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
-        Assert.Contains("Title must be Mr, Ms, Mrs or Mx.", await response.Content.ReadAsStringAsync());
     }
 
     [Fact]

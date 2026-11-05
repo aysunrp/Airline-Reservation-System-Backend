@@ -191,11 +191,17 @@ internal sealed class BookingTestContext
         Gender = Gender.Female,
         NationalityCode = "AZ",
         DocumentType = DocumentType.Passport,
-        DocumentNumber = "C0123456" + firstName.Length,
+        DocumentNumber = DocumentFor(firstName),
         DocumentIssuingCountry = "AZ",
         DocumentExpiryDate = new DateOnly(2030, 1, 1),
         Seats = seats.Select(s => new PassengerSeatRequestDto { FlightId = s.FlightId, FlightSeatId = s.SeatId }).ToList()
     };
+
+    /// <summary>A booking refuses the same document number twice, so every first name gets a number of its own ("Aysun" keeps the usual one).</summary>
+    private static string DocumentFor(string firstName)
+        => firstName == "Aysun"
+            ? "C01234565"
+            : "P" + firstName.Aggregate(7, (hash, letter) => (hash * 31 + letter) % 100000000).ToString("D8");
 
     public static CreateBookingRequestDto OneWay(params BookingPassengerRequestDto[] passengers) => new()
     {

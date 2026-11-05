@@ -6,6 +6,7 @@ using AirlineReservationSystem.Hubs;
 using AirlineReservationSystem.Middlewares;
 using Domain.Enums;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.Extensions.FileProviders;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
@@ -209,6 +210,14 @@ if (!app.Environment.IsDevelopment())
 
 app.UseCors(FrontendCorsPolicy);
 
+var siteMediaSettings = app.Configuration.GetSection(SiteMediaSettings.SectionName).Get<SiteMediaSettings>() ?? new SiteMediaSettings();
+var mediaRoot = Path.Combine(app.Environment.ContentRootPath, siteMediaSettings.RootPath);
+Directory.CreateDirectory(mediaRoot);
+app.UseStaticFiles(new StaticFileOptions
+{
+    FileProvider = new PhysicalFileProvider(mediaRoot),
+    RequestPath = siteMediaSettings.PublicPathPrefix
+});
 
 app.UseAuthentication();
 // After authentication, so a limit can be kept per signed-in customer (the support endpoints) as well as per address.
@@ -226,6 +235,7 @@ await app.SeedDestinationCatalogAsync();
 
 // The texts of the static site pages (reference data): any environment, only once the migrations are applied (see SiteContentStartup).
 await app.SeedSiteContentAsync();
+await app.SeedLandingHeroVideoAsync();
 
 // The first SuperAdmin (Bootstrap:Enabled): any environment, server configuration only, off by default (see SuperAdminStartup).
 await SuperAdminStartup.RunAsync(app.Services, app.Logger);

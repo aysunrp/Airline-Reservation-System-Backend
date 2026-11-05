@@ -30,17 +30,17 @@ public class AdminFlightsController : ControllerBase
 
     /// <summary>
     /// A page of flights, oldest departure first. Filtered by flight number, city or aircraft model, by status and by the UTC
-    /// departure day. <c>take</c> is 1-500 (100 by default); use <c>skip</c> to read further.
+    /// departure day, and by <c>timing</c> ("upcoming" or "past" relative to now). <c>take</c> is 1-500 (100 by default); use <c>skip</c> to read further.
     /// </summary>
     [HttpGet]
     [ProducesResponseType<IReadOnlyList<AdminFlightRowDto>>(StatusCodes.Status200OK)]
     public async Task<ActionResult<IReadOnlyList<AdminFlightRowDto>>> GetAll(
         [FromQuery] string? search, [FromQuery] FlightStatus? status, [FromQuery] DateOnly? date,
         [FromQuery] string? origin, [FromQuery] string? destination, [FromQuery] int? month, [FromQuery] int? year,
-        [FromQuery] int? aircraftId, [FromQuery] string? flightType, [FromQuery] bool? active,
+        [FromQuery] int? aircraftId, [FromQuery] string? flightType, [FromQuery] bool? active, [FromQuery] string? timing,
         [FromQuery] int skip = 0, [FromQuery] int take = 100, CancellationToken cancellationToken = default)
         => Ok(await _flightService.GetFilteredPageAsync(
-            new AdminFlightFilter(search, origin, destination, status, date, month, year, aircraftId, flightType, active),
+            new AdminFlightFilter(search, origin, destination, status, date, month, year, aircraftId, flightType, active, timing),
             skip, take, cancellationToken));
 
     /// <summary>The journeys with a transfer between two airports over up to 62 departure days (no seat filter).</summary>

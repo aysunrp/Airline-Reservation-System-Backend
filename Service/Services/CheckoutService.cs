@@ -7,6 +7,7 @@ using FluentValidation;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 using Repository.Repositories.Interfaces;
+using Service.Helpers;
 using Service.Helpers.DTOs.Payment;
 using Service.Helpers.Exceptions;
 using Service.Helpers.Settings;
@@ -62,7 +63,7 @@ public class CheckoutService : ICheckoutService
 
     public async Task<CheckoutSessionDto> CreateSessionAsync(int? userId, CreateCheckoutSessionRequestDto request, CancellationToken cancellationToken = default)
     {
-        if (!_stripe.IsConfigured)
+        if (!_stripe.CanAcceptCheckout)
         {
             throw new ServiceUnavailableException(UnavailableMessage);
         }
@@ -114,7 +115,7 @@ public class CheckoutService : ICheckoutService
         var open = waiting.FirstOrDefault(p => p.CheckoutUrl is not null && p.CheckoutExpiresAt > now.AddMinutes(1) && p.Amount == booking.TotalAmount);
         if (open is not null)
         {
-            return new CheckoutSessionDto(open.Id, open.CheckoutUrl!, open.CheckoutExpiresAt!.Value);
+            return new CheckoutSessionDto(open.Id, open.CheckoutUrl!, open.CheckoutExpiresAt!.Value, open.StripeCheckoutSessionId);
         }
 
         foreach (var stale in waiting)
@@ -144,7 +145,7 @@ public class CheckoutService : ICheckoutService
         StripeCheckoutSession session;
         try
         {
-            var site = _auth.FrontendBaseUrl.TrimEnd('/');
+            var site = FrontendOrigin.ResolveBaseUrl(request.ReturnOrigin, _auth.FrontendBaseUrl);
             session = await _gateway.CreateSessionAsync(new StripeCheckoutRequest(
                 payment.Id,
                 booking.Id,
@@ -170,7 +171,7 @@ public class CheckoutService : ICheckoutService
         payment.CheckoutExpiresAt = session.ExpiresAtUtc;
         await SaveAsync(cancellationToken);
 
-        return new CheckoutSessionDto(payment.Id, session.Url, session.ExpiresAtUtc);
+        return new CheckoutSessionDto(payment.Id, session.Url, session.ExpiresAtUtc, session.Id);
     }
 
     public async Task<PaymentStatusDto> GetStatusAsync(int paymentId, int? userId, bool isAdmin, string? checkoutSessionId, CancellationToken cancellationToken = default)
@@ -188,8 +189,10 @@ public class CheckoutService : ICheckoutService
 
         // The webhook confirms a payment, but it may not reach this server (a development machine) or may be late: a payment still
         // waiting is checked at Stripe itself, with the secret key, and handled exactly like the webhook would.
-        if (payment.Status == PaymentStatus.Pending && payment.Method == PaymentMethod.StripeCheckout && !string.IsNullOrEmpty(payment.StripeCheckoutSessionId)
-            && await _webhook.ReconcileAsync(payment.StripeCheckoutSessionId, cancellationToken))
+        var stripeSessionId = payment.StripeCheckoutSessionId;
+        var mayReconcile = payment.Status == PaymentStatus.Pending && payment.Method == PaymentMethod.StripeCheckout
+                           && !string.IsNullOrEmpty(stripeSessionId);
+        if (mayReconcile && await _webhook.ReconcileAsync(stripeSessionId, cancellationToken))
         {
             payment = await _paymentRepository.GetWithBookingAsync(paymentId, cancellationToken) ?? payment;
         }

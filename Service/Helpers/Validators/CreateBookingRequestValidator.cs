@@ -1,7 +1,7 @@
 using System.Text.RegularExpressions;
-using Domain.Constants;
 using Domain.Enums;
 using FluentValidation;
+using Service.Helpers;
 using Service.Helpers.DTOs.Reservation;
 using Service.Helpers.Scheduling;
 
@@ -35,7 +35,6 @@ public class CreateBookingRequestValidator : AbstractValidator<CreateBookingRequ
             .WithMessage($"A booking can have at most {MaxPassengers} passengers.");
         RuleForEach(x => x.Passengers).ChildRules(passenger =>
         {
-            passenger.RuleFor(p => p.Title).Must(PersonTitles.IsValid).WithMessage($"Title must be {PersonTitles.Description}.");
             passenger.RuleFor(p => p.FirstName).NotEmpty().MaximumLength(100);
             passenger.RuleFor(p => p.MiddleName).MaximumLength(100);
             passenger.RuleFor(p => p.LastName).NotEmpty().MaximumLength(100);
@@ -56,6 +55,30 @@ public class CreateBookingRequestValidator : AbstractValidator<CreateBookingRequ
                 seat.RuleFor(s => s.FlightId).GreaterThan(0);
                 seat.RuleFor(s => s.FlightSeatId).GreaterThan(0);
             });
+        });
+
+        // One document number belongs to one traveller: the same number twice on a booking (infants included) is refused.
+        RuleFor(x => x).Custom((request, context) =>
+        {
+            var firstSeen = new Dictionary<string, int>();
+            for (var index = 0; index < request.Passengers.Count; index++)
+            {
+                var number = DocumentNumbers.Normalize(request.Passengers[index].DocumentNumber);
+                if (number.Length == 0)
+                {
+                    continue;
+                }
+
+                if (firstSeen.TryGetValue(number, out var earlier))
+                {
+                    context.AddFailure($"Passengers[{index}].DocumentNumber",
+                        $"Bu sənəd nömrəsi {earlier + 1}-ci sərnişinin nömrəsi ilə eynidir. Hər sərnişinin sənədi fərqli olmalıdır.");
+                }
+                else
+                {
+                    firstSeen[number] = index;
+                }
+            }
         });
 
         RuleFor(x => x.ContactEmail).NotEmpty().EmailAddress().MaximumLength(256);

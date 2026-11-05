@@ -45,8 +45,9 @@ public class AuthEmailEndpointTests : IClassFixture<ApiFactory>
         Assert.Contains("https://aerova.test/verify-email.html?token=", message.TextBody);
         var token = _factory.Emails.TokenFor(email);
 
-        // Signed in but not confirmed yet.
-        Assert.False((await (await SignIn(client, email, "secret1")).ReadAsync<AuthResponseDto>()).User.EmailVerified);
+        // Not signed in until the address is confirmed.
+        var blocked = await SignIn(client, email, "secret1");
+        Assert.Equal(HttpStatusCode.Unauthorized, blocked.StatusCode);
 
         Assert.Equal(HttpStatusCode.NoContent, (await client.PostAsJsonAsync("/api/auth/verify-email", new VerifyEmailRequestDto { Token = token }, Json)).StatusCode);
         Assert.True((await (await SignIn(client, email, "secret1")).ReadAsync<AuthResponseDto>()).User.EmailVerified);

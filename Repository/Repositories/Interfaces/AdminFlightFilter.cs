@@ -6,7 +6,8 @@ namespace Repository.Repositories.Interfaces;
 /// Filters of the admin flight list. Every field is optional. <see cref="Month"/> and <see cref="Year"/> are the UTC departure month and year;
 /// <see cref="FlightType"/> is "direct" (no stop) or "withStops" (one flight with stops on the way, as the flight number is the same);
 /// <see cref="Active"/> looks at the schedule the flight belongs to (flights made by hand have no schedule and count as active).
+/// <see cref="Timing"/> is "upcoming" (departs now or later, UTC) or "past" (already departed); any other value is ignored.
 /// </summary>
 public record AdminFlightFilter(
     string? Search, string? OriginCode, string? DestinationCode, FlightStatus? Status, DateOnly? Date,
-    int? Month, int? Year, int? AircraftId, string? FlightType, bool? Active);
+    int? Month, int? Year, int? AircraftId, string? FlightType, bool? Active, string? Timing = null);

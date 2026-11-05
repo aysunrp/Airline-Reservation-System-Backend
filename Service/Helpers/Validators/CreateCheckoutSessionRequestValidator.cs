@@ -9,5 +9,6 @@ public class CreateCheckoutSessionRequestValidator : AbstractValidator<CreateChe
     {
         RuleFor(x => x.Pnr).NotEmpty().Matches("^[A-Za-z0-9]{6}$").WithMessage("Enter your booking reference.");
         RuleFor(x => x.LastName).MaximumLength(100);
+        RuleFor(x => x.ReturnOrigin).MaximumLength(200);
     }
 }

@@ -74,7 +74,15 @@ public class AuthServiceTests
     [Fact]
     public async Task Login_WithCorrectPassword_ReturnsToken()
     {
-        var users = new FakeUserRepository(new User { Id = 5, Email = "aysun@example.com", PasswordHash = _hasher.Hash("secret1"), FirstName = "Aysun", LastName = "Panahli" });
+        var users = new FakeUserRepository(new User
+        {
+            Id = 5,
+            Email = "aysun@example.com",
+            PasswordHash = _hasher.Hash("secret1"),
+            FirstName = "Aysun",
+            LastName = "Panahli",
+            EmailVerifiedAt = Now
+        });
 
         var result = await CreateService(users).LoginAsync(new LoginRequestDto { Email = "AYSUN@example.com", Password = "secret1" });
 
@@ -103,7 +111,15 @@ public class AuthServiceTests
     [Fact]
     public async Task MissingJwtSecret_FailsClearly()
     {
-        var users = new FakeUserRepository(new User { Id = 5, Email = "aysun@example.com", PasswordHash = _hasher.Hash("secret1"), FirstName = "Aysun", LastName = "Panahli" });
+        var users = new FakeUserRepository(new User
+        {
+            Id = 5,
+            Email = "aysun@example.com",
+            PasswordHash = _hasher.Hash("secret1"),
+            FirstName = "Aysun",
+            LastName = "Panahli",
+            EmailVerifiedAt = Now
+        });
         var service = CreateService(users, new JwtSettings { Secret = "short" });
 
         await Assert.ThrowsAsync<InvalidOperationException>(() => service.LoginAsync(new LoginRequestDto { Email = "aysun@example.com", Password = "secret1" }));

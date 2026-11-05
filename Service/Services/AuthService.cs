@@ -105,6 +105,14 @@ public class AuthService : IAuthService
 
         _attempts.Reset(email);
 
+        // Customer accounts stay locked until the address is confirmed, but only while e-mail can be sent (same rule as booking).
+        if (user.Role == UserRole.User && user.EmailVerifiedAt is null && _accountEmail.IsEmailConfigured)
+        {
+            throw new UnauthorizedException(
+                "E-poçt ünvanınız hələ təsdiqlənməyib. Hesabınızı aktivləşdirmək üçün göndərdiyimiz keçidi açın.",
+                "email_not_verified");
+        }
+
         // A hash made with fewer iterations than today's is replaced now that the password is known to be right.
         if (_passwordHasher.NeedsRehash(user.PasswordHash))
         {
