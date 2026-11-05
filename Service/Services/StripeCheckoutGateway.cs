@@ -105,7 +105,29 @@ public class StripeCheckoutGateway : IStripeCheckoutGateway
             throw new ServiceUnavailableException(UnavailableMessage);
         }
 
-        return new SessionService(new StripeClient(_settings.SecretKey));
+        return new SessionService(ClientFor(_settings.SecretKey));
+    }
+
+    /*
+     * One StripeClient (and so one pooled HttpClient) is reused for every call. Creating a client per request opened a new connection
+     * to api.stripe.com each time (DNS, TCP and TLS handshakes), which made the payment page open slowly.
+     */
+    private static readonly object ClientLock = new();
+    private static StripeClient? _sharedClient;
+    private static string? _sharedClientKey;
+
+    private static StripeClient ClientFor(string secretKey)
+    {
+        lock (ClientLock)
+        {
+            if (_sharedClient is null || _sharedClientKey != secretKey)
+            {
+                _sharedClient = new StripeClient(secretKey);
+                _sharedClientKey = secretKey;
+            }
+
+            return _sharedClient;
+        }
     }
 
     private static Dictionary<string, string> Metadata(StripeCheckoutRequest request) => new()
