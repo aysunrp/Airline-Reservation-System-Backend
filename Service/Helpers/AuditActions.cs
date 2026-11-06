@@ -8,6 +8,9 @@ public static class AuditActions
     public const string UserDeactivated = "UserDeactivated";
     public const string UserActivated = "UserActivated";
     public const string UserDeleted = "UserDeleted";
+    public const string AccountDeletionRequested = "AccountDeletionRequested";
+    public const string AccountDeletionRefused = "AccountDeletionRefused";
+    public const string AccountDeleted = "AccountDeleted";
     public const string FlightCreated = "FlightCreated";
     public const string FlightUpdated = "FlightUpdated";
     public const string FlightDeleted = "FlightDeleted";

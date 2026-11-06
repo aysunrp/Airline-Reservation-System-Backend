@@ -21,17 +21,32 @@ public class StartupWarmUpWorker : BackgroundService
         _logger = logger;
     }
 
-    protected override async Task ExecuteAsync(CancellationToken stoppingToken)
+    protected override Task ExecuteAsync(CancellationToken stoppingToken)
+        => RunAsync(_scopeFactory, _logger, stoppingToken, TimeSpan.FromMilliseconds(50));
+
+    /// <summary>
+    /// The warm-up itself. Program.cs awaits it before the API starts listening, so the first customer never waits for the model and the
+    /// queries to be built (the airport list and a booking looked up by its reference took about ten seconds on the first request).
+    /// </summary>
+    public static async Task RunAsync(IServiceScopeFactory scopeFactory, ILogger logger, CancellationToken cancellationToken, TimeSpan? delay = null)
     {
         try
         {
-            // Let the application start answering before the warm-up uses the database.
-            await Task.Delay(TimeSpan.FromMilliseconds(50), stoppingToken);
+            if (delay is not null)
+            {
+                // Let the application start answering before the warm-up uses the database.
+                await Task.Delay(delay.Value, cancellationToken);
+            }
 
-            using var scope = _scopeFactory.CreateScope();
-            await scope.ServiceProvider.GetRequiredService<IAirportRepository>().GetActiveAsync(stoppingToken);
-            await scope.ServiceProvider.GetRequiredService<IBookingRepository>().GetSummariesByUserIdAsync(0, stoppingToken);
-            _logger.LogInformation("Start-up warm-up finished.");
+            using var scope = scopeFactory.CreateScope();
+            await scope.ServiceProvider.GetRequiredService<IAirportRepository>().GetActiveAsync(cancellationToken);
+            await scope.ServiceProvider.GetRequiredService<IAirportRepository>().GetAirportIdsWithActiveRoutesAsync(cancellationToken);
+
+            var bookings = scope.ServiceProvider.GetRequiredService<IBookingRepository>();
+            await bookings.GetSummariesByUserIdAsync(0, cancellationToken);
+            // The query behind "my booking", "manage booking" and the booking details page (a reference nobody has).
+            await bookings.GetByPnrAsync("WARMUP", cancellationToken);
+            logger.LogInformation("Start-up warm-up finished.");
         }
         catch (OperationCanceledException)
         {
@@ -39,7 +54,7 @@ public class StartupWarmUpWorker : BackgroundService
         }
         catch (Exception exception)
         {
-            _logger.LogInformation("Start-up warm-up skipped ({ExceptionType}).", exception.GetType().Name);
+            logger.LogInformation("Start-up warm-up skipped ({ExceptionType}).", exception.GetType().Name);
         }
     }
 }

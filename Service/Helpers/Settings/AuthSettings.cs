@@ -78,4 +78,7 @@ public class AuthSettings
 
     /// <summary>Minutes the cancellation confirmation link works.</summary>
     public int CancelLinkMinutes { get; set; } = 30;
+
+    /// <summary>Minutes the account deletion confirmation link works.</summary>
+    public int DeleteAccountLinkMinutes { get; set; } = 30;
 }

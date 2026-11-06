@@ -12,18 +12,49 @@ public class BookingRepository : BaseRepository<Booking>, IBookingRepository
     {
     }
 
-    public Task<Booking?> GetByPnrAsync(string pnr, CancellationToken cancellationToken = default)
-        => Set.AsSplitQuery()
-            .Include(b => b.Flights).ThenInclude(f => f.Flight).ThenInclude(f => f.Route).ThenInclude(r => r.Origin)
-            .Include(b => b.Flights).ThenInclude(f => f.Flight).ThenInclude(f => f.Route).ThenInclude(r => r.Destination)
-            .Include(b => b.Flights).ThenInclude(f => f.Flight).ThenInclude(f => f.Aircraft)
-            .Include(b => b.Passengers).ThenInclude(p => p.Tickets).ThenInclude(t => t.FlightSeat!).ThenInclude(s => s.AircraftSeat)
-            .Include(b => b.Passengers).ThenInclude(p => p.Tickets).ThenInclude(t => t.BaggageOption)
-            .Include(b => b.Passengers).ThenInclude(p => p.Tickets).ThenInclude(t => t.MealOption)
-            .Include(b => b.Payments)
-            .Include(b => b.Cancellation!).ThenInclude(c => c.Refunds)
+    /// <summary>
+    /// The whole booking, tracked, for the booking pages and for changing it. It is read with a few small queries, each filtered by this
+    /// booking and each without a sort or a collection join, and EF connects the loaded rows into the booking's collections. One wide
+    /// split query with "ORDER BY" (the tickets with their seats, options and the passengers above them) needed a large memory grant, and
+    /// on a machine short of memory SQL Server kept it waiting for about 28 seconds (RESOURCE_SEMAPHORE) before the page could open.
+    /// </summary>
+    public async Task<Booking?> GetByPnrAsync(string pnr, CancellationToken cancellationToken = default)
+    {
+        var booking = await Set
+            .Include(b => b.Cancellation)
             .Include(b => b.PromoCode)
             .FirstOrDefaultAsync(b => b.Pnr == pnr, cancellationToken);
+        if (booking is null)
+        {
+            return null;
+        }
+
+        var id = booking.Id;
+
+        await Context.Set<BookingFlight>().Where(f => f.BookingId == id)
+            .Include(f => f.Flight).ThenInclude(f => f.Route).ThenInclude(r => r.Origin)
+            .Include(f => f.Flight).ThenInclude(f => f.Route).ThenInclude(r => r.Destination)
+            .Include(f => f.Flight).ThenInclude(f => f.Aircraft)
+            .ToListAsync(cancellationToken);
+
+        await Context.Set<BookingPassenger>().Where(p => p.BookingId == id).ToListAsync(cancellationToken);
+
+        await Context.Set<Ticket>().Where(t => t.BookingPassenger.BookingId == id)
+            .Include(t => t.FlightSeat!).ThenInclude(s => s.AircraftSeat)
+            .Include(t => t.BaggageOption)
+            .Include(t => t.MealOption)
+            .ToListAsync(cancellationToken);
+
+        await Context.Set<Payment>().Where(p => p.BookingId == id).ToListAsync(cancellationToken);
+
+        if (booking.Cancellation is not null)
+        {
+            var cancellationId = booking.Cancellation.Id;
+            await Context.Set<Refund>().Where(r => r.CancellationId == cancellationId).ToListAsync(cancellationToken);
+        }
+
+        return booking;
+    }
 
     public Task<bool> PnrExistsAsync(string pnr, CancellationToken cancellationToken = default)
         => Set.AnyAsync(b => b.Pnr == pnr, cancellationToken);

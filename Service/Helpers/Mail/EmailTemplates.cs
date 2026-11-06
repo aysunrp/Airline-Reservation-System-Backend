@@ -90,6 +90,44 @@ public static class EmailTemplates
         return Build(subject, intro + "\n\n" + (refundDue ? estimate : none), link, validity, ignore, name);
     }
 
+    /// <summary>Asks the owner to confirm the deletion of the account; nothing is deleted until the link is opened and confirmed.</summary>
+    public static (string Subject, string Text, string Html) AccountDeletionConfirmation(string? language, string name, string link, int minutes)
+    {
+        var (subject, intro, validity, ignore) = NormalizeLanguage(language) switch
+        {
+            "az" => ("AEROVA hesabınızın silinməsini təsdiqləyin",
+                $"Salam {name},\n\nAEROVA hesabınızın silinməsi üçün sorğu aldıq. Hesab yalnız bu keçidi açıb silinməni təsdiqlədikdən sonra silinəcək; bu geri qaytarıla bilməz:",
+                $"Keçid {minutes} dəqiqə etibarlıdır və yalnız bir dəfə işləyir.",
+                "Bu sorğunu siz göndərməmisinizsə, məktuba məhəl qoymayın: hesabınız silinməyəcək. Hesabınızın təhlükəsizliyindən narahatsınızsa, şifrənizi dəyişin."),
+            _ => ("Confirm the deletion of your AEROVA account",
+                $"Hello {name},\n\nWe received a request to delete your AEROVA account. The account is only deleted after you open this link and confirm; this cannot be undone:",
+                $"The link is valid for {minutes} minutes and works once.",
+                "If you did not ask for this, ignore this message: your account will not be deleted. If you are worried about your account, change your password.")
+        };
+
+        return Build(subject, intro, link, validity, ignore, name);
+    }
+
+    /// <summary>Tells the old address that the account is gone (no link: there is nothing left to open).</summary>
+    public static (string Subject, string Text, string Html) AccountDeleted(string? language, string name)
+    {
+        var (subject, body) = NormalizeLanguage(language) switch
+        {
+            "az" => ("AEROVA hesabınız silindi",
+                $"Salam {name},\n\nAEROVA hesabınız sizin təsdiqinizlə silindi. Şəxsi məlumatlarınız (profil, saxlanmış sərnişinlər, bildirişlər) silindi. Bronlarınız və ödənişləriniz qanunla tələb olunan uçot üçün saxlanılır; bron nömrəsi ilə onları idarə edə bilərsiniz.\n\nBunu siz etməmisinizsə, dərhal AEROVA dəstəyi ilə əlaqə saxlayın."),
+            _ => ("Your AEROVA account was deleted",
+                $"Hello {name},\n\nYour AEROVA account was deleted with your confirmation. Your personal data (profile, saved passengers, notifications) was removed. Your bookings and payments are kept for the records the law requires; you can still manage them with the booking reference.\n\nIf this was not you, contact AEROVA support at once.")
+        };
+
+        var text = $"{body}\n\nAEROVA";
+        var html =
+            "<div style=\"font-family:Arial,Helvetica,sans-serif;max-width:520px;margin:0 auto;padding:24px;color:#0b1a2c\">" +
+            "<p style=\"letter-spacing:.2em;color:#9a7844;font-size:13px;margin:0 0 18px\">AEROVA</p>" +
+            $"<p style=\"white-space:pre-line;line-height:1.55\">{WebUtility.HtmlEncode(body)}</p>" +
+            "</div>";
+        return (subject, text, html);
+    }
+
     /// <summary>Lets the person choose a new password by opening the link.</summary>
     public static (string Subject, string Text, string Html) PasswordReset(string? language, string name, string link, int minutes)
     {

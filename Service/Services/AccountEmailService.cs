@@ -313,7 +313,7 @@ public class AccountEmailService : IAccountEmailService
         _users.Update(user);
 
         // This ticket, any other reset link still open and any reset code still open are used up.
-        foreach (var purpose in new[] { EmailTokenPurpose.ResetPassword, EmailTokenPurpose.ResetCode })
+        foreach (var purpose in new[] { EmailTokenPurpose.ResetPassword, EmailTokenPurpose.ResetCode, EmailTokenPurpose.DeleteAccount })
         {
             foreach (var open in await _tokens.GetUnusedAsync(user.Id, purpose, cancellationToken))
             {
