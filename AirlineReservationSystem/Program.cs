@@ -10,6 +10,7 @@ using Microsoft.Extensions.FileProviders;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
+using Service.Services;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
@@ -239,6 +240,9 @@ await app.SeedLandingHeroVideoAsync();
 
 // The first SuperAdmin (Bootstrap:Enabled): any environment, server configuration only, off by default (see SuperAdminStartup).
 await SuperAdminStartup.RunAsync(app.Services, app.Logger);
+
+// Builds the model and compiles the first queries now, so nobody waits for them on the first request (a failure is ignored).
+await StartupWarmUpWorker.RunAsync(app.Services.GetRequiredService<IServiceScopeFactory>(), app.Logger, CancellationToken.None);
 
 app.Run();
 
