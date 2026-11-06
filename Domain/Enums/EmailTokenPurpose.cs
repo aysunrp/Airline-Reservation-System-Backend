@@ -12,5 +12,8 @@ public enum EmailTokenPurpose
     BookingConfirm,
 
     /// <summary>The link that confirms the cancellation of one paid booking; the booking is only cancelled when it is opened and confirmed.</summary>
-    CancelBooking
+    CancelBooking,
+
+    /// <summary>The link that confirms the deletion of an account; the account is only erased when its page is opened and confirmed.</summary>
+    DeleteAccount
 }
