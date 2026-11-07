@@ -10,8 +10,8 @@ using Service.Services.Interfaces;
 namespace AirlineReservationSystem.Controllers.Admin;
 
 /// <summary>
-/// The destination catalog in the admin panel. Countries and cities are switched on and off, never deleted: a switched-off country or city
-/// leaves the public catalog while its airports, routes, flights and bookings stay as they are. Airports are managed under api/admin/airports.
+/// The destination catalog in the admin panel. Countries and cities can be switched off (they leave the public catalog while their airports, routes,
+/// flights and bookings stay) or, for a SuperAdmin, deleted when none of their airports is used by a route, a schedule or a flight.
 /// </summary>
 [ApiController]
 [Authorize(Policy = AuthorizationPolicies.Admin)]
@@ -60,6 +60,30 @@ public class AdminDestinationsController : ControllerBase
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
     public async Task<ActionResult<DestinationCountryDto>> SetCityActive(int id, [FromBody] SetActiveRequestDto request, CancellationToken cancellationToken)
         => Ok(await _catalog.SetCityActiveAsync(id, request.IsActive, cancellationToken));
+
+    [HttpDelete("cities/{id:int}")]
+    [Authorize(Policy = AuthorizationPolicies.SuperAdmin)]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
+    public async Task<IActionResult> DeleteCity(int id, CancellationToken cancellationToken)
+    {
+        await _catalog.DeleteCityAsync(id, cancellationToken);
+        await _audit.RecordAsync(User.ToAuditActor(), AuditActions.DestinationCityDeleted, "DestinationCity", id.ToString(), null, cancellationToken);
+        return NoContent();
+    }
+
+    [HttpDelete("countries/{id:int}")]
+    [Authorize(Policy = AuthorizationPolicies.SuperAdmin)]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
+    public async Task<IActionResult> DeleteCountry(int id, CancellationToken cancellationToken)
+    {
+        await _catalog.DeleteCountryAsync(id, cancellationToken);
+        await _audit.RecordAsync(User.ToAuditActor(), AuditActions.DestinationCountryDeleted, "Country", id.ToString(), null, cancellationToken);
+        return NoContent();
+    }
 
     [HttpPost("countries/{id:int}/image")]
     [RequestSizeLimit(12_000_000)]

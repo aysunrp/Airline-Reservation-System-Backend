@@ -33,6 +33,12 @@ public interface IDestinationCatalogService
     Task<DestinationCountryDto> RemoveCountryImageAsync(int id, CancellationToken cancellationToken = default);
 
     Task<DestinationCountryDto> RemoveCityImageAsync(int id, CancellationToken cancellationToken = default);
+
+    /// <summary>Deletes a city and its airports. Refused (409) while one of its airports has routes, schedule stops or flights.</summary>
+    Task DeleteCityAsync(int id, CancellationToken cancellationToken = default);
+
+    /// <summary>Deletes a country with its cities and their airports. Refused (409) while any of them is in use.</summary>
+    Task DeleteCountryAsync(int id, CancellationToken cancellationToken = default);
 }
 
 public interface IDestinationCatalogSeeder

@@ -180,6 +180,41 @@ public class DestinationCatalogService : IDestinationCatalogService
         return (await BuildAsync(cancellationToken)).Single(c => c.Id == city.CountryId);
     }
 
+    public async Task DeleteCityAsync(int id, CancellationToken cancellationToken = default)
+    {
+        var city = await _catalog.GetCityWithAirportsAsync(id, cancellationToken) ?? throw new NotFoundException("Şəhər tapılmadı.");
+        if (await _catalog.AnyAirportInUseAsync(city.Airports.Select(a => a.Id).ToList(), cancellationToken))
+        {
+            throw new ConflictException("Bu şəhərin hava limanı marşrut, cədvəl və ya reyslərdə istifadə olunur. Əvvəlcə onları silin, yoxsa şəhəri deaktiv edin.");
+        }
+
+        var country = await _catalog.GetCountryAsync(city.CountryId, cancellationToken);
+        var image = city.ImageFile;
+        await _catalog.AddRemovedKeyAsync($"city.{country?.Code}.{city.Name}", cancellationToken);
+        _catalog.RemoveCity(city);
+        await _catalog.SaveChangesAsync(cancellationToken);
+        await TryDeletePreviousImageAsync(image, exceptCountryId: null, exceptCityId: id, cancellationToken);
+    }
+
+    public async Task DeleteCountryAsync(int id, CancellationToken cancellationToken = default)
+    {
+        var country = await _catalog.GetCountryWithCitiesAsync(id, cancellationToken) ?? throw new NotFoundException("Ölkə tapılmadı.");
+        var airportIds = country.Cities.SelectMany(c => c.Airports).Select(a => a.Id).ToList();
+        if (await _catalog.AnyAirportInUseAsync(airportIds, cancellationToken))
+        {
+            throw new ConflictException("Bu ölkənin hava limanları marşrut, cədvəl və ya reyslərdə istifadə olunur. Əvvəlcə onları silin, yoxsa ölkəni deaktiv edin.");
+        }
+
+        var images = country.Cities.Select(c => c.ImageFile).Append(country.ImageFile).ToList();
+        await _catalog.AddRemovedKeyAsync($"country.{country.Code}", cancellationToken);
+        _catalog.RemoveCountry(country);
+        await _catalog.SaveChangesAsync(cancellationToken);
+        foreach (var image in images)
+        {
+            await TryDeletePreviousImageAsync(image, exceptCountryId: id, exceptCityId: null, cancellationToken);
+        }
+    }
+
     private Task TryDeletePreviousImageAsync(string? previous, int? exceptCountryId, int? exceptCityId, CancellationToken cancellationToken)
         => _mediaReferences.TryDeleteFileIfUnreferencedAsync(
             previous,
