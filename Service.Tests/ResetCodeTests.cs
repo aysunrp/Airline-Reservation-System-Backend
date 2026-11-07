@@ -387,6 +387,8 @@ public class ResetCodeTests
     public async Task ATicket_CannotVerifyAnAddress()
     {
         var (context, service, user) = await CustomerAsync();
+        // This test is about an address that is not confirmed yet.
+        user.EmailVerifiedAt = null;
         await service.ForgotPasswordAsync(Forgot());
         var ticket = (await service.VerifyResetCodeAsync(Code(context.Sender.LatestCode()))).Ticket;
 

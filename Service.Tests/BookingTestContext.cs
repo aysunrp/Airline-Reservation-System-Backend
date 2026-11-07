@@ -201,7 +201,7 @@ internal sealed class BookingTestContext
     private static string DocumentFor(string firstName)
         => firstName == "Aysun"
             ? "C01234565"
-            : "P" + firstName.Aggregate(7, (hash, letter) => (hash * 31 + letter) % 100000000).ToString("D8");
+            : "P" + firstName.Aggregate(7L, (hash, letter) => (hash * 31 + letter) % 100000000L).ToString("D8");
 
     public static CreateBookingRequestDto OneWay(params BookingPassengerRequestDto[] passengers) => new()
     {
