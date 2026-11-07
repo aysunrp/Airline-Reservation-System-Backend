@@ -31,7 +31,7 @@ public class SiteMediaStorageTests
     {
         var storage = Create(Path.GetTempPath());
 
-        Assert.Equal("sights/paris-0.webp", storage.ToRelativePath("/media/sights/paris-0.webp"));
+        Assert.Equal("destinations/paris-0.webp", storage.ToRelativePath("/media/destinations/paris-0.webp"));
     }
 
     [Fact]

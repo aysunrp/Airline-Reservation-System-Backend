@@ -41,9 +41,9 @@ public class MediaUsageRepository : IMediaUsageRepository
         }
 
         references.AddRange((await _context.SiteContents.AsNoTracking()
-            .Where(x => (x.Page == "site" && x.Key.StartsWith("image.")) || x.Page == "sight-media")
-            .Select(x => new { x.Page, x.Key, x.TextAz }).ToListAsync(cancellationToken))
-            .Select(x => new MediaReference(x.TextAz, (x.Page == "site" ? "Sayt şəkli: " : "Görməli yer: ") + x.Key)));
+            .Where(x => x.Page == "site" && x.Key.StartsWith("image."))
+            .Select(x => new { x.Key, x.TextAz }).ToListAsync(cancellationToken))
+            .Select(x => new MediaReference(x.TextAz, "Sayt şəkli: " + x.Key)));
 
         return references;
     }

@@ -29,13 +29,6 @@ internal sealed class FakeSiteContentRepository : FakeRepository<SiteContent>, I
     public Task<SiteContent?> FindTrackedAsync(string page, string key, CancellationToken cancellationToken = default)
         => Task.FromResult(Items.FirstOrDefault(c => c.Page == page && c.Key == key));
 
-    public Task<bool> IsSightMediaPathUsedAsync(string relativePath, string? exceptKey = null, CancellationToken cancellationToken = default)
-    {
-        var normalized = (relativePath ?? string.Empty).Trim();
-        var used = Items.Any(c => c.Page == "sight-media" && c.TextAz == normalized && (exceptKey == null || c.Key != exceptKey));
-        return Task.FromResult(used);
-    }
-
     public override Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
     {
         Saves++;

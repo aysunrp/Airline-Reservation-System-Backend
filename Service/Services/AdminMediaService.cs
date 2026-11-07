@@ -21,16 +21,19 @@ public class AdminMediaService : IAdminMediaService
 {
     private const string SitePage = "site";
     private const string SlotKeyPrefix = "image.";
-    private static readonly string[] Categories = { SiteMediaCategories.Hero, SiteMediaCategories.Destinations, SiteMediaCategories.Sights, SiteMediaCategories.Home, SiteMediaCategories.Site };
+    private static readonly string[] Categories = { SiteMediaCategories.Hero, SiteMediaCategories.Destinations, SiteMediaCategories.Home, SiteMediaCategories.Site };
     private static readonly HashSet<string> ImageExtensions = new(StringComparer.OrdinalIgnoreCase) { ".jpg", ".jpeg", ".png", ".webp" };
 
     public static readonly IReadOnlyDictionary<string, string> Slots = new Dictionary<string, string>
     {
         ["logo"] = "Loqo (başlıq və footer)",
-        ["about.hero"] = "Haqqında: əsas şəkil",
+        ["about.banner"] = "Haqqında: yuxarıdakı böyük fon şəkli",
+        ["about.hero"] = "Haqqında: hekayə bölməsinin şəkli",
         ["about.economy"] = "Haqqında: Economy salonu",
         ["about.comfort"] = "Haqqında: Comfort salonu",
         ["about.business"] = "Haqqında: Business salonu",
+        ["about.journey"] = "Haqqında: səyahət addımlarının fon şəkli",
+        ["about.final"] = "Haqqında: aşağıdakı yekun fon şəkli",
     };
 
     private readonly IMediaUsageRepository _usage;
