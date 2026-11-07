@@ -14,6 +14,8 @@ public class AuthAndProfileEndpointTests : IClassFixture<ApiFactory>
     public AuthAndProfileEndpointTests(ApiFactory factory)
     {
         _factory = factory;
+        // These tests sign in straight after registering; while mail works a new account waits for its link, so mail is off here.
+        _factory.Emails.IsConfigured = false;
     }
 
     [Fact]
