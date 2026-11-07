@@ -161,6 +161,8 @@ public class ApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
             {
                 settings.RateLimitPerMinute = SupportRateLimitPerMinute;
                 settings.ContactEmail = SupportContactEmail;
+                // The development file turns the window that merges a double click into one ticket off; the tests check the real rule.
+                settings.DuplicateWindowSeconds = 120;
             });
             services.PostConfigure<AdminNotificationSettings>(settings => settings.RecipientEmail = AdminAlertRecipient);
 

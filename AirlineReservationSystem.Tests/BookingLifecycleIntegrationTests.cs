@@ -96,8 +96,8 @@ public class BookingLifecycleIntegrationTests : IClassFixture<ApiFactory>
     {
         Assert.Single(_factory.Services.GetServices<IHostedService>().OfType<BookingLifecycleWorker>());
 
-        // appsettings.json values; the test host turns the worker off so it cannot change test data.
+        // The test host runs as Development: appsettings.Development.json checks every 5 seconds (appsettings.json says 60); the test host turns the worker off so it cannot change test data.
         var settings = _factory.Services.GetRequiredService<IOptions<BookingLifecycleSettings>>().Value;
-        Assert.Equal((5, 30, 60, false), (settings.RefundProcessingAfterMinutes, settings.RefundCompletedAfterMinutes, settings.CheckIntervalSeconds, settings.WorkerEnabled));
+        Assert.Equal((5, 30, 5, false), (settings.RefundProcessingAfterMinutes, settings.RefundCompletedAfterMinutes, settings.CheckIntervalSeconds, settings.WorkerEnabled));
     }
 }
