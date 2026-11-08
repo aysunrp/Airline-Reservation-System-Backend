@@ -13,3 +13,6 @@ public record AirportDto(
 
 /// <summary>Whether an active route joins two airports (by IATA code).</summary>
 public record RouteCheckDto(string Origin, string Destination, bool Exists);
+
+/// <summary>One active route (IATA codes). The search form lists them to offer only airports that can be flown between.</summary>
+public record RoutePairDto(string Origin, string Destination);

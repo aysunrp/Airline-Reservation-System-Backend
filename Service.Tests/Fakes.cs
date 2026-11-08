@@ -203,6 +203,9 @@ internal sealed class FakeAirportRepository : FakeRepository<Airport>, IAirportR
     public Task<IReadOnlySet<int>> GetAirportIdsWithActiveRoutesAsync(CancellationToken cancellationToken = default)
         => Task.FromResult<IReadOnlySet<int>>(WithRoutes);
 
+    public Task<IReadOnlyList<(string Origin, string Destination)>> GetActiveRoutePairsAsync(CancellationToken cancellationToken = default)
+        => Task.FromResult<IReadOnlyList<(string Origin, string Destination)>>(RoutePairs.ToList());
+
     public Task<bool> HasActiveRouteAsync(string originCode, string destinationCode, CancellationToken cancellationToken = default)
         => Task.FromResult(RoutePairs.Contains((originCode, destinationCode)) || RoutePairs.Contains((destinationCode, originCode)));
 
@@ -549,6 +552,9 @@ internal sealed class FakeAircraftRepository : FakeRepository<Aircraft>, IAircra
 
     public Task<bool> IsInUseAsync(int id, CancellationToken cancellationToken = default)
         => Task.FromResult(InUse.Contains(id));
+
+    public Task<IReadOnlyList<AircraftOverlapRow>> GetOverlapsAsync(DateTime after, CancellationToken cancellationToken = default)
+        => Task.FromResult<IReadOnlyList<AircraftOverlapRow>>(Array.Empty<AircraftOverlapRow>());
 }
 
 internal sealed class FakeAccountEmail : IAccountEmailService

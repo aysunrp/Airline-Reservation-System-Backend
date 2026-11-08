@@ -22,6 +22,9 @@ public class AirportService : IAirportService
         return airports.Select(a => a.ToPickerDto(withRoutes.Contains(a.Id))).ToList();
     }
 
+    public async Task<IReadOnlyList<RoutePairDto>> GetNetworkAsync(CancellationToken cancellationToken = default)
+        => (await _airportRepository.GetActiveRoutePairsAsync(cancellationToken)).Select(p => new RoutePairDto(p.Origin, p.Destination)).ToList();
+
     public async Task<RouteCheckDto> CheckRouteAsync(string originCode, string destinationCode, CancellationToken cancellationToken = default)
     {
         var origin = (originCode ?? string.Empty).Trim().ToUpperInvariant();

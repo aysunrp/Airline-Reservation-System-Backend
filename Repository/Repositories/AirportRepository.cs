@@ -29,6 +29,14 @@ public class AirportRepository : BaseRepository<Airport>, IAirportRepository
         return routes.SelectMany(r => new[] { r.OriginAirportId, r.DestinationAirportId }).ToHashSet();
     }
 
+    public async Task<IReadOnlyList<(string Origin, string Destination)>> GetActiveRoutePairsAsync(CancellationToken cancellationToken = default)
+    {
+        var rows = await Context.Set<Route>().AsNoTracking().Where(r => r.IsActive && r.Origin.IsActive && r.Destination.IsActive)
+            .Select(r => new { Origin = r.Origin.Code, Destination = r.Destination.Code })
+            .ToListAsync(cancellationToken);
+        return rows.Select(r => (r.Origin, r.Destination)).ToList();
+    }
+
     public Task<bool> HasActiveRouteAsync(string originCode, string destinationCode, CancellationToken cancellationToken = default)
         => Context.Set<Route>().AnyAsync(r => r.IsActive
             && ((r.Origin.Code == originCode && r.Destination.Code == destinationCode) || (r.Origin.Code == destinationCode && r.Destination.Code == originCode)), cancellationToken);
