@@ -25,6 +25,15 @@ public class AdminAircraftController : ControllerBase
     public async Task<ActionResult<IReadOnlyList<AircraftDto>>> GetAll([FromQuery] string? search, CancellationToken cancellationToken)
         => Ok(await _aircraftService.GetAllAsync(search, cancellationToken));
 
+    /// <summary>
+    /// Aircraft that are on two flights at the same time (flights that have not left yet): the number of overlapping pairs and the first pair.
+    /// The schedules do not stop this by themselves, so it is checked here. Reads only.
+    /// </summary>
+    [HttpGet("overlaps")]
+    [ProducesResponseType<IReadOnlyList<AircraftOverlapDto>>(StatusCodes.Status200OK)]
+    public async Task<ActionResult<IReadOnlyList<AircraftOverlapDto>>> GetOverlaps(CancellationToken cancellationToken)
+        => Ok(await _aircraftService.GetOverlapsAsync(cancellationToken));
+
     [HttpGet("{id:int}")]
     [ProducesResponseType<AircraftDetailsDto>(StatusCodes.Status200OK)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
