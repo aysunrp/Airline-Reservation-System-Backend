@@ -42,8 +42,8 @@ public class AirportService : IAirportService
         var first = await _airportRepository.GetByCodeAsync(origin, cancellationToken) ?? throw new NotFoundException($"'{origin}' hava limanı tapılmadı.");
         var second = await _airportRepository.GetByCodeAsync(destination, cancellationToken) ?? throw new NotFoundException($"'{destination}' hava limanı tapılmadı.");
         // A route exists when a flight joins the two airports or one transfer does: Baku - Santorini has no direct flight but is bookable through Athens.
-        var exists = await _airportRepository.HasActiveRouteAsync(first.Code, second.Code, cancellationToken)
-                     || await _airportRepository.HasActiveConnectionAsync(first.Code, second.Code, cancellationToken);
-        return new RouteCheckDto(first.Code, second.Code, exists);
+        var direct = await _airportRepository.HasActiveRouteAsync(first.Code, second.Code, cancellationToken);
+        var exists = direct || await _airportRepository.HasActiveConnectionAsync(first.Code, second.Code, cancellationToken);
+        return new RouteCheckDto(first.Code, second.Code, exists, direct);
     }
 }
