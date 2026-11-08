@@ -33,6 +33,48 @@ public static class DemoSeedStartup
     {
         await CreateAdminAsync(app.Services, app.Environment, app.Logger);
         await RunAsync(app.Services, app.Environment, app.Logger);
+        await RunRegionalNetworkAsync(app.Services, app.Environment, app.Logger);
+    }
+
+    /// <summary>
+    /// "Seed:RegionalNetwork": adds only the regional network (direct flights between other countries). Development only, off by default,
+    /// independent of "Seed:Enabled" (so it never re-adds the other demo data). Returns null when nothing ran.
+    /// </summary>
+    public static async Task<DemoSeedResultDto?> RunRegionalNetworkAsync(IServiceProvider services, IHostEnvironment environment, ILogger logger, CancellationToken cancellationToken = default)
+    {
+        var settings = services.GetRequiredService<IOptions<SeedSettings>>().Value;
+        if (!settings.RegionalNetwork)
+        {
+            return null;
+        }
+
+        if (!environment.IsDevelopment())
+        {
+            logger.LogWarning("Seed:RegionalNetwork is ignored outside the Development environment ({Environment}).", environment.EnvironmentName);
+            return null;
+        }
+
+        using var scope = services.CreateScope();
+        if (!await MigrationsAppliedAsync(scope, logger, "The regional network was not seeded", cancellationToken))
+        {
+            return null;
+        }
+
+        logger.LogInformation("Seeding the regional network{Flights} (this can take several minutes).", settings.GenerateFlights ? " and generating its flights" : string.Empty);
+        var result = await scope.ServiceProvider.GetRequiredService<IDemoDataSeeder>().SeedRegionalNetworkAsync(settings.GenerateFlights, cancellationToken);
+        logger.LogInformation("Regional network added: {Added}; already present: {Present}.", Describe(result.Added), Describe(result.AlreadyPresent));
+        foreach (var skipped in result.Skipped)
+        {
+            logger.LogWarning("Regional record skipped - {Reason}", skipped);
+        }
+
+        if (result.Flights is { } flights)
+        {
+            logger.LogInformation("Regional flights: {Created} created, {Existing} already existing, {Skipped} skipped, {Conflicts} conflicts.",
+                flights.Created.Count, flights.AlreadyExisting, flights.Skipped.Count, flights.Conflicts.Count);
+        }
+
+        return result;
     }
 
     /// <summary>

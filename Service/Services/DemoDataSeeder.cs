@@ -135,6 +135,44 @@ public class DemoDataSeeder : IDemoDataSeeder
         return new DemoSeedResultDto(run.Added, run.AlreadyPresent, run.Skipped, flights);
     }
 
+    /// <summary>
+    /// The regional network of <see cref="RegionalNetworkData"/>: the aircraft, the routes and the schedules that are missing, and the flights of
+    /// those schedules. It uses the airports that already exist (nothing is added to the catalog) and the normal services, so every check applies.
+    /// Everything is looked up by its natural key and left alone when it exists.
+    /// </summary>
+    public async Task<DemoSeedResultDto> SeedRegionalNetworkAsync(bool generateFlights = true, CancellationToken cancellationToken = default)
+    {
+        var run = new Run();
+
+        await SeedAircraftAsync(run, RegionalNetworkData.Aircraft, cancellationToken);
+        await SeedRoutesAsync(run, RegionalNetworkData.Routes, cancellationToken);
+        await SeedSchedulesAsync(run, RegionalNetworkData.Schedules, cancellationToken);
+
+        FlightGenerationResultDto? flights = null;
+        if (generateFlights)
+        {
+            var numbers = RegionalNetworkData.Schedules.Select(x => x.FlightNumber).ToHashSet();
+            var created = new List<GeneratedFlightDto>();
+            var skipped = new List<FlightGenerationSkipDto>();
+            var conflicts = new List<FlightGenerationConflictDto>();
+            var already = 0;
+            var adjustments = new List<string>();
+            foreach (var schedule in (await _scheduleRepository.GetAllWithDetailsAsync(cancellationToken)).Where(x => numbers.Contains(x.FlightNumber)))
+            {
+                var result = await _generationService.GenerateAsync(schedule.Id, DateOnly.FromDateTime(DateTime.UtcNow), RegionalNetworkData.ValidTo, cancellationToken);
+                created.AddRange(result.Created);
+                skipped.AddRange(result.Skipped);
+                conflicts.AddRange(result.Conflicts);
+                adjustments.AddRange(result.TimeAdjustments);
+                already += result.AlreadyExisting;
+            }
+
+            flights = new FlightGenerationResultDto(created, already, skipped, conflicts, adjustments);
+        }
+
+        return new DemoSeedResultDto(run.Added, run.AlreadyPresent, run.Skipped, flights);
+    }
+
     private async Task SeedAirportsAsync(Run run, CancellationToken cancellationToken)
     {
         foreach (var seed in DemoSeedData.Airports)

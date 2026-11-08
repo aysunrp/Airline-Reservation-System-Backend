@@ -14,6 +14,13 @@ public class SeedSettings
     /// </summary>
     public bool Network { get; set; }
 
+    /// <summary>
+    /// Adds ONLY the regional network (direct flights between other countries, see RegionalNetworkData) when the API starts in Development:
+    /// its aircraft, routes, schedules and the flights of those schedules. It does not need <see cref="Enabled"/> and does not touch the
+    /// catalog or the other demo data, so it cannot bring back anything that was deleted. Off by default; safe to run again.
+    /// </summary>
+    public bool RegionalNetwork { get; set; }
+
     /// <summary>After seeding, creates the flights of all active schedules for FlightGeneration:DaysAhead days.</summary>
     public bool GenerateFlights { get; set; } = true;
 
