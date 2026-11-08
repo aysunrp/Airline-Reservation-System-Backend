@@ -14,7 +14,8 @@ namespace Service.Services;
 
 public class AuthService : IAuthService
 {
-    private const string InvalidCredentialsMessage = "E-poçt və ya şifrə yanlışdır.";
+    private const string InvalidCredentialsMessage = "Şifrə yanlışdır.";
+    private const string NoAccountMessage = "Bu e-poçt ünvanı ilə hesab tapılmadı. Hesab silinibsə və ya açılmayıbsa, qeydiyyatdan keçin.";
 
     private readonly IUserRepository _userRepository;
     private readonly IPasswordHasher _passwordHasher;
@@ -91,7 +92,8 @@ public class AuthService : IAuthService
 
         var user = await _userRepository.GetByEmailAsync(email, cancellationToken);
 
-        // Same message for unknown email, wrong password and disabled account, so accounts cannot be probed.
+        // The person is told when no account uses the address (a deleted or disabled account counts as none) and when the password is wrong.
+        // This is a choice for convenience, like the password-reset page and the sign-up page, which already show which addresses have accounts.
         if (user is null || !user.IsActive || !_passwordHasher.Verify(request.Password, user.PasswordHash))
         {
             if (_attempts.RecordFailure(email))
@@ -100,7 +102,12 @@ public class AuthService : IAuthService
                 _logger.LogWarning("Sign-in was paused for {Minutes} minutes after repeated failures.", _settings.Value.LockoutMinutes);
             }
 
-            throw new UnauthorizedException(InvalidCredentialsMessage);
+            if (user is null || !user.IsActive)
+            {
+                throw new UnauthorizedException(NoAccountMessage, "account_not_found");
+            }
+
+            throw new UnauthorizedException(InvalidCredentialsMessage, "wrong_password");
         }
 
         _attempts.Reset(email);
