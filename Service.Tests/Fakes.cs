@@ -206,6 +206,10 @@ internal sealed class FakeAirportRepository : FakeRepository<Airport>, IAirportR
     public Task<IReadOnlyList<(string Origin, string Destination)>> GetActiveRoutePairsAsync(CancellationToken cancellationToken = default)
         => Task.FromResult<IReadOnlyList<(string Origin, string Destination)>>(RoutePairs.ToList());
 
+    public Task<IReadOnlyList<string>> GetConnectionAirportCodesAsync(string originCode, string destinationCode, DateTime after, DateTime until, int minWaitMinutes, int maxWaitMinutes, CancellationToken cancellationToken = default)
+        => Task.FromResult<IReadOnlyList<string>>(RoutePairs.Where(first => first.Item1 == originCode && RoutePairs.Any(second => second.Item1 == first.Item2 && second.Item2 == destinationCode && second.Item2 != first.Item1))
+            .Select(first => first.Item2).Distinct().OrderBy(c => c).ToList());
+
     public Task<bool> HasActiveRouteAsync(string originCode, string destinationCode, CancellationToken cancellationToken = default)
         => Task.FromResult(RoutePairs.Contains((originCode, destinationCode)) || RoutePairs.Contains((destinationCode, originCode)));
 
