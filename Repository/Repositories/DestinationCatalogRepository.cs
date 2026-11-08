@@ -74,12 +74,12 @@ public class DestinationCatalogRepository : BaseRepository<Country>, IDestinatio
         return (routes.Count, schedules.Count);
     }
 
-    public async Task<IReadOnlyList<Flight>> GetUpcomingFlightsAsync(int originAirportId, IReadOnlyCollection<int> destinationAirportIds, DateTime from, int take, CancellationToken cancellationToken = default)
+    public async Task<IReadOnlyList<Flight>> GetUpcomingFlightsAsync(int? originAirportId, IReadOnlyCollection<int> destinationAirportIds, DateTime from, int take, CancellationToken cancellationToken = default)
         => await Context.Set<Flight>().AsNoTracking()
             .Include(f => f.Route).ThenInclude(r => r.Origin)
             .Include(f => f.Route).ThenInclude(r => r.Destination)
             .Include(f => f.Fares)
-            .Where(f => f.Route.OriginAirportId == originAirportId && f.Route.IsActive
+            .Where(f => (originAirportId == null || f.Route.OriginAirportId == originAirportId) && f.Route.IsActive
                         && destinationAirportIds.Contains(f.Route.DestinationAirportId)
                         && f.DepartureAt >= from
                         && f.Status != Domain.Enums.FlightStatus.Cancelled)
@@ -87,9 +87,55 @@ public class DestinationCatalogRepository : BaseRepository<Country>, IDestinatio
             .Take(take)
             .ToListAsync(cancellationToken);
 
-    public Task<DestinationCity?> FindCityAsync(string countryCode, string cityName, CancellationToken cancellationToken = default)
-        => Context.Set<DestinationCity>().AsNoTracking()
-            .FirstOrDefaultAsync(c => c.Country.Code == countryCode && c.Name == cityName, cancellationToken);
+    public Task<DestinationCity?> GetCityWithAirportsAsync(int id, CancellationToken cancellationToken = default)
+        => Context.Set<DestinationCity>().Include(c => c.Airports).FirstOrDefaultAsync(c => c.Id == id, cancellationToken);
+
+    public Task<Country?> GetCountryWithCitiesAsync(int id, CancellationToken cancellationToken = default)
+        => Set.Include(c => c.Cities).ThenInclude(city => city.Airports).FirstOrDefaultAsync(c => c.Id == id, cancellationToken);
+
+    public async Task<bool> AnyAirportInUseAsync(IReadOnlyCollection<int> airportIds, CancellationToken cancellationToken = default)
+    {
+        if (airportIds.Count == 0)
+        {
+            return false;
+        }
+
+        return await Context.Set<Route>().AnyAsync(r => airportIds.Contains(r.OriginAirportId) || airportIds.Contains(r.DestinationAirportId), cancellationToken)
+            || await Context.Set<FlightScheduleStop>().AnyAsync(s => airportIds.Contains(s.AirportId), cancellationToken)
+            || await Context.Set<FlightSegment>().AnyAsync(s => airportIds.Contains(s.OriginAirportId) || airportIds.Contains(s.DestinationAirportId), cancellationToken);
+    }
+
+    public void RemoveCity(DestinationCity city)
+    {
+        Context.Set<Airport>().RemoveRange(city.Airports);
+        Context.Set<DestinationCity>().Remove(city);
+    }
+
+    public void RemoveCountry(Country country)
+    {
+        foreach (var city in country.Cities.ToList())
+        {
+            RemoveCity(city);
+        }
+
+        Set.Remove(country);
+    }
+
+    private const string RemovedPage = "system";
+    private const string RemovedPrefix = "catalog-removed.";
+
+    public async Task<HashSet<string>> GetRemovedKeysAsync(CancellationToken cancellationToken = default)
+        => (await Context.Set<SiteContent>().AsNoTracking().Where(c => c.Page == RemovedPage && c.Key.StartsWith(RemovedPrefix)).Select(c => c.Key).ToListAsync(cancellationToken))
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+    public async Task AddRemovedKeyAsync(string key, CancellationToken cancellationToken = default)
+    {
+        var full = RemovedPrefix + key;
+        if (!await Context.Set<SiteContent>().AnyAsync(c => c.Page == RemovedPage && c.Key == full, cancellationToken))
+        {
+            await Context.Set<SiteContent>().AddAsync(new SiteContent { Page = RemovedPage, Key = full, TextAz = "1" }, cancellationToken);
+        }
+    }
 
     public async Task<bool> IsImageFileUsedElsewhereAsync(string imageFile, int? exceptCountryId, int? exceptCityId, CancellationToken cancellationToken = default)
     {

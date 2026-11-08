@@ -14,6 +14,8 @@ public class AuthAndProfileEndpointTests : IClassFixture<ApiFactory>
     public AuthAndProfileEndpointTests(ApiFactory factory)
     {
         _factory = factory;
+        // These tests sign in straight after registering; while mail works a new account waits for its link, so mail is off here.
+        _factory.Emails.IsConfigured = false;
     }
 
     [Fact]
@@ -72,6 +74,20 @@ public class AuthAndProfileEndpointTests : IClassFixture<ApiFactory>
         var response = await client.PostAsJsonAsync("/api/auth/login", new LoginRequestDto { Email = email, Password = "wrong-password" }, Json);
 
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+        Assert.Equal("wrong_password", (await response.ReadJsonAsync()).GetProperty("code").GetString());
+    }
+
+    [Fact]
+    public async Task Login_WithAnAddressThatHasNoAccount_SaysSo()
+    {
+        var client = _factory.CreateClient();
+
+        var response = await client.PostAsJsonAsync("/api/auth/login", new LoginRequestDto { Email = UniqueEmail(), Password = "Whatever#123" }, Json);
+
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+        var body = await response.ReadJsonAsync();
+        Assert.Equal("account_not_found", body.GetProperty("code").GetString());
+        Assert.Contains("hesab tapılmadı", body.GetProperty("detail").GetString());
     }
 
     [Fact]

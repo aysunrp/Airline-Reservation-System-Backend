@@ -36,10 +36,13 @@ public class DestinationsController : ControllerBase
     public async Task<ActionResult<CityDestinationDto>> GetCity(int id, CancellationToken cancellationToken)
         => Ok(await _catalog.GetCityAsync(id, cancellationToken));
 
-    /// <summary>The upcoming flights from the home base to the airports of the city. Real flights only: an empty list means none is scheduled.</summary>
+    /// <summary>
+    /// The upcoming flights to the airports of the city. Real flights only: an empty list means none is scheduled. Without <c>from</c> they are
+    /// the flights from the home base (or, when the home base does not fly there, from any airport); <c>from=IST</c> names the departure airport.
+    /// </summary>
     [HttpGet("cities/{id:int}/flights")]
     [ProducesResponseType<IReadOnlyList<DestinationFlightDto>>(StatusCodes.Status200OK)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
-    public async Task<ActionResult<IReadOnlyList<DestinationFlightDto>>> GetCityFlights(int id, CancellationToken cancellationToken)
-        => Ok(await _catalog.GetCityFlightsAsync(id, cancellationToken));
+    public async Task<ActionResult<IReadOnlyList<DestinationFlightDto>>> GetCityFlights(int id, [FromQuery] string? from, CancellationToken cancellationToken)
+        => Ok(await _catalog.GetCityFlightsAsync(id, from, cancellationToken));
 }

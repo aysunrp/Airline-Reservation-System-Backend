@@ -22,8 +22,26 @@ public class ApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
 
     private readonly string _databaseName = (DatabasePrefix + Guid.NewGuid().ToString("N"))[..40];
 
+    /// <summary>Every client made by a factory carries its id, so a helper that only holds the client can find the factory (and its mailbox).</summary>
+    internal const string FactoryHeader = "X-Test-Factory";
+
+    private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, ApiFactory> Factories = new();
+
+    private readonly string _factoryId = Guid.NewGuid().ToString("N");
+
+    internal static ApiFactory? FromClient(HttpClient client)
+        => client.DefaultRequestHeaders.TryGetValues(FactoryHeader, out var values) && Factories.TryGetValue(values.First(), out var factory) ? factory : null;
+
+    protected override void ConfigureClient(HttpClient client)
+    {
+        base.ConfigureClient(client);
+        client.DefaultRequestHeaders.Remove(FactoryHeader);
+        client.DefaultRequestHeaders.Add(FactoryHeader, _factoryId);
+    }
+
     public ApiFactory()
     {
+        Factories[_factoryId] = this;
         var server = Environment.GetEnvironmentVariable("AEROVA_TEST_SQLSERVER") ?? @".\SQLEXPRESS";
         ConnectionString = $"Server={server};Database={_databaseName};Trusted_Connection=True;TrustServerCertificate=True;MultipleActiveResultSets=true";
     }
@@ -110,6 +128,8 @@ public class ApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
                 settings.RequireCancellationEmailConfirmation = RequireCancellationEmailConfirmation;
                 settings.RequireSignInToBook = RequireSignInToBook;
                 settings.FrontendBaseUrl = "https://aerova.test";
+                // The development file turns the pause between two e-mails off; the tests check the real rule.
+                settings.EmailCooldownSeconds = 60;
             });
 
             // No real Stripe in tests, and a developer's Stripe user-secrets never count here.
@@ -141,6 +161,8 @@ public class ApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
             {
                 settings.RateLimitPerMinute = SupportRateLimitPerMinute;
                 settings.ContactEmail = SupportContactEmail;
+                // The development file turns the window that merges a double click into one ticket off; the tests check the real rule.
+                settings.DuplicateWindowSeconds = 120;
             });
             services.PostConfigure<AdminNotificationSettings>(settings => settings.RecipientEmail = AdminAlertRecipient);
 

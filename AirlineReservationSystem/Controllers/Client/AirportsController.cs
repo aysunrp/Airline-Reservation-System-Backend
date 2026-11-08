@@ -22,6 +22,12 @@ public class AirportsController : ControllerBase
     public async Task<ActionResult<IReadOnlyList<AirportDto>>> GetActive(CancellationToken cancellationToken)
         => Ok(await _airportService.GetActiveAsync(cancellationToken));
 
+    /// <summary>The active routes as code pairs, so the search form can offer only airports that are joined.</summary>
+    [HttpGet("network")]
+    [ProducesResponseType<IReadOnlyList<RoutePairDto>>(StatusCodes.Status200OK)]
+    public async Task<ActionResult<IReadOnlyList<RoutePairDto>>> GetNetwork(CancellationToken cancellationToken)
+        => Ok(await _airportService.GetNetworkAsync(cancellationToken));
+
     /// <summary>Whether an active route joins two airports (by IATA code, either direction). 422 for equal or malformed codes, 404 for an unknown airport.</summary>
     [HttpGet("route-check")]
     [ProducesResponseType<RouteCheckDto>(StatusCodes.Status200OK)]

@@ -47,18 +47,37 @@ public class DestinationCatalogService : IDestinationCatalogService
         return new CityDestinationDto(city, new DestinationCountrySummaryDto(country.Id, country.Code, country.Name, country.NameAz, country.NameRu), others);
     }
 
-    public async Task<IReadOnlyList<DestinationFlightDto>> GetCityFlightsAsync(int cityId, CancellationToken cancellationToken = default)
+    public async Task<IReadOnlyList<DestinationFlightDto>> GetCityFlightsAsync(int cityId, string? fromCode = null, CancellationToken cancellationToken = default)
     {
         var catalog = await GetPublicAsync(cancellationToken);
         var (_, city) = await FindPublicCityAsync(cityId, cancellationToken, catalog);
-        var hub = catalog.SelectMany(c => c.Cities).FirstOrDefault(c => c.IsHub && c.IsActive)?.Airports.FirstOrDefault();
-        if (hub is null)
+        var airportIds = city.Airports.Select(a => a.Id).ToList();
+
+        // A named origin: the flights from that airport (an airport that is not offered gives an empty list).
+        if (!string.IsNullOrWhiteSpace(fromCode))
         {
-            return Array.Empty<DestinationFlightDto>();
+            var code = fromCode.Trim().ToUpperInvariant();
+            var origin = catalog.SelectMany(c => c.Cities).SelectMany(c => c.Airports).FirstOrDefault(a => string.Equals(a.Code, code, StringComparison.OrdinalIgnoreCase));
+            return origin is null
+                ? Array.Empty<DestinationFlightDto>()
+                : ToFlightDtos(await _catalog.GetUpcomingFlightsAsync(origin.Id, airportIds, DateTime.UtcNow, FlightsShown, cancellationToken));
         }
 
-        var airportIds = city.Airports.Select(a => a.Id).ToList();
-        var flights = await _catalog.GetUpcomingFlightsAsync(hub.Id, airportIds, DateTime.UtcNow, FlightsShown, cancellationToken);
+        // Otherwise the flights from the home base, as before; a city the home base does not fly to shows the flights that do reach it.
+        var hub = catalog.SelectMany(c => c.Cities).FirstOrDefault(c => c.IsHub && c.IsActive)?.Airports.FirstOrDefault();
+        var fromHub = hub is null
+            ? Array.Empty<Domain.Entities.Flight>()
+            : (await _catalog.GetUpcomingFlightsAsync(hub.Id, airportIds, DateTime.UtcNow, FlightsShown, cancellationToken)).ToArray();
+        if (fromHub.Length > 0)
+        {
+            return ToFlightDtos(fromHub);
+        }
+
+        return ToFlightDtos(await _catalog.GetUpcomingFlightsAsync(null, airportIds, DateTime.UtcNow, FlightsShown, cancellationToken));
+    }
+
+    private static IReadOnlyList<DestinationFlightDto> ToFlightDtos(IReadOnlyList<Domain.Entities.Flight> flights)
+    {
         return flights.Select(f => new DestinationFlightDto(
             f.Id, f.FlightNumber, f.Route.Origin.Code, f.Route.Origin.Name, f.Route.Destination.Code, f.Route.Destination.Name,
             f.DepartureAt, f.ArrivalAt, f.Status.ToString(), f.Fares.Count == 0 ? null : f.Fares.Min(x => x.BasePrice))).ToList();
@@ -178,6 +197,41 @@ public class DestinationCatalogService : IDestinationCatalogService
         await _catalog.SaveChangesAsync(cancellationToken);
         await TryDeletePreviousImageAsync(previous, exceptCountryId: null, exceptCityId: id, cancellationToken);
         return (await BuildAsync(cancellationToken)).Single(c => c.Id == city.CountryId);
+    }
+
+    public async Task DeleteCityAsync(int id, CancellationToken cancellationToken = default)
+    {
+        var city = await _catalog.GetCityWithAirportsAsync(id, cancellationToken) ?? throw new NotFoundException("Şəhər tapılmadı.");
+        if (await _catalog.AnyAirportInUseAsync(city.Airports.Select(a => a.Id).ToList(), cancellationToken))
+        {
+            throw new ConflictException("Bu şəhərin hava limanı marşrut, cədvəl və ya reyslərdə istifadə olunur. Əvvəlcə onları silin, yoxsa şəhəri deaktiv edin.");
+        }
+
+        var country = await _catalog.GetCountryAsync(city.CountryId, cancellationToken);
+        var image = city.ImageFile;
+        await _catalog.AddRemovedKeyAsync($"city.{country?.Code}.{city.Name}", cancellationToken);
+        _catalog.RemoveCity(city);
+        await _catalog.SaveChangesAsync(cancellationToken);
+        await TryDeletePreviousImageAsync(image, exceptCountryId: null, exceptCityId: id, cancellationToken);
+    }
+
+    public async Task DeleteCountryAsync(int id, CancellationToken cancellationToken = default)
+    {
+        var country = await _catalog.GetCountryWithCitiesAsync(id, cancellationToken) ?? throw new NotFoundException("Ölkə tapılmadı.");
+        var airportIds = country.Cities.SelectMany(c => c.Airports).Select(a => a.Id).ToList();
+        if (await _catalog.AnyAirportInUseAsync(airportIds, cancellationToken))
+        {
+            throw new ConflictException("Bu ölkənin hava limanları marşrut, cədvəl və ya reyslərdə istifadə olunur. Əvvəlcə onları silin, yoxsa ölkəni deaktiv edin.");
+        }
+
+        var images = country.Cities.Select(c => c.ImageFile).Append(country.ImageFile).ToList();
+        await _catalog.AddRemovedKeyAsync($"country.{country.Code}", cancellationToken);
+        _catalog.RemoveCountry(country);
+        await _catalog.SaveChangesAsync(cancellationToken);
+        foreach (var image in images)
+        {
+            await TryDeletePreviousImageAsync(image, exceptCountryId: id, exceptCityId: null, cancellationToken);
+        }
     }
 
     private Task TryDeletePreviousImageAsync(string? previous, int? exceptCountryId, int? exceptCityId, CancellationToken cancellationToken)

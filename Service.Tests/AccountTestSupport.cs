@@ -165,6 +165,8 @@ internal sealed class AccountTestContext
         Email = email,
         FirstName = "Aysun",
         LastName = "Panahli",
-        PasswordHash = new PasswordHasher(Options.Create(settings ?? new AuthSettings { PasswordHashIterations = 1_000 })).Hash(password)
+        PasswordHash = new PasswordHasher(Options.Create(settings ?? new AuthSettings { PasswordHashIterations = 1_000 })).Hash(password),
+        // A customer whose address was confirmed: while mail works, an unconfirmed account cannot sign in at all.
+        EmailVerifiedAt = Start
     };
 }

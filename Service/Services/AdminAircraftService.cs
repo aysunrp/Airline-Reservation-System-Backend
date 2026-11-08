@@ -41,6 +41,20 @@ public class AdminAircraftService : IAdminAircraftService
             .ToList();
     }
 
+    public async Task<IReadOnlyList<AircraftOverlapDto>> GetOverlapsAsync(CancellationToken cancellationToken = default)
+    {
+        var rows = await _aircraftRepository.GetOverlapsAsync(DateTime.UtcNow, cancellationToken);
+        if (rows.Count == 0)
+        {
+            return Array.Empty<AircraftOverlapDto>();
+        }
+
+        var aircraft = (await _aircraftRepository.GetAllAsync(cancellationToken)).ToDictionary(a => a.Id);
+        return rows.Where(r => aircraft.ContainsKey(r.AircraftId))
+            .Select(r => new AircraftOverlapDto(r.AircraftId, aircraft[r.AircraftId].Name, aircraft[r.AircraftId].RegistrationNumber, r.Pairs, r.FlightA, r.FlightB, r.At))
+            .ToList();
+    }
+
     public async Task<AircraftDetailsDto> GetDetailsAsync(int id, CancellationToken cancellationToken = default)
         => (await GetAircraftAsync(id, cancellationToken)).ToDetailsDto();
 

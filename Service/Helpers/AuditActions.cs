@@ -32,7 +32,8 @@ public static class AuditActions
     public const string HeroVideoDeleted = "HeroVideoDeleted";
     public const string DestinationImageUpdated = "DestinationImageUpdated";
     public const string DestinationImageRemoved = "DestinationImageRemoved";
-    public const string SightMediaUpdated = "SightMediaUpdated";
+    public const string DestinationCityDeleted = "DestinationCityDeleted";
+    public const string DestinationCountryDeleted = "DestinationCountryDeleted";
     public const string FaqItemCreated = "FaqItemCreated";
     public const string FaqItemUpdated = "FaqItemUpdated";
     public const string FaqItemDeleted = "FaqItemDeleted";
@@ -45,5 +46,4 @@ public static class AuditActions
     public const string MediaFileDeleted = "MediaFileDeleted";
     public const string SiteImageUpdated = "SiteImageUpdated";
     public const string SiteImageRemoved = "SiteImageRemoved";
-    public const string SightMediaRemoved = "SightMediaRemoved";
 }

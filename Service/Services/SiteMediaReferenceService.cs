@@ -6,19 +6,14 @@ namespace Service.Services;
 
 public class SiteMediaReferenceService : ISiteMediaReferenceService
 {
-    public const string SightMediaPage = "sight-media";
-
     private readonly IDestinationCatalogRepository _destinations;
-    private readonly ISiteContentRepository _contents;
     private readonly ISiteMediaStorage _media;
 
     public SiteMediaReferenceService(
         IDestinationCatalogRepository destinations,
-        ISiteContentRepository contents,
         ISiteMediaStorage media)
     {
         _destinations = destinations;
-        _contents = contents;
         _media = media;
     }
 
@@ -35,16 +30,11 @@ public class SiteMediaReferenceService : ISiteMediaReferenceService
 
         exclusions ??= new SiteMediaReferenceExclusions();
 
-        if (await _destinations.IsImageFileUsedElsewhereAsync(
-                normalized,
-                exclusions.ExceptCountryId,
-                exclusions.ExceptCityId,
-                cancellationToken))
-        {
-            return true;
-        }
-
-        return await _contents.IsSightMediaPathUsedAsync(normalized, exclusions.ExceptSightMediaKey, cancellationToken);
+        return await _destinations.IsImageFileUsedElsewhereAsync(
+            normalized,
+            exclusions.ExceptCountryId,
+            exclusions.ExceptCityId,
+            cancellationToken);
     }
 
     public async Task<bool> TryDeleteFileIfUnreferencedAsync(
@@ -73,8 +63,7 @@ public class SiteMediaReferenceService : ISiteMediaReferenceService
         }
 
         var normalized = path.Trim().Replace('\\', '/');
-        return normalized.StartsWith(SiteMediaCategories.Destinations + "/", StringComparison.OrdinalIgnoreCase)
-            || normalized.StartsWith(SiteMediaCategories.Sights + "/", StringComparison.OrdinalIgnoreCase);
+        return normalized.StartsWith(SiteMediaCategories.Destinations + "/", StringComparison.OrdinalIgnoreCase);
     }
 
     private static string NormalizeRelativePath(string relativePath)

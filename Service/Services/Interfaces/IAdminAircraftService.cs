@@ -17,4 +17,7 @@ public interface IAdminAircraftService
     Task<AircraftDetailsDto> UpdateAsync(int id, AircraftRequestDto request, CancellationToken cancellationToken = default);
 
     Task DeleteAsync(int id, CancellationToken cancellationToken = default);
+
+    /// <summary>The aircraft that are on two flights at the same time (flights that have not left yet). Reads only.</summary>
+    Task<IReadOnlyList<AircraftOverlapDto>> GetOverlapsAsync(CancellationToken cancellationToken = default);
 }

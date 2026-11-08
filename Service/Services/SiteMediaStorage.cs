@@ -73,7 +73,7 @@ public class SiteMediaStorage : ISiteMediaStorage
     public async Task<string> SaveImageAsync(string category, IFormFile file, long? maxBytes = null, CancellationToken cancellationToken = default)
     {
         ValidateCategory(category);
-        var limit = maxBytes ?? (category == SiteMediaCategories.Sights ? _site.MaxSightImageBytes : _site.MaxImageBytes);
+        var limit = maxBytes ?? _site.MaxImageBytes;
         // The content of the file is checked as well as its extension: a renamed script is not an image.
         await ImageFileValidator.EnsureImageAsync(file, cancellationToken);
         return await SaveAsync(file, category, ImageExtensions, limit, "img", cancellationToken);
@@ -197,7 +197,7 @@ public class SiteMediaStorage : ISiteMediaStorage
 
     private static void ValidateCategory(string category)
     {
-        if (category is not SiteMediaCategories.Hero and not SiteMediaCategories.Destinations and not SiteMediaCategories.Sights and not SiteMediaCategories.Home and not SiteMediaCategories.Site)
+        if (category is not SiteMediaCategories.Hero and not SiteMediaCategories.Destinations and not SiteMediaCategories.Home and not SiteMediaCategories.Site)
         {
             throw Fail("category", "Media kateqoriyası dəstəklənmir.");
         }

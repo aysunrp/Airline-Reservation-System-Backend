@@ -16,7 +16,7 @@ using static AirlineReservationSystem.Tests.ApiTestHelpers;
 
 namespace AirlineReservationSystem.Tests;
 
-/// <summary>FAZ 2 media upload: destination city/country images and sight-media overrides.</summary>
+/// <summary>FAZ 2 media upload: destination city/country images.</summary>
 public class AdminMediaEndpointTests : IClassFixture<ApiFactory>
 {
     private readonly ApiFactory _factory;
@@ -190,20 +190,6 @@ public class AdminMediaEndpointTests : IClassFixture<ApiFactory>
     }
 
     [Fact]
-    public async Task AnonymousAndCustomer_CannotDeleteSightMedia()
-    {
-        var admin = (await _factory.CreateAccountAsync(UserRole.Admin)).Client;
-        Assert.Equal(HttpStatusCode.OK, (await admin.PostImageFileAsync("/api/admin/sight-media/upload?citySlug=paris&sightIndex=0")).StatusCode);
-        const string url = "/api/admin/sight-media?citySlug=paris&sightIndex=0";
-
-        Assert.Equal(HttpStatusCode.Unauthorized, (await _factory.CreateClient().DeleteAsync(url)).StatusCode);
-
-        var customer = _factory.CreateClient();
-        customer.WithToken((await customer.RegisterAsync()).AccessToken);
-        Assert.Equal(HttpStatusCode.Forbidden, (await customer.DeleteAsync(url)).StatusCode);
-    }
-
-    [Fact]
     public async Task UploadedCityImage_IsServedOverHttpAtMediaPath()
     {
         await SeedDestinationsAsync();
@@ -221,64 +207,5 @@ public class AdminMediaEndpointTests : IClassFixture<ApiFactory>
         var response = await _factory.CreateClient().GetAsync("/media/" + media.RelativePath);
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         Assert.NotEmpty(await response.Content.ReadAsByteArrayAsync());
-    }
-
-    [Fact]
-    public async Task SharedRelativePath_IsNotDeletedFromDiskUntilAllReferencesAreGone()
-    {
-        await SeedDestinationsAsync();
-        var admin = (await _factory.CreateAccountAsync(UserRole.Admin)).Client;
-        var paris = (await (await _factory.CreateClient().GetAsync("/api/destinations")).ReadAsync<List<DestinationCountryDto>>())
-            .Single(c => c.Code == "FR").Cities.Single(c => c.Name == "Paris");
-        var media = await (await admin.PostImageFileAsync($"/api/admin/destinations/cities/{paris.Id}/image")).ReadAsync<MediaUploadResultDto>();
-
-        using (var scope = _factory.Services.CreateScope())
-        {
-            var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-            db.SiteContents.Add(new SiteContent
-            {
-                Page = SightMediaService.Page,
-                Key = "paris.1",
-                TextAz = media.RelativePath
-            });
-            await db.SaveChangesAsync();
-        }
-
-        Assert.Equal(HttpStatusCode.OK, (await admin.DeleteAsync($"/api/admin/destinations/cities/{paris.Id}/image")).StatusCode);
-
-        using (var scope = _factory.Services.CreateScope())
-        {
-            Assert.True(File.Exists(MediaFileOnDisk(scope, media.RelativePath)));
-        }
-
-        Assert.Equal(HttpStatusCode.NoContent, (await admin.DeleteAsync("/api/admin/sight-media?citySlug=paris&sightIndex=1")).StatusCode);
-
-        using (var scope = _factory.Services.CreateScope())
-        {
-            Assert.False(File.Exists(MediaFileOnDisk(scope, media.RelativePath)));
-        }
-    }
-
-    [Fact]
-    public async Task SightMediaOverride_IsPublicOnSiteContent_AndCanBeRemoved()
-    {
-        var admin = (await _factory.CreateAccountAsync(UserRole.Admin)).Client;
-        var upload = await admin.PostImageFileAsync("/api/admin/sight-media/upload?citySlug=paris&sightIndex=0");
-        Assert.Equal(HttpStatusCode.OK, upload.StatusCode);
-        var media = await upload.ReadAsync<MediaUploadResultDto>();
-        Assert.StartsWith("sights/", media.RelativePath, StringComparison.Ordinal);
-
-        var publicItems = await (await _factory.CreateClient().GetAsync("/api/site-content/sight-media")).ReadAsync<List<SiteContentDto>>();
-        var row = Assert.Single(publicItems, i => i.Key == "paris.0");
-        Assert.Equal(media.RelativePath, row.TextAz);
-
-        Assert.Equal(HttpStatusCode.NoContent, (await admin.DeleteAsync("/api/admin/sight-media?citySlug=paris&sightIndex=0")).StatusCode);
-        Assert.Empty(await (await admin.GetAsync("/api/admin/sight-media")).ReadAsync<List<SiteContentDto>>());
-        Assert.Equal(HttpStatusCode.NotFound, (await _factory.CreateClient().GetAsync("/api/site-content/sight-media")).StatusCode);
-
-        using (var scope = _factory.Services.CreateScope())
-        {
-            Assert.False(File.Exists(MediaFileOnDisk(scope, media.RelativePath)));
-        }
     }
 }

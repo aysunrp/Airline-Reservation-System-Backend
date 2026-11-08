@@ -14,6 +14,8 @@ public class AuthHardeningEndpointTests : IClassFixture<ApiFactory>
     public AuthHardeningEndpointTests(ApiFactory factory)
     {
         _factory = factory;
+        // The role test signs in straight after registering; with mail on, a new account waits for its link.
+        _factory.Emails.IsConfigured = false;
     }
 
     [Fact]

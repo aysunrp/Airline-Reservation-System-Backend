@@ -5,6 +5,6 @@ public record MediaReference(string Path, string Label);
 
 public interface IMediaUsageRepository
 {
-    /// <summary>Every stored reference to an uploaded file (home cards, countries, cities, hero videos, site images, sight images).</summary>
+    /// <summary>Every stored reference to an uploaded file (home cards, countries, cities, hero videos, site images).</summary>
     Task<IReadOnlyList<MediaReference>> GetReferencesAsync(CancellationToken cancellationToken = default);
 }

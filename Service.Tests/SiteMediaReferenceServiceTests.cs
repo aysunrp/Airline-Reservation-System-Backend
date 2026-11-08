@@ -31,9 +31,22 @@ internal sealed class FakeDestinationCatalogForMedia : FakeRepository<Country>, 
 
     public Task<(int Routes, int Schedules)> DeactivateRoutesBetweenAsync(IReadOnlyCollection<(string Origin, string Destination)> pairs, CancellationToken cancellationToken = default) => NotImplementedAsync<(int, int)>();
 
-    public Task<IReadOnlyList<Flight>> GetUpcomingFlightsAsync(int originAirportId, IReadOnlyCollection<int> destinationAirportIds, DateTime from, int take, CancellationToken cancellationToken = default) => NotImplementedAsync<IReadOnlyList<Flight>>();
+    public Task<IReadOnlyList<Flight>> GetUpcomingFlightsAsync(int? originAirportId, IReadOnlyCollection<int> destinationAirportIds, DateTime from, int take, CancellationToken cancellationToken = default) => NotImplementedAsync<IReadOnlyList<Flight>>();
 
-    public Task<DestinationCity?> FindCityAsync(string countryCode, string cityName, CancellationToken cancellationToken = default) => NotImplementedAsync<DestinationCity?>();
+
+    public Task<DestinationCity?> GetCityWithAirportsAsync(int id, CancellationToken cancellationToken = default) => NotImplementedAsync<DestinationCity?>();
+
+    public Task<Country?> GetCountryWithCitiesAsync(int id, CancellationToken cancellationToken = default) => NotImplementedAsync<Country?>();
+
+    public Task<bool> AnyAirportInUseAsync(IReadOnlyCollection<int> airportIds, CancellationToken cancellationToken = default) => NotImplementedAsync<bool>();
+
+    public void RemoveCity(DestinationCity city) => throw new NotImplementedException();
+
+    public void RemoveCountry(Country country) => throw new NotImplementedException();
+
+    public Task<HashSet<string>> GetRemovedKeysAsync(CancellationToken cancellationToken = default) => NotImplementedAsync<HashSet<string>>();
+
+    public Task AddRemovedKeyAsync(string key, CancellationToken cancellationToken = default) => NotImplementedAsync<object?>();
 
     private static Task<T> NotImplementedAsync<T>() => Task.FromException<T>(new NotImplementedException());
 }
@@ -66,27 +79,12 @@ public class SiteMediaReferenceServiceTests
     }
 
     private static SiteMediaReferenceService Create(FakeSiteContentRepository contents, FakeDestinationCatalogForMedia catalog, TestMediaStorage media)
-        => new(catalog, contents, media);
-
-    [Fact]
-    public async Task DeleteIsSkipped_WhenSightMediaStillReferencesTheSamePath()
-    {
-        const string path = "destinations/shared.webp";
-        var contents = new FakeSiteContentRepository(new SiteContent { Page = "sight-media", Key = "paris.0", TextAz = path });
-        var catalog = new FakeDestinationCatalogForMedia { DestinationImageInUse = false };
-        var media = new TestMediaStorage();
-        var service = Create(contents, catalog, media);
-
-        var deleted = await service.TryDeleteFileIfUnreferencedAsync(path, new SiteMediaReferenceExclusions(ExceptCityId: 1));
-
-        Assert.False(deleted);
-        Assert.Equal(0, media.DeleteCalls);
-    }
+        => new(catalog, media);
 
     [Fact]
     public async Task DeleteIsSkipped_WhenDestinationCatalogStillReferencesTheSamePath()
     {
-        const string path = "sights/shared.webp";
+        const string path = "destinations/shared.webp";
         var contents = new FakeSiteContentRepository();
         var catalog = new FakeDestinationCatalogForMedia { DestinationImageInUse = true };
         var media = new TestMediaStorage();

@@ -11,5 +11,4 @@ public class SiteMediaSettings
 
     public long MaxImageBytes { get; set; } = 10 * 1024 * 1024;
 
-    public long MaxSightImageBytes { get; set; } = 6 * 1024 * 1024;
 }

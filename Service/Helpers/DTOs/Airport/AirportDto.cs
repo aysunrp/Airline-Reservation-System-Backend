@@ -12,4 +12,12 @@ public record AirportDto(
     bool IsHub = false, bool HasRoutes = false);
 
 /// <summary>Whether an active route joins two airports (by IATA code).</summary>
-public record RouteCheckDto(string Origin, string Destination, bool Exists);
+/// <summary><see cref="Exists"/>: a flight or one transfer joins the airports; <see cref="Direct"/>: a flight joins them without a transfer.</summary>
+public record RouteCheckDto(string Origin, string Destination, bool Exists, bool Direct = false)
+{
+    /// <summary>The transfer airports (IATA codes) when the airports are joined through one transfer; empty for a direct flight or no connection.</summary>
+    public IReadOnlyList<string> Via { get; init; } = Array.Empty<string>();
+}
+
+/// <summary>One active route (IATA codes). The search form lists them to offer only airports that can be flown between.</summary>
+public record RoutePairDto(string Origin, string Destination);

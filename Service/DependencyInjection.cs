@@ -61,7 +61,6 @@ namespace Service
             services.AddScoped<ISiteMediaStorage, SiteMediaStorage>();
             services.AddScoped<IHeroMediaStorage, HeroMediaStorage>();
             services.AddScoped<ISiteMediaReferenceService, SiteMediaReferenceService>();
-            services.AddScoped<ISightMediaService, SightMediaService>();
             services.AddScoped<ISiteContentSeeder, SiteContentSeeder>();
             services.AddScoped<ICmsListSeeder, CmsListSeeder>();
             services.AddScoped<IFlightSearchService, FlightSearchService>();

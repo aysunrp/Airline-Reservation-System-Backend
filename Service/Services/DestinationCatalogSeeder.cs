@@ -20,6 +20,7 @@ public class DestinationCatalogSeeder : IDestinationCatalogSeeder
     public async Task<DestinationSeedResultDto> SeedAsync(CancellationToken cancellationToken = default)
     {
         var existing = (await _catalog.GetCatalogAsync(cancellationToken)).ToDictionary(c => c.Code, StringComparer.OrdinalIgnoreCase);
+        var removed = await _catalog.GetRemovedKeysAsync(cancellationToken);
         var codes = DestinationCatalogData.Countries.SelectMany(c => c.Cities).SelectMany(c => c.Airports).Select(a => a.Code).ToList();
         var airports = (await _catalog.GetAirportsByCodesAsync(codes, cancellationToken)).ToDictionary(a => a.Code, StringComparer.OrdinalIgnoreCase);
 
@@ -29,6 +30,11 @@ public class DestinationCatalogSeeder : IDestinationCatalogSeeder
         foreach (var seed in DestinationCatalogData.Countries)
         {
             order++;
+            if (!existing.ContainsKey(seed.Code) && removed.Contains("catalog-removed.country." + seed.Code))
+            {
+                continue;
+            }
+
             if (!existing.TryGetValue(seed.Code, out var country))
             {
                 country = new Country
@@ -51,6 +57,11 @@ public class DestinationCatalogSeeder : IDestinationCatalogSeeder
             {
                 cityOrder++;
                 var city = country.Cities.FirstOrDefault(c => string.Equals(c.Name, citySeed.Name, StringComparison.OrdinalIgnoreCase));
+                if (city is null && removed.Contains($"catalog-removed.city.{seed.Code}.{citySeed.Name}"))
+                {
+                    continue;
+                }
+
                 if (city is null)
                 {
                     city = new DestinationCity

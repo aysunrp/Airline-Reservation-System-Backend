@@ -22,7 +22,6 @@
     <Folder Include="Helpers\DTOs\Ticket\" />
     <Folder Include="Helpers\Exceptions\" />
     <Folder Include="Helpers\Mappings\" />
-    <Folder Include="Helpers\Responses\" />
     <Folder Include="Helpers\Settings\" />
     <Folder Include="Helpers\Validators\" />
     <Folder Include="Services\Interfaces\" />

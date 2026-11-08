@@ -36,6 +36,18 @@ internal static class ApiTestHelpers
         }, Json);
         response.EnsureSuccessStatusCode();
 
+        // While the API can send mail, an account is locked until its address is confirmed. The test opens the link it was sent, as a person would.
+        var factory = ApiFactory.FromClient(client);
+        if (factory is not null && factory.Emails.IsConfigured)
+        {
+            var mail = factory.Emails.Sent.LastOrDefault(m => string.Equals(m.To, email, StringComparison.OrdinalIgnoreCase) && m.TextBody.Contains("verify-email.html?token="));
+            if (mail is not null)
+            {
+                var verified = await client.PostAsJsonAsync("/api/auth/verify-email", new VerifyEmailRequestDto { Token = factory.Emails.TokenFor(email) }, Json);
+                verified.EnsureSuccessStatusCode();
+            }
+        }
+
         var login = await client.PostAsJsonAsync("/api/auth/login", new LoginRequestDto { Email = email, Password = password }, Json);
         login.EnsureSuccessStatusCode();
         return (await login.Content.ReadFromJsonAsync<AuthResponseDto>(Json))!;

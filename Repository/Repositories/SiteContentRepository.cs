@@ -19,15 +19,4 @@ public class SiteContentRepository : BaseRepository<SiteContent>, ISiteContentRe
 
     public Task<SiteContent?> FindTrackedAsync(string page, string key, CancellationToken cancellationToken = default)
         => Set.FirstOrDefaultAsync(c => c.Page == page && c.Key == key, cancellationToken);
-
-    public Task<bool> IsSightMediaPathUsedAsync(string relativePath, string? exceptKey = null, CancellationToken cancellationToken = default)
-    {
-        const string sightMediaPage = "sight-media";
-        var normalized = (relativePath ?? string.Empty).Trim();
-        return Set.AnyAsync(
-            c => c.Page == sightMediaPage
-                && c.TextAz == normalized
-                && (exceptKey == null || c.Key != exceptKey),
-            cancellationToken);
-    }
 }

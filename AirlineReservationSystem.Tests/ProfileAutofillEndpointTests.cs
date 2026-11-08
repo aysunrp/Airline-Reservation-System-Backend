@@ -39,7 +39,8 @@ public class ProfileAutofillEndpointTests : IClassFixture<ApiFactory>
         var first = await (await aysun.GetAsync("/api/profile")).ReadAsync<ProfileDto>();
         var second = await (await orkhan.GetAsync("/api/profile")).ReadAsync<ProfileDto>();
 
-        Assert.Equal((aysunAccount.User.Id, "Ms", "Panahli", new DateOnly(1995, 4, 12), "AZ", "+994501234567"),
+        // The profile form no longer asks for a salutation, so the title is always left empty.
+        Assert.Equal((aysunAccount.User.Id, (string?)null, "Panahli", new DateOnly(1995, 4, 12), "AZ", "+994501234567"),
             (first.Id, first.Title, first.LastName, first.DateOfBirth!.Value, first.NationalityCode, first.Phone));
         Assert.Equal(orkhanAccount.User.Id, second.Id);
         Assert.Equal(orkhanAccount.User.Email, second.Email);
