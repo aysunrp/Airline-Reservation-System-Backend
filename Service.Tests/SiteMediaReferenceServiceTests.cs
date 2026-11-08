@@ -31,7 +31,7 @@ internal sealed class FakeDestinationCatalogForMedia : FakeRepository<Country>, 
 
     public Task<(int Routes, int Schedules)> DeactivateRoutesBetweenAsync(IReadOnlyCollection<(string Origin, string Destination)> pairs, CancellationToken cancellationToken = default) => NotImplementedAsync<(int, int)>();
 
-    public Task<IReadOnlyList<Flight>> GetUpcomingFlightsAsync(int originAirportId, IReadOnlyCollection<int> destinationAirportIds, DateTime from, int take, CancellationToken cancellationToken = default) => NotImplementedAsync<IReadOnlyList<Flight>>();
+    public Task<IReadOnlyList<Flight>> GetUpcomingFlightsAsync(int? originAirportId, IReadOnlyCollection<int> destinationAirportIds, DateTime from, int take, CancellationToken cancellationToken = default) => NotImplementedAsync<IReadOnlyList<Flight>>();
 
 
     public Task<DestinationCity?> GetCityWithAirportsAsync(int id, CancellationToken cancellationToken = default) => NotImplementedAsync<DestinationCity?>();

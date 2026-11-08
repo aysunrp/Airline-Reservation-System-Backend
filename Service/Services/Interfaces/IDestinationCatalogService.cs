@@ -12,8 +12,11 @@ public interface IDestinationCatalogService
     /// <summary>One city's destination page by its database id: the city and its airports, its country and the other active cities of that country. NotFound for the home base, a switched-off city or country, or an unknown id.</summary>
     Task<CityDestinationDto> GetCityAsync(int cityId, CancellationToken cancellationToken = default);
 
-    /// <summary>The upcoming flights from the home base to the airports of the city (real flights only; empty when none are scheduled).</summary>
-    Task<IReadOnlyList<DestinationFlightDto>> GetCityFlightsAsync(int cityId, CancellationToken cancellationToken = default);
+    /// <summary>
+    /// The upcoming flights to the airports of the city (real flights only; empty when none are scheduled). Without <paramref name="fromCode"/> they
+    /// are the flights from the home base, or, when the home base has none, the flights from any airport; with it, the flights from that airport.
+    /// </summary>
+    Task<IReadOnlyList<DestinationFlightDto>> GetCityFlightsAsync(int cityId, string? fromCode = null, CancellationToken cancellationToken = default);
 
     Task<DestinationCountryDto> UpdateCountryAsync(int id, DestinationCountryRequestDto request, CancellationToken cancellationToken = default);
 

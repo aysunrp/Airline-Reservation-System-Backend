@@ -74,12 +74,12 @@ public class DestinationCatalogRepository : BaseRepository<Country>, IDestinatio
         return (routes.Count, schedules.Count);
     }
 
-    public async Task<IReadOnlyList<Flight>> GetUpcomingFlightsAsync(int originAirportId, IReadOnlyCollection<int> destinationAirportIds, DateTime from, int take, CancellationToken cancellationToken = default)
+    public async Task<IReadOnlyList<Flight>> GetUpcomingFlightsAsync(int? originAirportId, IReadOnlyCollection<int> destinationAirportIds, DateTime from, int take, CancellationToken cancellationToken = default)
         => await Context.Set<Flight>().AsNoTracking()
             .Include(f => f.Route).ThenInclude(r => r.Origin)
             .Include(f => f.Route).ThenInclude(r => r.Destination)
             .Include(f => f.Fares)
-            .Where(f => f.Route.OriginAirportId == originAirportId && f.Route.IsActive
+            .Where(f => (originAirportId == null || f.Route.OriginAirportId == originAirportId) && f.Route.IsActive
                         && destinationAirportIds.Contains(f.Route.DestinationAirportId)
                         && f.DepartureAt >= from
                         && f.Status != Domain.Enums.FlightStatus.Cancelled)
