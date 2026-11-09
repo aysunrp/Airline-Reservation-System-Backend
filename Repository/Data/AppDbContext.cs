@@ -42,6 +42,8 @@ public class AppDbContext : DbContext
     public DbSet<Refund> Refunds => Set<Refund>();
     public DbSet<Notification> Notifications => Set<Notification>();
     public DbSet<EmailToken> EmailTokens => Set<EmailToken>();
+    public DbSet<UserSession> UserSessions => Set<UserSession>();
+    public DbSet<NotificationPreference> NotificationPreferences => Set<NotificationPreference>();
     public DbSet<NewsletterSubscriber> NewsletterSubscribers => Set<NewsletterSubscriber>();
     public DbSet<AdminAlert> AdminAlerts => Set<AdminAlert>();
     public DbSet<SupportTicket> SupportTickets => Set<SupportTicket>();

@@ -15,5 +15,8 @@ public enum EmailTokenPurpose
     CancelBooking,
 
     /// <summary>The link that confirms the deletion of an account; the account is only erased when its page is opened and confirmed.</summary>
-    DeleteAccount
+    DeleteAccount,
+
+    /// <summary>The six-digit code sent to a NEW address to prove it belongs to the account owner; the address is only switched when it is typed in. The new address is kept in the payload.</summary>
+    ChangeEmail
 }

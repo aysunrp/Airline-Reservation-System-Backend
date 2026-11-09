@@ -15,6 +15,9 @@ public class UserConfiguration : IEntityTypeConfiguration<User>
         builder.Property(x => x.Title).HasMaxLength(10);
         builder.Property(x => x.NationalityCode).HasMaxLength(2);
         builder.Property(x => x.Phone).HasMaxLength(30);
+        builder.Property(x => x.FatherName).HasMaxLength(100);
+        builder.Property(x => x.PassportNumber).HasMaxLength(30);
+        builder.Property(x => x.NationalIdNumber).HasMaxLength(30);
         builder.Property(x => x.Role).HasConversion<string>().HasMaxLength(20);
         builder.HasIndex(x => x.Email).IsUnique();
     }
