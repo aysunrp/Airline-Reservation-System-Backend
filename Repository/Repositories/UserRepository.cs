@@ -53,6 +53,6 @@ public class UserRepository : BaseRepository<User>, IUserRepository
     public Task<UserState?> GetStateAsync(int id, CancellationToken cancellationToken = default)
         => Set.AsNoTracking()
             .Where(u => u.Id == id)
-            .Select(u => new UserState(u.Role, u.IsActive))
+            .Select(u => new UserState(u.Role, u.IsActive, u.SessionsValidFrom))
             .FirstOrDefaultAsync(cancellationToken);
 }

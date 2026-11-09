@@ -33,6 +33,7 @@ public class CampaignService : ICampaignService
     private readonly AuthSettings _auth;
     private readonly TimeProvider _timeProvider;
     private readonly ILogger<CampaignService> _logger;
+    private readonly INotificationPreferenceRepository? _preferences;
 
     public CampaignService(
         IBaseRepository<PromoCode> promoCodes,
@@ -44,8 +45,10 @@ public class CampaignService : ICampaignService
         IOptions<NewsletterSettings> settings,
         IOptions<AuthSettings> auth,
         TimeProvider timeProvider,
-        ILogger<CampaignService> logger)
+        ILogger<CampaignService> logger,
+        INotificationPreferenceRepository? preferences = null)
     {
+        _preferences = preferences;
         _promoCodes = promoCodes;
         _campaigns = campaigns;
         _subscribers = subscribers;
@@ -208,11 +211,14 @@ public class CampaignService : ICampaignService
         var batch = await _campaigns.GetPendingBatchAsync(campaign.Id, Math.Max(1, _settings.CampaignBatchSize), cancellationToken);
         int sent = 0, failed = 0, skipped = 0;
 
+        // An account that turned campaign e-mails off in its settings gets none, even when its address is on the newsletter list.
+        var optedOut = _preferences is null ? new HashSet<string>() : await _preferences.GetEmailsWithoutMarketingAsync(cancellationToken);
+
         foreach (var recipient in batch)
         {
             // Consent is checked at send time: only a confirmed, active subscriber receives marketing e-mail.
             var subscriber = await _subscribers.GetByIdAsync(recipient.SubscriberId, cancellationToken);
-            if (subscriber is null || subscriber.Status != NewsletterStatus.Active)
+            if (subscriber is null || subscriber.Status != NewsletterStatus.Active || optedOut.Contains(subscriber.Email.Trim().ToLowerInvariant()))
             {
                 recipient.Status = CampaignRecipientStatus.Skipped;
                 skipped++;

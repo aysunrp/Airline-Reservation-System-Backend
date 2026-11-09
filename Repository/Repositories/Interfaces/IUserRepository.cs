@@ -25,4 +25,4 @@ public interface IUserRepository : IBaseRepository<User>
 }
 
 /// <summary>What a token has to agree with on every request.</summary>
-public sealed record UserState(UserRole Role, bool IsActive);
+public sealed record UserState(UserRole Role, bool IsActive, DateTime? SessionsValidFrom = null);

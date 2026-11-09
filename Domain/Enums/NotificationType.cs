@@ -19,5 +19,8 @@ public enum NotificationType
     SupportUpdate,
 
     /// <summary>For support staff: a new support request or a customer reply. Shown in the staff bell, never e-mailed (staff get the admin e-mail).</summary>
-    SupportStaff
+    SupportStaff,
+
+    /// <summary>A change to the account's security (password, e-mail address, other devices signed out). Always e-mailed.</summary>
+    AccountSecurity
 }

@@ -48,6 +48,8 @@ namespace Service
             services.AddScoped<ITokenService, TokenService>();
             services.AddSingleton<IEmailSender, SmtpEmailSender>();
             services.AddScoped<IAccountEmailService, AccountEmailService>();
+            services.AddScoped<IAccountSessionService, AccountSessionService>();
+            services.AddScoped<IAccountSettingsService, AccountSettingsService>();
             services.AddScoped<IAuthService, AuthService>();
             services.AddScoped<IProfileService, ProfileService>();
             services.AddScoped<INotificationService, NotificationService>();

@@ -35,6 +35,26 @@ public static class TokenStateValidator
         if (state is null || !state.IsActive || !string.Equals(state.Role.ToString(), claimedRole, StringComparison.Ordinal))
         {
             context.Fail("The account was changed or disabled. Sign in again.");
+            return;
+        }
+
+        // "Sign out everywhere" and a changed password end every token issued before that moment.
+        if (state.SessionsValidFrom is { } validFrom && context.SecurityToken is System.IdentityModel.Tokens.Jwt.JwtSecurityToken jwt
+            && jwt.ValidFrom < validFrom)
+        {
+            context.Fail("The session was ended. Sign in again.");
+            return;
+        }
+
+        // A token that carries a session is only good while that session is open (it can be ended on its own).
+        var sessionKey = context.Principal.FindFirstValue(Service.Services.TokenService.SessionClaim);
+        if (!string.IsNullOrEmpty(sessionKey))
+        {
+            var sessions = (IAccountSessionService)services.GetService(typeof(IAccountSessionService))!;
+            if (!await sessions.IsOpenAsync(userId.Value, sessionKey, context.HttpContext.RequestAborted))
+            {
+                context.Fail("The session was ended. Sign in again.");
+            }
         }
     }
 }

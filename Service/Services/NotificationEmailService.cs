@@ -29,6 +29,7 @@ public class NotificationEmailService : INotificationEmailService
     private readonly TimeProvider _timeProvider;
     private readonly ILogger<NotificationEmailService> _logger;
     private readonly IAdminAlertService? _adminAlerts;
+    private readonly INotificationPreferenceRepository? _preferences;
 
     public NotificationEmailService(
         INotificationRepository notifications,
@@ -37,8 +38,10 @@ public class NotificationEmailService : INotificationEmailService
         IOptions<AuthSettings> auth,
         TimeProvider timeProvider,
         ILogger<NotificationEmailService> logger,
-        IAdminAlertService? adminAlerts = null)
+        IAdminAlertService? adminAlerts = null,
+        INotificationPreferenceRepository? preferences = null)
     {
+        _preferences = preferences;
         _adminAlerts = adminAlerts;
         _notifications = notifications;
         _bookings = bookings;
@@ -75,6 +78,16 @@ public class NotificationEmailService : INotificationEmailService
                 continue;
             }
 
+            // Flight updates and service messages follow the account's choice; booking, payment, refund and security e-mails are always sent.
+            // A message the account does not want is closed like a sent one (it stays in the app), so it is not tried again.
+            if (!await WantsEmailAsync(notification, cancellationToken))
+            {
+                notification.EmailSentAt = _timeProvider.GetUtcNow().UtcDateTime;
+                _notifications.Update(notification);
+                await _notifications.SaveChangesAsync(cancellationToken);
+                continue;
+            }
+
             var (subject, text, html) = await RefundEmailAsync(notification, cancellationToken)
                                         ?? EmailTemplates.Notification(notification.User.FirstName, notification.Title, notification.Message,
                                             notification.Type == NotificationType.SupportUpdate ? supportLink : link);
@@ -105,6 +118,28 @@ public class NotificationEmailService : INotificationEmailService
 
         _logger.LogInformation("Notification e-mails: {Sent} sent, {Failed} could not be delivered.", sent, failed);
         return sent;
+    }
+
+    private async Task<bool> WantsEmailAsync(Notification notification, CancellationToken cancellationToken)
+    {
+        if (_preferences is null)
+        {
+            return true;
+        }
+
+        var optional = notification.Type is NotificationType.FlightUpdate or NotificationType.CheckInReminder or NotificationType.SupportUpdate;
+        if (!optional)
+        {
+            return true;
+        }
+
+        var preference = await _preferences.GetByUserIdAsync(notification.UserId, cancellationToken);
+        if (preference is null)
+        {
+            return true;
+        }
+
+        return notification.Type == NotificationType.SupportUpdate ? preference.SystemMessages : preference.FlightUpdates;
     }
 
     /*

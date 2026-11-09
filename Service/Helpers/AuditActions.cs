@@ -11,6 +11,10 @@ public static class AuditActions
     public const string AccountDeletionRequested = "AccountDeletionRequested";
     public const string AccountDeletionRefused = "AccountDeletionRefused";
     public const string AccountDeleted = "AccountDeleted";
+    public const string PasswordChanged = "PasswordChanged";
+    public const string PasswordCheckRefused = "PasswordCheckRefused";
+    public const string EmailChanged = "EmailChanged";
+    public const string SessionsRevoked = "SessionsRevoked";
     public const string FlightCreated = "FlightCreated";
     public const string FlightUpdated = "FlightUpdated";
     public const string FlightDeleted = "FlightDeleted";

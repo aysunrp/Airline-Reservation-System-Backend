@@ -182,6 +182,62 @@ public static class EmailTemplates
         return (subject, text, html);
     }
 
+    /// <summary>The six-digit code that proves a new e-mail address belongs to the account owner. Sent to the NEW address only.</summary>
+    public static (string Subject, string Text, string Html) EmailChangeCode(string? language, string name, string code, int minutes)
+    {
+        var (subject, intro, validity, ignore) = NormalizeLanguage(language) switch
+        {
+            "az" => ("AEROVA e-poçt ünvanının təsdiqi",
+                $"Salam {name},\n\nAEROVA hesabınızın e-poçt ünvanını bu ünvana dəyişmək üçün sorğu aldıq. Təsdiq kodunuz:",
+                $"Kod {minutes} dəqiqə etibarlıdır və yalnız bir dəfə işləyir. Kodu heç kimlə bölüşməyin.",
+                "Bunu siz istəməmisinizsə, məktuba məhəl qoymayın; hesabınızın e-poçtu dəyişməyəcək."),
+            "ru" => ("Подтверждение адреса e-mail AEROVA",
+                $"Здравствуйте, {name}!\n\nМы получили запрос на смену адреса e-mail вашего аккаунта AEROVA на этот адрес. Код подтверждения:",
+                $"Код действует {minutes} мин. и работает один раз. Никому его не сообщайте.",
+                "Если вы не отправляли запрос, проигнорируйте письмо: адрес аккаунта не изменится."),
+            _ => ("Confirm your new AEROVA e-mail address",
+                $"Hello {name},\n\nWe received a request to change the e-mail address of your AEROVA account to this address. Your confirmation code is:",
+                $"The code is valid for {minutes} minutes and works once. Do not share it with anyone.",
+                "If you did not ask for this, ignore this message; the address of the account stays the same.")
+        };
+
+        var text = $"{intro}\n\n{code}\n\n{validity}\n{ignore}\n\nAEROVA";
+        var html =
+            "<div style=\"font-family:Arial,Helvetica,sans-serif;max-width:520px;margin:0 auto;padding:24px;color:#0b1a2c\">" +
+            "<p style=\"letter-spacing:.2em;color:#9a7844;font-size:13px;margin:0 0 18px\">AEROVA</p>" +
+            $"<p style=\"white-space:pre-line;line-height:1.55\">{WebUtility.HtmlEncode(intro)}</p>" +
+            $"<p style=\"margin:22px 0;font-size:34px;letter-spacing:.35em;font-weight:bold;font-family:Consolas,Menlo,monospace;color:#0b1a2c\">{WebUtility.HtmlEncode(code)}</p>" +
+            $"<p style=\"font-size:13px;color:#555\">{WebUtility.HtmlEncode(validity)}<br>{WebUtility.HtmlEncode(ignore)}</p>" +
+            "</div>";
+        return (subject, text, html);
+    }
+
+    /// <summary>Sent to the OLD address after the account's address was switched, so a stolen account cannot change it unnoticed.</summary>
+    public static (string Subject, string Text, string Html) EmailChangedNotice(string? language, string name, string maskedNewEmail)
+    {
+        var (subject, body, warning) = NormalizeLanguage(language) switch
+        {
+            "az" => ("AEROVA hesabınızın e-poçt ünvanı dəyişdi",
+                $"Salam {name},\n\nAEROVA hesabınızın e-poçt ünvanı {maskedNewEmail} ünvanına dəyişdirildi. Bundan sonra məktublar həmin ünvana gələcək.",
+                "Bunu siz etməmisinizsə, dərhal dəstək xidməti ilə əlaqə saxlayın."),
+            "ru" => ("Адрес e-mail вашего аккаунта AEROVA изменён",
+                $"Здравствуйте, {name}!\n\nАдрес e-mail вашего аккаунта AEROVA изменён на {maskedNewEmail}. Дальше письма будут приходить на него.",
+                "Если это были не вы, немедленно свяжитесь со службой поддержки."),
+            _ => ("The e-mail address of your AEROVA account was changed",
+                $"Hello {name},\n\nThe e-mail address of your AEROVA account was changed to {maskedNewEmail}. Messages will now go to that address.",
+                "If this was not you, contact support at once.")
+        };
+
+        var text = $"{body}\n\n{warning}\n\nAEROVA";
+        var html =
+            "<div style=\"font-family:Arial,Helvetica,sans-serif;max-width:520px;margin:0 auto;padding:24px;color:#0b1a2c\">" +
+            "<p style=\"letter-spacing:.2em;color:#9a7844;font-size:13px;margin:0 0 18px\">AEROVA</p>" +
+            $"<p style=\"white-space:pre-line;line-height:1.55\">{WebUtility.HtmlEncode(body)}</p>" +
+            $"<p style=\"font-size:13px;color:#555\">{WebUtility.HtmlEncode(warning)}</p>" +
+            "</div>";
+        return (subject, text, html);
+    }
+
     /// <summary>
     /// A notification of the app as an e-mail: the title and text the traveller also sees in AEROVA (they are written in English when
     /// the event happens), with a link to the notifications page.

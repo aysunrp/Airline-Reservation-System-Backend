@@ -121,7 +121,10 @@ public class AuthAndProfileEndpointTests : IClassFixture<ApiFactory>
         var other = await _factory.CreateClient().RegisterAsync();
         update.Title = "Ms";
         update.Email = other.User.Email;
-        Assert.Equal(HttpStatusCode.Conflict, (await client.PutAsJsonAsync("/api/profile", update, Json)).StatusCode);
+        // The address of the account is not changed through the profile: only the code sent to the new address does that (Account settings).
+        var refused = await client.PutAsJsonAsync("/api/profile", update, Json);
+        Assert.Equal(HttpStatusCode.UnprocessableEntity, refused.StatusCode);
+        Assert.Equal("email_change_via_settings", (await refused.ReadJsonAsync()).GetProperty("code").GetString());
     }
 
     [Fact]

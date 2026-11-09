@@ -23,6 +23,8 @@ namespace Repository
             services.AddScoped<IRouteRepository, RouteRepository>();
             services.AddScoped<IFlightScheduleRepository, FlightScheduleRepository>();
             services.AddScoped<IUserRepository, UserRepository>();
+            services.AddScoped<IUserSessionRepository, UserSessionRepository>();
+            services.AddScoped<INotificationPreferenceRepository, NotificationPreferenceRepository>();
             services.AddScoped<ISavedPassengerRepository, SavedPassengerRepository>();
             services.AddScoped<IPromoCodeRepository, PromoCodeRepository>();
             services.AddScoped<IBaggageOptionRepository, BaggageOptionRepository>();
