@@ -49,15 +49,17 @@ public class ProfileServiceTests
     }
 
     [Fact]
-    public async Task UpdateProfile_NewEmail_MustBeConfirmedAgain()
+    public async Task UpdateProfile_NewEmail_IsRefused_BecauseOnlyTheCodeFlowOfTheSettingsPageChangesIt()
     {
-        _users.Find(1)!.EmailVerifiedAt = new DateTime(2026, 10, 1, 0, 0, 0, DateTimeKind.Utc);
+        var verifiedAt = new DateTime(2026, 10, 1, 0, 0, 0, DateTimeKind.Utc);
+        _users.Find(1)!.EmailVerifiedAt = verifiedAt;
 
-        var changed = await CreateService().UpdateProfileAsync(1, ProfileRequest("new.address@example.com"));
+        var refused = await Assert.ThrowsAsync<BusinessRuleException>(() => CreateService().UpdateProfileAsync(1, ProfileRequest("new.address@example.com")));
 
-        Assert.Null(_users.Find(1)!.EmailVerifiedAt);
-        Assert.False(changed.EmailVerified);
-        Assert.Equal(new[] { 1 }, _accountEmail.EmailChangedFor);
+        Assert.Equal("email_change_via_settings", refused.Code);
+        Assert.Equal("aysun@example.com", _users.Find(1)!.Email);
+        Assert.Equal(verifiedAt, _users.Find(1)!.EmailVerifiedAt);
+        Assert.Empty(_accountEmail.EmailChangedFor);
     }
 
     [Fact]
@@ -74,9 +76,10 @@ public class ProfileServiceTests
     }
 
     [Fact]
-    public async Task UpdateProfile_EmailOfAnotherAccount_ThrowsConflict()
+    public async Task UpdateProfile_EmailOfAnotherAccount_IsRefused_AndNothingIsChanged()
     {
-        await Assert.ThrowsAsync<ConflictException>(() => CreateService().UpdateProfileAsync(1, ProfileRequest("other@example.com")));
+        await Assert.ThrowsAsync<BusinessRuleException>(() => CreateService().UpdateProfileAsync(1, ProfileRequest("other@example.com")));
+        Assert.Equal("aysun@example.com", _users.Find(1)!.Email);
     }
 
     [Fact]
@@ -86,6 +89,61 @@ public class ProfileServiceTests
         request.Title = "Dr";
 
         Assert.Null((await CreateService().UpdateProfileAsync(1, request)).Title);
+    }
+
+    [Fact]
+    public async Task UpdateProfile_SavesTheFathersName_AndNormalizesTheDocumentNumbers()
+    {
+        var request = ProfileRequest();
+        request.FatherName = "  Elşən ";
+        request.PassportNumber = "aze-1234 5678";
+        request.NationalIdNumber = " aa 1234567 ";
+
+        var result = await CreateService().UpdateProfileAsync(1, request);
+
+        Assert.Equal("Elşən", result.FatherName);
+        Assert.Equal("AZE12345678", result.PassportNumber);
+        Assert.Equal("AA1234567", result.NationalIdNumber);
+        Assert.Equal("AZE12345678", _users.Find(1)!.PassportNumber);
+    }
+
+    [Fact]
+    public async Task UpdateProfile_FieldsThatAreNotSent_AreKept_AndEmptyOnesAreRemoved()
+    {
+        var first = ProfileRequest();
+        first.FatherName = "Elşən";
+        first.PassportNumber = "AZE12345678";
+        first.NationalIdNumber = "AA1234567";
+        await CreateService().UpdateProfileAsync(1, first);
+
+        // An older page does not send them: nothing is lost.
+        var kept = await CreateService().UpdateProfileAsync(1, ProfileRequest());
+        Assert.Equal("Elşən", kept.FatherName);
+        Assert.Equal("AZE12345678", kept.PassportNumber);
+        Assert.Equal("AA1234567", kept.NationalIdNumber);
+
+        // Sent empty on purpose: removed.
+        var cleared = ProfileRequest();
+        cleared.FatherName = "";
+        cleared.PassportNumber = " ";
+        cleared.NationalIdNumber = "";
+        var removed = await CreateService().UpdateProfileAsync(1, cleared);
+        Assert.Null(removed.FatherName);
+        Assert.Null(removed.PassportNumber);
+        Assert.Null(removed.NationalIdNumber);
+    }
+
+    [Theory]
+    [InlineData("FatherName", "Elşən 123")]
+    [InlineData("PassportNumber", "A1")]
+    [InlineData("PassportNumber", "AB12#4567")]
+    [InlineData("NationalIdNumber", "123456789012345678901")]
+    public async Task UpdateProfile_BadIdentityFields_AreRefused(string field, string value)
+    {
+        var request = ProfileRequest();
+        typeof(UpdateProfileRequestDto).GetProperty(field)!.SetValue(request, value);
+
+        await Assert.ThrowsAsync<ValidationException>(() => CreateService().UpdateProfileAsync(1, request));
     }
 
     [Fact]

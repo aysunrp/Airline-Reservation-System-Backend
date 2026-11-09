@@ -267,7 +267,7 @@ public class RoleAuthorizationEndpointTests : IClassFixture<ApiFactory>
     }
 
     [Fact]
-    public async Task ChangingTheEmail_MeansConfirmingAgain_AndTheOldLinkIsDead()
+    public async Task ChangingTheEmailThroughTheProfile_IsRefused_BecauseItNeedsTheCodeOfTheSettingsPage()
     {
         var registered = await _factory.CreateClient().RegisterAsync();
         var userId = registered.User.Id;
@@ -284,11 +284,13 @@ public class RoleAuthorizationEndpointTests : IClassFixture<ApiFactory>
         {
             title = "Ms", firstName = "Aysun", lastName = "Panahli", dateOfBirth = "2004-06-16", nationalityCode = "AZ", email = newEmail, phone = "+994508343943"
         }, Json);
-        Assert.Equal(HttpStatusCode.OK, update.StatusCode);
+        Assert.Equal(HttpStatusCode.UnprocessableEntity, update.StatusCode);
 
+        // Nothing changed: the new address cannot sign in, nothing was mailed to it, and the account keeps its confirmed address.
         var login = await _factory.CreateClient().PostAsJsonAsync("/api/auth/login", new LoginRequestDto { Email = newEmail, Password = "secret1" }, Json);
-        Assert.False((await login.ReadAsync<AuthResponseDto>()).User.EmailVerified);
-        Assert.Contains(_factory.Emails.Sent, m => string.Equals(m.To, newEmail, StringComparison.OrdinalIgnoreCase));
+        Assert.Equal(HttpStatusCode.Unauthorized, login.StatusCode);
+        Assert.DoesNotContain(_factory.Emails.Sent, m => string.Equals(m.To, newEmail, StringComparison.OrdinalIgnoreCase));
+        Assert.True((await (await client.GetAsync("/api/account/overview")).ReadAsync<Service.Helpers.DTOs.Account.AccountOverviewDto>()).EmailVerified);
     }
 
     [Fact]

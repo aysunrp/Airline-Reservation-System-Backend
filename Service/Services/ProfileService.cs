@@ -1,6 +1,7 @@
 using Domain.Entities;
 using FluentValidation;
 using Repository.Repositories.Interfaces;
+using Service.Helpers;
 using Service.Helpers.DTOs.Account;
 using Service.Helpers.DTOs.Passenger;
 using Service.Helpers.Exceptions;
@@ -39,10 +40,12 @@ public class ProfileService : IProfileService
         await _profileValidator.ValidateAndThrowAsync(request, cancellationToken);
         var user = await GetUserAsync(userId, cancellationToken);
 
+        // The address of the account is not changed here: a new address only becomes the account's after the code sent to it is typed in,
+        // which the Account settings page does (api/account/email-change). The same address as now is fine, so the profile form can send it.
         var email = AuthService.NormalizeEmail(request.Email);
-        if (email != user.Email && await _userRepository.EmailExistsAsync(email, cancellationToken))
+        if (email != user.Email)
         {
-            throw new ConflictException("Bu e-poçt ünvanı ilə hesab artıq mövcuddur.");
+            throw new BusinessRuleException("E-poçt ünvanını Hesab tənzimləmələri səhifəsindən, yeni ünvana gələn kodla dəyişin.", "email_change_via_settings");
         }
 
         user.Title = null;
@@ -50,22 +53,26 @@ public class ProfileService : IProfileService
         user.LastName = request.LastName.Trim();
         user.DateOfBirth = request.DateOfBirth;
         user.NationalityCode = request.NationalityCode;
-        // A new address is not the confirmed one: it has to be confirmed again, whatever the old one was.
-        var emailChanged = email != user.Email;
-        user.Email = email;
         user.Phone = string.IsNullOrWhiteSpace(request.Phone) ? null : request.Phone.Replace(" ", string.Empty);
-        if (emailChanged)
+
+        // Left alone when not sent (an older page does not know these fields); sent empty, they are removed.
+        if (request.FatherName is not null)
         {
-            user.EmailVerifiedAt = null;
+            user.FatherName = string.IsNullOrWhiteSpace(request.FatherName) ? null : request.FatherName.Trim();
+        }
+
+        if (request.PassportNumber is not null)
+        {
+            user.PassportNumber = string.IsNullOrWhiteSpace(request.PassportNumber) ? null : DocumentNumbers.Normalize(request.PassportNumber);
+        }
+
+        if (request.NationalIdNumber is not null)
+        {
+            user.NationalIdNumber = string.IsNullOrWhiteSpace(request.NationalIdNumber) ? null : DocumentNumbers.Normalize(request.NationalIdNumber);
         }
 
         _userRepository.Update(user);
         await _userRepository.SaveChangesAsync(cancellationToken);
-
-        if (emailChanged)
-        {
-            await _accountEmail.EmailChangedAsync(user, null, cancellationToken);
-        }
 
         return user.ToProfileDto();
     }
