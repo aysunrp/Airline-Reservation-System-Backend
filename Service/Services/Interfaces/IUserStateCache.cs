@@ -13,5 +13,11 @@ public interface IUserStateCache
 
     void Set(int userId, UserState? state);
 
+    /// <summary>Forgets the account's state and its remembered sessions.</summary>
     void Invalidate(int userId);
+
+    /// <summary>True when it is remembered whether the session is open.</summary>
+    bool TryGetSession(int userId, string sessionKey, out bool open);
+
+    void SetSession(int userId, string sessionKey, bool open);
 }

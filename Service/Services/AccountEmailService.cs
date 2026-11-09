@@ -40,6 +40,8 @@ public class AccountEmailService : IAccountEmailService
     private readonly AuthSettings _settings;
     private readonly TimeProvider _timeProvider;
     private readonly ILogger<AccountEmailService> _logger;
+    private readonly IUserStateCache? _stateCache;
+    private readonly IUserSessionRepository? _sessions;
 
     public AccountEmailService(
         IUserRepository users,
@@ -54,8 +56,12 @@ public class AccountEmailService : IAccountEmailService
         IOptions<JwtSettings> jwt,
         IOptions<AuthSettings> settings,
         TimeProvider timeProvider,
-        ILogger<AccountEmailService> logger)
+        ILogger<AccountEmailService> logger,
+        IUserStateCache? stateCache = null,
+        IUserSessionRepository? sessions = null)
     {
+        _stateCache = stateCache;
+        _sessions = sessions;
         _users = users;
         _tokens = tokens;
         _sender = sender;
@@ -308,9 +314,21 @@ public class AccountEmailService : IAccountEmailService
 
         var user = token.User;
         user.PasswordHash = _passwordHasher.Hash(request.NewPassword);
+        user.PasswordChangedAt = now;
+        // Whoever was signed in with the old password is signed out (JWT times are whole seconds, so the cut-off is too).
+        user.SessionsValidFrom = new DateTime(now.Ticks - now.Ticks % TimeSpan.TicksPerSecond, DateTimeKind.Utc);
         // Opening the link that was sent to the address shows the person controls it.
         user.EmailVerifiedAt ??= now;
         _users.Update(user);
+
+        // The open sessions of the account are closed too, so a token made in the same second as the reset cannot slip past the cut-off.
+        if (_sessions is not null)
+        {
+            foreach (var session in await _sessions.GetOpenAsync(user.Id, now, cancellationToken))
+            {
+                session.RevokedAt = now;
+            }
+        }
 
         // This ticket, any other reset link still open and any reset code still open are used up.
         foreach (var purpose in new[] { EmailTokenPurpose.ResetPassword, EmailTokenPurpose.ResetCode, EmailTokenPurpose.DeleteAccount })
@@ -325,6 +343,7 @@ public class AccountEmailService : IAccountEmailService
 
         // A person who just chose a new password should not meet a sign-in pause caused by earlier failures.
         _attempts.Reset(user.Email);
+        _stateCache?.Invalidate(user.Id);
     }
 
     private async Task<bool> IssueAndSendAsync(User user, EmailTokenPurpose purpose, string? language, CancellationToken cancellationToken)

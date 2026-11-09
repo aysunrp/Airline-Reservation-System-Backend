@@ -98,6 +98,8 @@ builder.Services.AddServiceLayer(builder.Configuration);
 // Real-time support events (SignalR). The publisher replaces the do-nothing one of the service layer.
 builder.Services.AddSignalR();
 builder.Services.AddSingleton<ISupportRealtimePublisher, SupportRealtimePublisher>();
+builder.Services.AddHttpContextAccessor();
+builder.Services.AddScoped<IClientInfoAccessor, HttpClientInfoAccessor>();
 
 // The signing key lives in user-secrets (development) or the environment; refuse to start without a usable one.
 builder.Services.AddOptions<JwtSettings>()

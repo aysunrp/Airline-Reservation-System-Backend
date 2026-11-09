@@ -26,6 +26,7 @@ public class AuthService : IAuthService
     private readonly IOptions<AuthSettings> _settings;
     private readonly ILogger<AuthService> _logger;
     private readonly IAccountEmailService _accountEmail;
+    private readonly IAccountSessionService? _sessions;
 
     public AuthService(
         IUserRepository userRepository,
@@ -36,8 +37,10 @@ public class AuthService : IAuthService
         ILoginAttemptTracker attempts,
         IOptions<AuthSettings> settings,
         ILogger<AuthService> logger,
-        IAccountEmailService accountEmail)
+        IAccountEmailService accountEmail,
+        IAccountSessionService? sessions = null)
     {
+        _sessions = sessions;
         _userRepository = userRepository;
         _passwordHasher = passwordHasher;
         _tokenService = tokenService;
@@ -128,7 +131,7 @@ public class AuthService : IAuthService
             await _userRepository.SaveChangesAsync(cancellationToken);
         }
 
-        return CreateResponse(user);
+        return await CreateResponseAsync(user, cancellationToken);
     }
 
     internal static string NormalizeEmail(string email) => email.Trim().ToLowerInvariant();
@@ -136,9 +139,12 @@ public class AuthService : IAuthService
     private static string LockedMessage(TimeSpan retryAfter)
         => $"Çox sayda uğursuz giriş cəhdi. {Math.Max(1, (int)Math.Ceiling(retryAfter.TotalMinutes))} dəqiqədən sonra yenidən cəhd edin.";
 
-    private AuthResponseDto CreateResponse(User user)
+    private async Task<AuthResponseDto> CreateResponseAsync(User user, CancellationToken cancellationToken)
     {
-        var (accessToken, expiresAt) = _tokenService.CreateToken(user);
+        // Every sign-in is a session of its own, so it can be listed and ended; without the session service (unit tests) the token stands alone.
+        var (accessToken, expiresAt) = _sessions is null
+            ? _tokenService.CreateToken(user)
+            : await _sessions.IssueAsync(user, cancellationToken);
         return new AuthResponseDto(accessToken, expiresAt, user.ToUserDto());
     }
 }
