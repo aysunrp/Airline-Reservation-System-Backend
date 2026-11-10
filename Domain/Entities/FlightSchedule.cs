@@ -18,4 +18,6 @@ public class FlightSchedule : BaseEntity
 
     public Route Route { get; set; } = null!;
     public Aircraft? DefaultAircraft { get; set; }
+    public ICollection<FlightScheduleFare> Fares { get; set; } = new List<FlightScheduleFare>();
+    public ICollection<FlightScheduleStop> Stops { get; set; } = new List<FlightScheduleStop>();
 }

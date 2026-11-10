@@ -1,31 +1,254 @@
+using System.Text;
+using System.Text.Json.Serialization;
+using System.Threading.RateLimiting;
+using AirlineReservationSystem.Helpers;
+using AirlineReservationSystem.Hubs;
+using AirlineReservationSystem.Middlewares;
+using Domain.Enums;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.Extensions.FileProviders;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
+using Service.Services;
+using Microsoft.Extensions.Options;
+using Microsoft.IdentityModel.Tokens;
+using Microsoft.OpenApi.Models;
 using Repository;
+using Service;
+using Service.Helpers.Settings;
+using Service.Services.Interfaces;
 
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
 
-builder.Services.AddControllers();
+// Enums travel as text ("Economy", "Confirmed"), the way the frontend uses them.
+builder.Services.AddControllers()
+    .AddJsonOptions(options => options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter()));
+
+builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
+builder.Services.AddProblemDetails();
+
+const string FrontendCorsPolicy = "Frontend";
+var allowedOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>() ?? Array.Empty<string>();
+builder.Services.AddCors(options => options.AddPolicy(FrontendCorsPolicy, policy =>
+    policy.WithOrigins(allowedOrigins).AllowAnyHeader().AllowAnyMethod()));
+
+// Sign-in and register are limited per IP address (Auth:RateLimitPerMinute) against password guessing and account spam.
+builder.Services.AddRateLimiter(options =>
+{
+    options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+    options.AddPolicy(RateLimitPolicies.Auth, httpContext =>
+    {
+        var limit = Math.Max(1, httpContext.RequestServices.GetRequiredService<IOptions<AuthSettings>>().Value.RateLimitPerMinute);
+        return RateLimitPartition.GetFixedWindowLimiter(
+            httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+            _ => new FixedWindowRateLimiterOptions { PermitLimit = limit, Window = TimeSpan.FromMinutes(1), QueueLimit = 0 });
+    });
+    options.AddPolicy(RateLimitPolicies.Lookup, httpContext =>
+    {
+        var limit = Math.Max(1, httpContext.RequestServices.GetRequiredService<IOptions<AuthSettings>>().Value.LookupRateLimitPerMinute);
+        return RateLimitPartition.GetFixedWindowLimiter(
+            "lookup:" + (httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown"),
+            _ => new FixedWindowRateLimiterOptions { PermitLimit = limit, Window = TimeSpan.FromMinutes(1), QueueLimit = 0 });
+    });
+    options.AddPolicy(RateLimitPolicies.Assistant, httpContext =>
+    {
+        var limit = Math.Max(1, httpContext.RequestServices.GetRequiredService<IOptions<TravelAssistantSettings>>().Value.RateLimitPerMinute);
+        return RateLimitPartition.GetFixedWindowLimiter(
+            "assistant:" + (httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown"),
+            _ => new FixedWindowRateLimiterOptions { PermitLimit = limit, Window = TimeSpan.FromMinutes(1), QueueLimit = 0 });
+    });
+    options.AddPolicy(RateLimitPolicies.Newsletter, httpContext =>
+    {
+        var limit = Math.Max(1, httpContext.RequestServices.GetRequiredService<IOptions<NewsletterSettings>>().Value.RateLimitPerMinute);
+        return RateLimitPartition.GetFixedWindowLimiter(
+            "newsletter:" + (httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown"),
+            _ => new FixedWindowRateLimiterOptions { PermitLimit = limit, Window = TimeSpan.FromMinutes(1), QueueLimit = 0 });
+    });
+    options.AddPolicy(RateLimitPolicies.Support, httpContext =>
+    {
+        var limit = Math.Max(1, httpContext.RequestServices.GetRequiredService<IOptions<SupportSettings>>().Value.RateLimitPerMinute);
+        var who = httpContext.User.GetUserIdOrNull()?.ToString() ?? httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+        return RateLimitPartition.GetFixedWindowLimiter(
+            "support:" + who,
+            _ => new FixedWindowRateLimiterOptions { PermitLimit = limit, Window = TimeSpan.FromMinutes(1), QueueLimit = 0 });
+    });
+    options.OnRejected = async (context, cancellationToken) =>
+    {
+        var problem = new ProblemDetails
+        {
+            Status = StatusCodes.Status429TooManyRequests,
+            Title = "Too many requests",
+            Detail = "Too many requests from this address. Try again in a minute.",
+            Instance = context.HttpContext.Request.Path
+        };
+        context.HttpContext.Response.Headers.RetryAfter = "60";
+        context.HttpContext.Response.StatusCode = StatusCodes.Status429TooManyRequests;
+        await context.HttpContext.Response.WriteAsJsonAsync(problem, problem.GetType(), options: null, contentType: "application/problem+json", cancellationToken);
+    };
+});
 
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection")
     ?? throw new InvalidOperationException("Connection string 'DefaultConnection' was not found.");
 builder.Services.AddRepositoryLayer(connectionString);
+builder.Services.AddServiceLayer(builder.Configuration);
+
+// Real-time support events (SignalR). The publisher replaces the do-nothing one of the service layer.
+builder.Services.AddSignalR();
+builder.Services.AddSingleton<ISupportRealtimePublisher, SupportRealtimePublisher>();
+builder.Services.AddHttpContextAccessor();
+builder.Services.AddScoped<IClientInfoAccessor, HttpClientInfoAccessor>();
+
+// The signing key lives in user-secrets (development) or the environment; refuse to start without a usable one.
+builder.Services.AddOptions<JwtSettings>()
+    .Validate(settings => Encoding.UTF8.GetByteCount(settings.Secret ?? string.Empty) >= 32,
+        "Jwt:Secret is missing or shorter than 32 bytes. Set it with dotnet user-secrets.")
+    .ValidateOnStart();
+
+// Tokens are validated with the same settings TokenService signs them with.
+builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme).AddJwtBearer();
+builder.Services.AddOptions<JwtBearerOptions>(JwtBearerDefaults.AuthenticationScheme)
+    .Configure<IOptions<JwtSettings>>((options, jwt) =>
+    {
+        options.TokenValidationParameters = new TokenValidationParameters
+        {
+            ValidateIssuer = true,
+            ValidIssuer = jwt.Value.Issuer,
+            ValidateAudience = true,
+            ValidAudience = jwt.Value.Audience,
+            ValidateIssuerSigningKey = true,
+            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwt.Value.Secret)),
+            ValidateLifetime = true,
+            ClockSkew = TimeSpan.FromMinutes(1)
+        };
+
+        // A valid signature is not enough: the account must still exist, be active and have the role the token says.
+        options.Events = new JwtBearerEvents
+        {
+            OnTokenValidated = TokenStateValidator.ValidateAsync,
+            // Browsers cannot set an Authorization header on a WebSocket: the hub accepts the token as access_token in the query, for the hub path only.
+            OnMessageReceived = context =>
+            {
+                var token = context.Request.Query["access_token"];
+                if (!string.IsNullOrEmpty(token) && context.HttpContext.Request.Path.StartsWithSegments(SupportHub.Path))
+                {
+                    context.Token = token;
+                }
+
+                return Task.CompletedTask;
+            }
+        };
+    });
+
+builder.Services.AddAuthorization(options =>
+{
+    options.AddPolicy(AuthorizationPolicies.Admin, policy => policy.RequireRole(RoleNames.Admin, RoleNames.SuperAdmin));
+    options.AddPolicy(AuthorizationPolicies.SuperAdmin, policy => policy.RequireRole(RoleNames.SuperAdmin));
+});
+builder.Services.AddSingleton<IAuthorizationMiddlewareResultHandler, AuditingAuthorizationResultHandler>();
+
 // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
 builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen();
+builder.Services.AddSwaggerGen(options =>
+{
+    options.SwaggerDoc("v1", new OpenApiInfo { Title = "AEROVA API", Version = "v1" });
+    options.AddSecurityDefinition(AuthorizeOperationFilter.SchemeName, new OpenApiSecurityScheme
+    {
+        Type = SecuritySchemeType.Http,
+        Scheme = "bearer",
+        BearerFormat = "JWT",
+        In = ParameterLocation.Header,
+        Description = "Paste the accessToken returned by POST /api/auth/login."
+    });
+    options.OperationFilter<AuthorizeOperationFilter>();
+});
 
 var app = builder.Build();
 
+// An operator command (dotnet run -- promote-superadmin --email ...) runs instead of the web site and ends the process.
+if (ServerCommands.IsCommand(args))
+{
+    Environment.ExitCode = await ServerCommands.RunAsync(args, app.Services, Console.In, Console.Out);
+    return;
+}
+
+// Ask AEROVA needs a provider key; whether it has one is said once at start-up (never the key itself), so a missing key is not a mystery.
+app.Lifetime.ApplicationStarted.Register(() =>
+{
+    var assistant = app.Services.GetRequiredService<IOptions<TravelAssistantSettings>>().Value;
+    var startupLog = app.Services.GetRequiredService<ILoggerFactory>().CreateLogger("AskAerova");
+    if (assistant.IsConfigured && !assistant.HasWellFormedKey)
+    {
+        startupLog.LogWarning("Ask AEROVA cannot answer: {Hint}", AssistantErrorCodes.Describe(AssistantErrorCodes.KeyMalformed));
+    }
+    else if (assistant.IsConfigured)
+    {
+        startupLog.LogInformation("Ask AEROVA: provider {Provider}, model {Model}, key present. Run \"check-assistant\" to test it.", assistant.Provider, assistant.Model);
+    }
+    else
+    {
+        startupLog.LogWarning("Ask AEROVA is not set up: {Hint}", AssistantErrorCodes.Describe(AssistantErrorCodes.NotConfigured));
+    }
+});
+
 // Configure the HTTP request pipeline.
+app.UseExceptionHandler();
+
+// Empty 401/403/404 responses get a problem details body too.
+app.UseStatusCodePages();
+
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
     app.UseSwaggerUI();
 }
 
-app.UseHttpsRedirection();
+// In Development the browser pages call http://localhost:5080 directly; a redirect to https would fail their CORS preflight requests.
+if (!app.Environment.IsDevelopment())
+{
+    app.UseHttpsRedirection();
+}
 
+app.UseCors(FrontendCorsPolicy);
+
+var siteMediaSettings = app.Configuration.GetSection(SiteMediaSettings.SectionName).Get<SiteMediaSettings>() ?? new SiteMediaSettings();
+var mediaRoot = Path.Combine(app.Environment.ContentRootPath, siteMediaSettings.RootPath);
+Directory.CreateDirectory(mediaRoot);
+app.UseStaticFiles(new StaticFileOptions
+{
+    FileProvider = new PhysicalFileProvider(mediaRoot),
+    RequestPath = siteMediaSettings.PublicPathPrefix
+});
+
+app.UseAuthentication();
+// After authentication, so a limit can be kept per signed-in customer (the support endpoints) as well as per address.
+app.UseRateLimiter();
 app.UseAuthorization();
 
 app.MapControllers();
+app.MapHub<SupportHub>(SupportHub.Path);
+
+// Development admin account (Seed:CreateAdmin) and demo data (Seed:Enabled): Development only, off by default (see DemoSeedStartup).
+await app.SeedDemoDataIfEnabledAsync();
+
+// The destination catalog (reference data): any environment, only once the migrations are applied (see DestinationCatalogStartup).
+await app.SeedDestinationCatalogAsync();
+
+// The texts of the static site pages (reference data): any environment, only once the migrations are applied (see SiteContentStartup).
+await app.SeedSiteContentAsync();
+await app.SeedLandingHeroVideoAsync();
+
+// The first SuperAdmin (Bootstrap:Enabled): any environment, server configuration only, off by default (see SuperAdminStartup).
+await SuperAdminStartup.RunAsync(app.Services, app.Logger);
+
+// Builds the model and compiles the first queries now, so nobody waits for them on the first request (a failure is ignored).
+await StartupWarmUpWorker.RunAsync(app.Services.GetRequiredService<IServiceScopeFactory>(), app.Logger, CancellationToken.None);
 
 app.Run();
+
+// Lets the integration tests start the API with WebApplicationFactory<Program>.
+public partial class Program
+{
+}

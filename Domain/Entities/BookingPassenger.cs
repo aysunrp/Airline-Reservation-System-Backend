@@ -8,7 +8,11 @@ public class BookingPassenger : BaseEntity
     public int BookingId { get; set; }
     public int? SavedPassengerId { get; set; }
     public PassengerType PassengerType { get; set; }
+    /// <summary>Mr, Ms, Mrs or Mx, as on the passenger form.</summary>
+    public string Title { get; set; } = string.Empty;
+
     public string FirstName { get; set; } = string.Empty;
+    public string? MiddleName { get; set; }
     public string LastName { get; set; } = string.Empty;
     public DateOnly DateOfBirth { get; set; }
     public Gender Gender { get; set; }

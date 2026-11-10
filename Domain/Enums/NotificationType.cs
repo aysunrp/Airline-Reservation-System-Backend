@@ -6,5 +6,21 @@ public enum NotificationType
     BookingCancelled,
     PaymentSuccessful,
     FlightUpdate,
-    CheckInReminder
+    CheckInReminder,
+    RefundCompleted,
+
+    /// <summary>Stripe has taken the refund and is still processing it: nothing is said to have arrived yet.</summary>
+    RefundPending,
+
+    /// <summary>The refund did not go through; the booking stays cancelled and the amount is still owed.</summary>
+    RefundFailed,
+
+    /// <summary>A support request was received, answered or changed status.</summary>
+    SupportUpdate,
+
+    /// <summary>For support staff: a new support request or a customer reply. Shown in the staff bell, never e-mailed (staff get the admin e-mail).</summary>
+    SupportStaff,
+
+    /// <summary>A change to the account's security (password, e-mail address, other devices signed out). Always e-mailed.</summary>
+    AccountSecurity
 }

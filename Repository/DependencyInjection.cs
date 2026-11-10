@@ -1,6 +1,8 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Repository.Data;
+using Repository.Repositories;
+using Repository.Repositories.Interfaces;
 
 namespace Repository
 {
@@ -11,6 +13,43 @@ namespace Repository
             services.AddDbContext<AppDbContext>(options =>
                 options.UseSqlServer(connectionString, sql =>
                     sql.MigrationsAssembly(typeof(AppDbContext).Assembly.FullName)));
+
+            // Generic repository for every entity without specific queries.
+            services.AddScoped(typeof(IBaseRepository<>), typeof(BaseRepository<>));
+
+            services.AddScoped<IAirportRepository, AirportRepository>();
+            services.AddScoped<IDestinationCatalogRepository, DestinationCatalogRepository>();
+            services.AddScoped<IAircraftRepository, AircraftRepository>();
+            services.AddScoped<IRouteRepository, RouteRepository>();
+            services.AddScoped<IFlightScheduleRepository, FlightScheduleRepository>();
+            services.AddScoped<IUserRepository, UserRepository>();
+            services.AddScoped<IUserSessionRepository, UserSessionRepository>();
+            services.AddScoped<INotificationPreferenceRepository, NotificationPreferenceRepository>();
+            services.AddScoped<ISavedPassengerRepository, SavedPassengerRepository>();
+            services.AddScoped<IPromoCodeRepository, PromoCodeRepository>();
+            services.AddScoped<IBaggageOptionRepository, BaggageOptionRepository>();
+            services.AddScoped<IMealOptionRepository, MealOptionRepository>();
+            services.AddScoped<ISiteContentRepository, SiteContentRepository>();
+            services.AddScoped<ILandingHeroVideoRepository, LandingHeroVideoRepository>();
+            services.AddScoped<IFaqItemRepository, FaqItemRepository>();
+            services.AddScoped<IHomeCardRepository, HomeCardRepository>();
+            services.AddScoped<ICancellationRuleRepository, CancellationRuleRepository>();
+            services.AddScoped<IFlightRepository, FlightRepository>();
+            services.AddScoped<IFlightSeatRepository, FlightSeatRepository>();
+            services.AddScoped<IBookingRepository, BookingRepository>();
+            services.AddScoped<IBookingPassengerRepository, BookingPassengerRepository>();
+            services.AddScoped<INotificationRepository, NotificationRepository>();
+            services.AddScoped<IEmailTokenRepository, EmailTokenRepository>();
+            services.AddScoped<IAccountErasureRepository, AccountErasureRepository>();
+            services.AddScoped<INewsletterSubscriberRepository, NewsletterSubscriberRepository>();
+            services.AddScoped<IAdminAlertRepository, AdminAlertRepository>();
+            services.AddScoped<ISupportTicketRepository, SupportTicketRepository>();
+            services.AddScoped<IEmailCampaignRepository, EmailCampaignRepository>();
+            services.AddScoped<IAuditLogRepository, AuditLogRepository>();
+            services.AddScoped<IPaymentRepository, PaymentRepository>();
+            services.AddScoped<IStripeWebhookEventRepository, StripeWebhookEventRepository>();
+            services.AddScoped<IRefundRepository, RefundRepository>();
+            services.AddScoped<IMediaUsageRepository, MediaUsageRepository>();
 
             return services;
         }

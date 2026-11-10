@@ -20,6 +20,12 @@ public class Booking : BaseEntity
     public int? PromoCodeId { get; set; }
     public DateTime? ExpiresAt { get; set; }
 
+    /// <summary>When the contact address opened the link of this booking; payment waits for it. Set at once when no link is needed.</summary>
+    public DateTime? ContactConfirmedAt { get; set; }
+
+    /// <summary>Two changes to the same booking at once (a Stripe confirmation and the expiry job, say) cannot both win.</summary>
+    public byte[] RowVersion { get; set; } = Array.Empty<byte>();
+
     public User? User { get; set; }
     public PromoCode? PromoCode { get; set; }
     public ICollection<BookingFlight> Flights { get; set; } = new List<BookingFlight>();

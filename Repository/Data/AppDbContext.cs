@@ -11,14 +11,22 @@ public class AppDbContext : DbContext
     }
 
     public DbSet<Airport> Airports => Set<Airport>();
+    public DbSet<Country> Countries => Set<Country>();
+    public DbSet<DestinationCity> DestinationCities => Set<DestinationCity>();
     public DbSet<Route> Routes => Set<Route>();
     public DbSet<Aircraft> Aircrafts => Set<Aircraft>();
     public DbSet<AircraftSeat> AircraftSeats => Set<AircraftSeat>();
     public DbSet<BaggageOption> BaggageOptions => Set<BaggageOption>();
+    public DbSet<SiteContent> SiteContents => Set<SiteContent>();
+    public DbSet<LandingHeroVideo> LandingHeroVideos => Set<LandingHeroVideo>();
+    public DbSet<FaqItem> FaqItems => Set<FaqItem>();
+    public DbSet<HomeCard> HomeCards => Set<HomeCard>();
     public DbSet<MealOption> MealOptions => Set<MealOption>();
     public DbSet<PromoCode> PromoCodes => Set<PromoCode>();
     public DbSet<CancellationRule> CancellationRules => Set<CancellationRule>();
     public DbSet<FlightSchedule> FlightSchedules => Set<FlightSchedule>();
+    public DbSet<FlightScheduleFare> FlightScheduleFares => Set<FlightScheduleFare>();
+    public DbSet<FlightScheduleStop> FlightScheduleStops => Set<FlightScheduleStop>();
     public DbSet<Flight> Flights => Set<Flight>();
     public DbSet<FlightSegment> FlightSegments => Set<FlightSegment>();
     public DbSet<FlightFare> FlightFares => Set<FlightFare>();
@@ -33,19 +41,39 @@ public class AppDbContext : DbContext
     public DbSet<Cancellation> Cancellations => Set<Cancellation>();
     public DbSet<Refund> Refunds => Set<Refund>();
     public DbSet<Notification> Notifications => Set<Notification>();
+    public DbSet<EmailToken> EmailTokens => Set<EmailToken>();
+    public DbSet<UserSession> UserSessions => Set<UserSession>();
+    public DbSet<NotificationPreference> NotificationPreferences => Set<NotificationPreference>();
+    public DbSet<NewsletterSubscriber> NewsletterSubscribers => Set<NewsletterSubscriber>();
+    public DbSet<AdminAlert> AdminAlerts => Set<AdminAlert>();
+    public DbSet<SupportTicket> SupportTickets => Set<SupportTicket>();
+    public DbSet<SupportMessage> SupportMessages => Set<SupportMessage>();
+    public DbSet<EmailCampaign> EmailCampaigns => Set<EmailCampaign>();
+    public DbSet<EmailCampaignRecipient> EmailCampaignRecipients => Set<EmailCampaignRecipient>();
+    public DbSet<AuditLog> AuditLogs => Set<AuditLog>();
+    public DbSet<StripeWebhookEvent> StripeWebhookEvents => Set<StripeWebhookEvent>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
 
-        // Domain.Configurations contains one IEntityTypeConfiguration<T> per entity.
-        modelBuilder.ApplyConfigurationsFromAssembly(typeof(Domain.Entities.Airport).Assembly);
+        // Repository.Configurations contains one IEntityTypeConfiguration<T> per entity; the mapping belongs to the data layer, not to the domain.
+        modelBuilder.ApplyConfigurationsFromAssembly(typeof(AppDbContext).Assembly);
 
-        // A seat can be held by only one non-cancelled ticket per flight leg.
+        // A seat belongs to only one paid ticket per flight leg. A ticket that is still Pending (its payment not taken yet) only records the
+        // traveller's choice and owns nothing, so any number of unpaid bookings may point at the same seat; the first payment to be confirmed
+        // issues its ticket, and the index refuses every later one.
         // Relational filtered indexes are provider specific, so this lives in the Repository layer.
         modelBuilder.Entity<Ticket>()
             .HasIndex(t => t.FlightSeatId)
             .IsUnique()
-            .HasFilter($"[FlightSeatId] IS NOT NULL AND [Status] <> '{nameof(TicketStatus.Cancelled)}'");
+            .HasFilter($"[FlightSeatId] IS NOT NULL AND [Status] <> '{nameof(TicketStatus.Cancelled)}' AND [Status] <> '{nameof(TicketStatus.Pending)}'");
+
+        // A schedule produces at most one flight per operating day. Flights created by hand have no
+        // scheduled date and stay unrestricted (SQL Server would otherwise treat NULLs as equal).
+        modelBuilder.Entity<Flight>()
+            .HasIndex(f => new { f.FlightScheduleId, f.ScheduledDate })
+            .IsUnique()
+            .HasFilter("[FlightScheduleId] IS NOT NULL AND [ScheduledDate] IS NOT NULL");
     }
 }

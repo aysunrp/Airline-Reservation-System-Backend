@@ -11,6 +11,9 @@ public class Cancellation : BaseEntity
     public decimal FeeAmount { get; set; }
     public decimal RefundAmount { get; set; }
 
+    /// <summary>The page language when the booking was cancelled (en, az, ru); the cancellation and refund e-mails are written in it.</summary>
+    public string? Language { get; set; }
+
     public Booking Booking { get; set; } = null!;
     public ICollection<Refund> Refunds { get; set; } = new List<Refund>();
 }

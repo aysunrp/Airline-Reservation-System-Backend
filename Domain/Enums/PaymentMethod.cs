@@ -4,5 +4,8 @@ public enum PaymentMethod
 {
     Card,
     ApplePay,
-    GooglePay
+    GooglePay,
+
+    /// <summary>Paid on Stripe's Checkout page; Stripe decides which card or wallet was used.</summary>
+    StripeCheckout
 }

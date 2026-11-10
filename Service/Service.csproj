@@ -5,6 +5,11 @@
     <ProjectReference Include="..\Repository\Repository.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <!-- Helpers that are internal to the Service layer but worth a unit test (device description, masked address) are visible to its test project only. -->
+    <InternalsVisibleTo Include="Service.Tests" />
+  </ItemGroup>
+
   <PropertyGroup>
     <TargetFramework>net8.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
@@ -22,10 +27,18 @@
     <Folder Include="Helpers\DTOs\Ticket\" />
     <Folder Include="Helpers\Exceptions\" />
     <Folder Include="Helpers\Mappings\" />
-    <Folder Include="Helpers\Responses\" />
     <Folder Include="Helpers\Settings\" />
     <Folder Include="Helpers\Validators\" />
     <Folder Include="Services\Interfaces\" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+    <PackageReference Include="FluentValidation" Version="11.11.0" />
+    <PackageReference Include="FluentValidation.DependencyInjectionExtensions" Version="11.11.0" />
+    <PackageReference Include="MailKit" Version="4.18.2" />
+    <PackageReference Include="Stripe.net" Version="53.0.0" />
+    <PackageReference Include="System.IdentityModel.Tokens.Jwt" Version="8.0.1" />
   </ItemGroup>
 
 </Project>
