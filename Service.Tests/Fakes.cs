@@ -107,7 +107,7 @@ internal sealed class FakeUserRepository : FakeRepository<User>, IUserRepository
         => Task.FromResult(WithBookings.Contains(userId));
 
     public Task<UserState?> GetStateAsync(int id, CancellationToken cancellationToken = default)
-        => Task.FromResult(Items.Where(u => u.Id == id).Select(u => new UserState(u.Role, u.IsActive)).FirstOrDefault());
+        => Task.FromResult(Items.Where(u => u.Id == id).Select(u => new UserState(u.Role, u.IsActive, u.SessionsValidFrom)).FirstOrDefault());
 }
 
 internal sealed class FakeAuditLogRepository : FakeRepository<AuditLog>, IAuditLogRepository

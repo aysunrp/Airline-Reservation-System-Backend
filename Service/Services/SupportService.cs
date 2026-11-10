@@ -2,9 +2,9 @@ using System.Security.Cryptography;
 using Domain.Entities;
 using Domain.Enums;
 using FluentValidation;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using Repository.Exceptions;
 using Repository.Repositories.Interfaces;
 using Service.Helpers.DTOs.Support;
 using Service.Helpers.Exceptions;
@@ -315,7 +315,7 @@ public class SupportService : ISupportService, IAdminSupportService
         {
             await _tickets.SaveChangesAsync(cancellationToken);
         }
-        catch (DbUpdateException)
+        catch (DataConflictException)
         {
             // A retried request stored the same notification first (unique key): nothing is lost.
         }

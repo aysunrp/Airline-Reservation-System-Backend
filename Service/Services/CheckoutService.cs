@@ -4,8 +4,8 @@ using Domain.Constants;
 using Domain.Entities;
 using Domain.Enums;
 using FluentValidation;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
+using Repository.Exceptions;
 using Repository.Repositories.Interfaces;
 using Service.Helpers;
 using Service.Helpers.DTOs.Payment;
@@ -253,7 +253,7 @@ public class CheckoutService : ICheckoutService
         {
             await _bookingRepository.SaveChangesAsync(cancellationToken);
         }
-        catch (DbUpdateConcurrencyException)
+        catch (ConcurrencyConflictException)
         {
             throw new ConflictException("Bu bron eyni anda, məsələn başqa pəncərədə dəyişdirilib. Səhifəni yeniləyib yenidən cəhd edin.");
         }

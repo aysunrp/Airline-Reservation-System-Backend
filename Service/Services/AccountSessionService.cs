@@ -58,7 +58,7 @@ public class AccountSessionService : IAccountSessionService
     }
 
     /// <summary>"Chrome, Windows": enough for the person to recognise the device, nothing that identifies it.</summary>
-    public static string? DescribeDevice(string? userAgent)
+    internal static string? DescribeDevice(string? userAgent)
     {
         if (string.IsNullOrWhiteSpace(userAgent))
         {
@@ -84,7 +84,7 @@ public class AccountSessionService : IAccountSessionService
     }
 
     /// <summary>The address with its last part hidden: "203.0.113.x" or "2001:db8:1::x".</summary>
-    public static string? MaskIp(string? address)
+    internal static string? MaskIp(string? address)
     {
         if (string.IsNullOrWhiteSpace(address) || !IPAddress.TryParse(address, out var ip))
         {

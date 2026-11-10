@@ -1,7 +1,6 @@
 using System.Globalization;
 using System.Text;
 using Domain.Entities;
-using Domain.Enums;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Repository.Repositories.Interfaces;

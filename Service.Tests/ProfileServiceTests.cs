@@ -21,10 +21,8 @@ public class ProfileServiceTests
         new SavedPassenger { Id = 10, UserId = 1, FirstName = "Orkhan", LastName = "Aliyev", Relationship = "Spouse" },
         new SavedPassenger { Id = 20, UserId = 2, FirstName = "Someone", LastName = "Else" });
 
-    private readonly FakeAccountEmail _accountEmail = new();
-
     private ProfileService CreateService()
-        => new(_users, _passengers, _accountEmail, new UpdateProfileRequestValidator(Clock), new SavedPassengerRequestValidator(Clock));
+        => new(_users, _passengers, new UpdateProfileRequestValidator(Clock), new SavedPassengerRequestValidator(Clock));
 
     private static UpdateProfileRequestDto ProfileRequest(string email = "aysun@example.com") => new()
     {
@@ -59,7 +57,6 @@ public class ProfileServiceTests
         Assert.Equal("email_change_via_settings", refused.Code);
         Assert.Equal("aysun@example.com", _users.Find(1)!.Email);
         Assert.Equal(verifiedAt, _users.Find(1)!.EmailVerifiedAt);
-        Assert.Empty(_accountEmail.EmailChangedFor);
     }
 
     [Fact]
@@ -72,7 +69,6 @@ public class ProfileServiceTests
 
         Assert.Equal(verifiedAt, _users.Find(1)!.EmailVerifiedAt);
         Assert.True(kept.EmailVerified);
-        Assert.Empty(_accountEmail.EmailChangedFor);
     }
 
     [Fact]

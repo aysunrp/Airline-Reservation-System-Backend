@@ -3,9 +3,9 @@ using Domain.Constants;
 using Domain.Entities;
 using Domain.Enums;
 using FluentValidation;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
+using Repository.Exceptions;
 using Repository.Repositories.Interfaces;
 using Service.Helpers.DTOs.Reservation;
 using Service.Helpers.Exceptions;
@@ -39,7 +39,6 @@ public class BookingService : IBookingService
     private readonly IValidator<CreateBookingRequestDto> _validator;
     private readonly IBookingEmailConfirmationService _confirmation;
     private readonly IServiceScopeFactory? _scopeFactory;
-    private readonly IAdminAlertService? _adminAlerts;
     private readonly BookingSettings _settings;
     private readonly TimeProvider _timeProvider;
 
@@ -61,11 +60,9 @@ public class BookingService : IBookingService
         IEmailSender emailSender,
         IOptions<AuthSettings> authSettings,
         IBookingEmailConfirmationService confirmation,
-        IAdminAlertService? adminAlerts = null,
         IServiceScopeFactory? scopeFactory = null)
     {
         _scopeFactory = scopeFactory;
-        _adminAlerts = adminAlerts;
         _confirmation = confirmation;
         _userRepository = userRepository;
         _emailSender = emailSender;
@@ -190,7 +187,7 @@ public class BookingService : IBookingService
         {
             await _bookingRepository.SaveChangesAsync(cancellationToken);
         }
-        catch (DbUpdateException)
+        catch (DataConflictException)
         {
             // Another booking changed one of these seats in the meantime (row version) or already holds an
             // active ticket for it (unique index). Nothing was saved.

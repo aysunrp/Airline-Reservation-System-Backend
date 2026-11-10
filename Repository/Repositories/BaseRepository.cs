@@ -1,6 +1,7 @@
 using Domain.Common;
 using Microsoft.EntityFrameworkCore;
 using Repository.Data;
+using Repository.Exceptions;
 using Repository.Repositories.Interfaces;
 
 namespace Repository.Repositories;
@@ -41,6 +42,19 @@ public class BaseRepository<T> : IBaseRepository<T> where T : BaseEntity
 
     public void Delete(T entity) => Set.Remove(entity);
 
-    public Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
-        => Context.SaveChangesAsync(cancellationToken);
+    public async Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            return await Context.SaveChangesAsync(cancellationToken);
+        }
+        catch (DbUpdateConcurrencyException ex)
+        {
+            throw new ConcurrencyConflictException(ex);
+        }
+        catch (DbUpdateException ex)
+        {
+            throw new DataConflictException(ex);
+        }
+    }
 }

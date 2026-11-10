@@ -1,4 +1,9 @@
+using Domain.Enums;
+
 namespace Service.Helpers.DTOs.Account;
+
+/// <summary>The role, the active flag and the sign-out cut-off of an account: what a token is checked against on every request.</summary>
+public record UserStateDto(UserRole Role, bool IsActive, DateTime? SessionsValidFrom);
 
 /// <summary>The security and contact side of the signed-in account, for the Account settings page. Nothing here can be used to read another account.</summary>
 public record AccountOverviewDto(

@@ -45,6 +45,7 @@ namespace Service
             services.AddSingleton<IPasswordHasher, PasswordHasher>();
             services.AddSingleton<ILoginAttemptTracker, LoginAttemptTracker>();
             services.AddSingleton<IUserStateCache, UserStateCache>();
+            services.AddScoped<IUserStateService, UserStateService>();
             services.AddScoped<ITokenService, TokenService>();
             services.AddSingleton<IEmailSender, SmtpEmailSender>();
             services.AddScoped<IAccountEmailService, AccountEmailService>();

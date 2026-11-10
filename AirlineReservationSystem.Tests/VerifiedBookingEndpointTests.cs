@@ -45,7 +45,7 @@ public class VerifiedBookingEndpointTests : IClassFixture<ConfirmedAccountApiFac
     {
         var anonymous = _factory.CreateClient();
         var email = UniqueEmail("confirmed");
-        var account = await anonymous.RegisterAsync(email);
+        var account = await anonymous.RegisterUnconfirmedAsync(email);
         var customer = _factory.ClientWith(account.AccessToken);
 
         // The sign-up mail went out; until its link is opened the booking is refused and nothing is held.

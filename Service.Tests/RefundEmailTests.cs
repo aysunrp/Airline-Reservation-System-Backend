@@ -72,7 +72,8 @@ public class RefundEmailTests
         _context.EmailSender,
         Options.Create(new AuthSettings { FrontendBaseUrl = "https://aerova.test/" }),
         _context.Clock,
-        new ListLogger<NotificationEmailService>());
+        new ListLogger<NotificationEmailService>(),
+        new FakeNotificationPreferenceRepository());
 
     /// <summary>Sends what is due, as the background job does; the fake repository does not join the account and booking itself.</summary>
     private async Task<int> MailAsync()

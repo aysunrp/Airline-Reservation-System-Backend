@@ -53,7 +53,7 @@ public class RoleAuthorizationEndpointTests : IClassFixture<ApiFactory>
     [Fact]
     public async Task User_IsForbidden_InTheAdminArea_AndTheAttemptIsLogged()
     {
-        var account = await _factory.CreateAccountAsync(UserRole.User);
+        var account = await _factory.CreateAccountAsync(UserRole.User, confirmed: true);
 
         foreach (var url in new[] { "/api/admin/dashboard", "/api/admin/flights", "/api/admin/bookings", "/api/admin/users", "/api/admin/audit-logs" })
         {

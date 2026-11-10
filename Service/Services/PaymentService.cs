@@ -1,8 +1,8 @@
 using Domain.Entities;
 using Domain.Enums;
 using FluentValidation;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
+using Repository.Exceptions;
 using Repository.Repositories.Interfaces;
 using Service.Helpers.DTOs.Payment;
 using Service.Helpers.DTOs.Reservation;
@@ -109,7 +109,7 @@ public class PaymentService : IPaymentService
         {
             await _bookingRepository.SaveChangesAsync(cancellationToken);
         }
-        catch (DbUpdateException)
+        catch (DataConflictException)
         {
             throw new ConflictException("Ödəniş emal olunarkən bron dəyişdirilib. Bronu yoxlayıb yenidən cəhd edin.");
         }

@@ -1,8 +1,8 @@
 using System.Data.Common;
 using Domain.Entities;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using Repository.Exceptions;
 using Repository.Repositories.Interfaces;
 using Service.Helpers.Mail;
 using Service.Helpers.Settings;
@@ -96,7 +96,7 @@ public class AdminAlertService : IAdminAlertService
             await QueueAsync(eventKey, subject, body, cancellationToken);
             await _alerts.SaveChangesAsync(cancellationToken);
         }
-        catch (Exception ex) when (ex is DbUpdateException or InvalidOperationException)
+        catch (Exception ex) when (ex is DataConflictException or InvalidOperationException)
         {
             // A second request stored the same event at the same moment, or the message could not be stored: the event itself is already saved.
             _logger.LogWarning("An admin alert could not be stored ({ErrorType}).", ex.GetType().Name);

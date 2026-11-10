@@ -199,7 +199,7 @@ public class FlightGenerationIntegrationTests : IClassFixture<ApiFactory>
         // Any other database error still surfaces: an unknown route breaks a foreign key.
         var broken = Valid(NewFlight("AV 914", departure, null));
         broken.RouteId = 999_999;
-        await Assert.ThrowsAsync<DbUpdateException>(() => flights.TryAddAsync(broken));
+        await Assert.ThrowsAsync<Repository.Exceptions.DataConflictException>(() => flights.TryAddAsync(broken));
     }
 
     [Fact]

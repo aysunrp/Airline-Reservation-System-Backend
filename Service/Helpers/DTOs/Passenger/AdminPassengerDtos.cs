@@ -1,5 +1,4 @@
 using Domain.Enums;
-using Service.Helpers.DTOs.Reservation;
 
 namespace Service.Helpers.DTOs.Passenger;
 

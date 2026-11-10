@@ -1,8 +1,8 @@
 using Domain.Entities;
 using Domain.Enums;
 using FluentValidation;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using Repository.Exceptions;
 using Repository.Repositories.Interfaces;
 using Service.Helpers.DTOs.Reservation;
 using Service.Helpers.Exceptions;
@@ -130,7 +130,7 @@ public class CancellationService : ICancellationService
         {
             await _bookingRepository.SaveChangesAsync(cancellationToken);
         }
-        catch (DbUpdateConcurrencyException)
+        catch (ConcurrencyConflictException)
         {
             // The booking changed while it was being cancelled (a second cancel, or a payment arriving): nothing was saved.
             throw new ConflictException("Bu bron eyni anda dəyişdirilib. Onu yoxlayıb yenidən cəhd edin.");

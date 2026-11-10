@@ -1,9 +1,9 @@
 using Domain.Constants;
 using Domain.Entities;
 using Domain.Enums;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using Repository.Exceptions;
 using Repository.Repositories.Interfaces;
 using Service.Helpers.Exceptions;
 using Service.Helpers.Settings;
@@ -160,7 +160,7 @@ public class StripeWebhookService : IStripeWebhookService
         {
             await _events.SaveChangesAsync(cancellationToken);
         }
-        catch (DbUpdateConcurrencyException)
+        catch (ConcurrencyConflictException)
         {
             // The webhook or the expiry job got there first; the caller reads the payment again.
             return false;
