@@ -30,6 +30,13 @@ public static class FrontendOrigin
             return false;
         }
 
+        // The base may carry the folder the site is served from (http://host:5500/Frontend), nothing else:
+        // a query, a fragment or credentials would end up inside the Stripe return URL.
+        if (origin.Query.Length > 0 || origin.Fragment.Length > 0 || origin.UserInfo.Length > 0)
+        {
+            return false;
+        }
+
         if (!Uri.TryCreate(configuredBase, UriKind.Absolute, out var configured))
         {
             return false;
