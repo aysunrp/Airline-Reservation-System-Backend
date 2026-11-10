@@ -14,20 +14,17 @@ public class ProfileService : IProfileService
 {
     private readonly IUserRepository _userRepository;
     private readonly ISavedPassengerRepository _savedPassengerRepository;
-    private readonly IAccountEmailService _accountEmail;
     private readonly IValidator<UpdateProfileRequestDto> _profileValidator;
     private readonly IValidator<SavedPassengerRequestDto> _passengerValidator;
 
     public ProfileService(
         IUserRepository userRepository,
         ISavedPassengerRepository savedPassengerRepository,
-        IAccountEmailService accountEmail,
         IValidator<UpdateProfileRequestDto> profileValidator,
         IValidator<SavedPassengerRequestDto> passengerValidator)
     {
         _userRepository = userRepository;
         _savedPassengerRepository = savedPassengerRepository;
-        _accountEmail = accountEmail;
         _profileValidator = profileValidator;
         _passengerValidator = passengerValidator;
     }

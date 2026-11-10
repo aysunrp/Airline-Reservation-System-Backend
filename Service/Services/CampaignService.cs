@@ -1,4 +1,3 @@
-using System.Data.Common;
 using System.Security.Cryptography;
 using System.Text;
 using Domain.Entities;

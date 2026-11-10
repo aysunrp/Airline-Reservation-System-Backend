@@ -5,7 +5,6 @@ using Domain.Enums;
 using Service.Helpers.DTOs.Flight;
 using Service.Helpers.Scheduling;
 using Service.Helpers.Settings;
-using Service.Services;
 
 namespace Service.Services.VoiceSearch;
 

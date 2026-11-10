@@ -1,4 +1,3 @@
-using Domain.Enums;
 
 namespace Service.Services.Interfaces;
 

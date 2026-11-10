@@ -39,7 +39,6 @@ public class BookingService : IBookingService
     private readonly IValidator<CreateBookingRequestDto> _validator;
     private readonly IBookingEmailConfirmationService _confirmation;
     private readonly IServiceScopeFactory? _scopeFactory;
-    private readonly IAdminAlertService? _adminAlerts;
     private readonly BookingSettings _settings;
     private readonly TimeProvider _timeProvider;
 
@@ -61,11 +60,9 @@ public class BookingService : IBookingService
         IEmailSender emailSender,
         IOptions<AuthSettings> authSettings,
         IBookingEmailConfirmationService confirmation,
-        IAdminAlertService? adminAlerts = null,
         IServiceScopeFactory? scopeFactory = null)
     {
         _scopeFactory = scopeFactory;
-        _adminAlerts = adminAlerts;
         _confirmation = confirmation;
         _userRepository = userRepository;
         _emailSender = emailSender;
