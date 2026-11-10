@@ -51,3 +51,11 @@ Ayrı repo-dur, quraşdırma `README.md`-dədir. Qısası: repo **kökü** `http
 
 ## E-poçt və Stripe linkləri
 Backend e-poçt və Stripe qayıdış linklərini `Auth:FrontendBaseUrl` (`appsettings.json`, standart `http://localhost:5500`) əsasında qurur. Ödəniş frontend-in açıldığı ünvandan başladısa (`localhost` və ya `127.0.0.1`, eyni port), qayıdış həmin ünvana olur. Frontend başqa portda işləyirsə `Auth:FrontendBaseUrl` dəyərini onunla eyniləşdirin.
+
+Frontend alt qovluqdan açılırsa (məsələn `http://127.0.0.1:5500/Airline-Reservation-System-Frontend/index.html`), Stripe qayıdışı üçün bunun artıq əlavə quraşdırması lazım deyil: səhifə öz qovluq yolunu göndərir və backend onu saxlayır. E-poçt linkləri (təsdiq, şifrə bərpası, ləğv, hesab silmə) isə yalnız `Auth:FrontendBaseUrl` ilə qurulur, ona görə alt qovluq üçün onu qovluq yolu ilə yazın:
+
+```powershell
+dotnet user-secrets set "Auth:FrontendBaseUrl" "http://127.0.0.1:5500/Airline-Reservation-System-Frontend"
+```
+
+Ən sadəsi isə frontend repo qovluğunu sayt kökü kimi açmaqdır, onda heç nə dəyişmək lazım deyil.
