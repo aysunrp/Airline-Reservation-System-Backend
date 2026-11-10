@@ -48,6 +48,29 @@ public class DestinationCityRequestDto
     public string DescriptionRu { get; set; } = string.Empty;
 }
 
+/// <summary>A new catalog country: its two-letter ISO code (its stable identity), the names and the short description in the three languages.</summary>
+public class DestinationCountryCreateDto : DestinationCountryRequestDto
+{
+    public string Code { get; set; } = string.Empty;
+}
+
+/// <summary>
+/// A new catalog city of an existing country with its first airport (a city without an airport cannot be searched or booked). The English name is
+/// the city's key. The airport is created, or an existing airport that belongs to no city is linked to it.
+/// </summary>
+public class DestinationCityCreateDto : DestinationCityRequestDto
+{
+    public string Name { get; set; } = string.Empty;
+
+    /// <summary>Three-letter IATA code of the city's airport, e.g. LHR.</summary>
+    public string AirportCode { get; set; } = string.Empty;
+
+    public string AirportName { get; set; } = string.Empty;
+
+    /// <summary>IANA time zone of the airport, e.g. Europe/London.</summary>
+    public string TimeZoneId { get; set; } = string.Empty;
+}
+
 /// <summary>What a catalog seed run did; counts only, never record contents.</summary>
 public record DestinationSeedResultDto(
     int CountriesAdded, int CitiesAdded, int AirportsAdded, int AirportsLinked, int AlreadyPresent, IReadOnlyList<string> Skipped,

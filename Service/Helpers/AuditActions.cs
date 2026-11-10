@@ -37,6 +37,8 @@ public static class AuditActions
     public const string DestinationImageUpdated = "DestinationImageUpdated";
     public const string DestinationImageRemoved = "DestinationImageRemoved";
     public const string DestinationCityDeleted = "DestinationCityDeleted";
+    public const string DestinationCountryCreated = "DestinationCountryCreated";
+    public const string DestinationCityCreated = "DestinationCityCreated";
     public const string DestinationCountryDeleted = "DestinationCountryDeleted";
     public const string FaqItemCreated = "FaqItemCreated";
     public const string FaqItemUpdated = "FaqItemUpdated";

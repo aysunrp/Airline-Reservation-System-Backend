@@ -5,6 +5,7 @@ using Service.Helpers;
 using Service.Helpers.DTOs.Destinations;
 using Service.Helpers.DTOs.Media;
 using Service.Helpers.Exceptions;
+using Service.Helpers.Seeding;
 using Service.Services.Interfaces;
 
 namespace Service.Services;
@@ -16,19 +17,25 @@ public class DestinationCatalogService : IDestinationCatalogService
     private readonly ISiteMediaReferenceService _mediaReferences;
     private readonly IValidator<DestinationCountryRequestDto> _countryValidator;
     private readonly IValidator<DestinationCityRequestDto> _cityValidator;
+    private readonly IValidator<DestinationCountryCreateDto> _countryCreateValidator;
+    private readonly IValidator<DestinationCityCreateDto> _cityCreateValidator;
 
     public DestinationCatalogService(
         IDestinationCatalogRepository catalog,
         ISiteMediaStorage media,
         ISiteMediaReferenceService mediaReferences,
         IValidator<DestinationCountryRequestDto> countryValidator,
-        IValidator<DestinationCityRequestDto> cityValidator)
+        IValidator<DestinationCityRequestDto> cityValidator,
+        IValidator<DestinationCountryCreateDto> countryCreateValidator,
+        IValidator<DestinationCityCreateDto> cityCreateValidator)
     {
         _catalog = catalog;
         _media = media;
         _mediaReferences = mediaReferences;
         _countryValidator = countryValidator;
         _cityValidator = cityValidator;
+        _countryCreateValidator = countryCreateValidator;
+        _cityCreateValidator = cityCreateValidator;
     }
 
     public async Task<IReadOnlyList<DestinationCountryDto>> GetPublicAsync(CancellationToken cancellationToken = default)
@@ -99,6 +106,111 @@ public class DestinationCatalogService : IDestinationCatalogService
         }
 
         throw new NotFoundException("İstiqamət tapılmadı.");
+    }
+
+    public async Task<DestinationCountryDto> CreateCountryAsync(DestinationCountryCreateDto request, CancellationToken cancellationToken = default)
+    {
+        await _countryCreateValidator.ValidateAndThrowAsync(request, cancellationToken);
+        var code = request.Code.Trim().ToUpperInvariant();
+
+        // The seed switches these countries off at every start, so a country added under one of them would vanish again.
+        if (DestinationCatalogData.RetiredCountryCodes.Contains(code, StringComparer.OrdinalIgnoreCase))
+        {
+            throw new ConflictException($"{code} kodlu ölkə kataloqdan çıxarılıb və yenidən əlavə olunmur.");
+        }
+
+        var catalog = await _catalog.GetCatalogAsync(cancellationToken);
+        if (catalog.Any(c => string.Equals(c.Code, code, StringComparison.OrdinalIgnoreCase)))
+        {
+            throw new ConflictException($"{code} kodlu ölkə artıq var.");
+        }
+
+        var country = new Domain.Entities.Country
+        {
+            Code = code,
+            Name = request.Name.Trim(),
+            NameAz = request.NameAz.Trim(),
+            NameRu = request.NameRu.Trim(),
+            Description = request.Description.Trim(),
+            DescriptionAz = request.DescriptionAz.Trim(),
+            DescriptionRu = request.DescriptionRu.Trim(),
+            ImageFile = string.Empty,
+            SortOrder = catalog.Count == 0 ? 0 : catalog.Max(c => c.SortOrder) + 1,
+            IsActive = true
+        };
+        await _catalog.AddAsync(country, cancellationToken);
+        await _catalog.SaveChangesAsync(cancellationToken);
+        return (await BuildAsync(cancellationToken)).Single(c => c.Id == country.Id);
+    }
+
+    public async Task<DestinationCountryDto> CreateCityAsync(int countryId, DestinationCityCreateDto request, CancellationToken cancellationToken = default)
+    {
+        await _cityCreateValidator.ValidateAndThrowAsync(request, cancellationToken);
+        var country = await _catalog.GetCountryWithCitiesAsync(countryId, cancellationToken) ?? throw new NotFoundException("Ölkə tapılmadı.");
+
+        var name = request.Name.Trim();
+        if (country.Cities.Any(c => string.Equals(c.Name, name, StringComparison.OrdinalIgnoreCase)))
+        {
+            throw new ConflictException($"{name} şəhəri bu ölkədə artıq var.");
+        }
+
+        var code = request.AirportCode.Trim().ToUpperInvariant();
+        if (DestinationCatalogData.RetiredAirportCodes.Contains(code, StringComparer.OrdinalIgnoreCase))
+        {
+            throw new ConflictException($"{code} hava limanı kataloqdan çıxarılıb və şəhərə bağlanmır.");
+        }
+
+        // An airport that already exists is linked when it belongs to no city; one of another city or country is never taken over.
+        var airport = (await _catalog.GetAirportsByCodesAsync(new[] { code }, cancellationToken)).FirstOrDefault();
+        if (airport is not null && airport.CityId is not null)
+        {
+            throw new ConflictException($"{code} hava limanı artıq başqa şəhərə bağlıdır.");
+        }
+
+        if (airport is not null && !string.Equals(airport.CountryCode, country.Code, StringComparison.OrdinalIgnoreCase))
+        {
+            throw new ConflictException($"{code} hava limanı başqa ölkəyə aiddir.");
+        }
+
+        var city = new Domain.Entities.DestinationCity
+        {
+            CountryId = country.Id,
+            Name = name,
+            NameAz = request.NameAz.Trim(),
+            NameRu = request.NameRu.Trim(),
+            Aliases = string.IsNullOrWhiteSpace(request.Aliases) ? null : string.Join(';', SplitAliases(request.Aliases)),
+            ImageFile = string.Empty,
+            Description = request.Description.Trim(),
+            DescriptionAz = request.DescriptionAz.Trim(),
+            DescriptionRu = request.DescriptionRu.Trim(),
+            SortOrder = country.Cities.Count == 0 ? 0 : country.Cities.Max(c => c.SortOrder) + 1,
+            IsActive = true,
+            IsHub = false
+        };
+        await _catalog.AddCityAsync(city, cancellationToken);
+
+        if (airport is null)
+        {
+            airport = new Domain.Entities.Airport
+            {
+                Code = code,
+                Name = request.AirportName.Trim(),
+                City = name,
+                CountryCode = country.Code,
+                TimeZoneId = request.TimeZoneId.Trim(),
+                IsActive = true,
+                CityRecord = city
+            };
+            await _catalog.AddAirportAsync(airport, cancellationToken);
+        }
+        else
+        {
+            airport.CityRecord = city;
+            airport.IsActive = true;
+        }
+
+        await _catalog.SaveChangesAsync(cancellationToken);
+        return (await BuildAsync(cancellationToken)).Single(c => c.Id == country.Id);
     }
 
     public async Task<DestinationCountryDto> UpdateCountryAsync(int id, DestinationCountryRequestDto request, CancellationToken cancellationToken = default)

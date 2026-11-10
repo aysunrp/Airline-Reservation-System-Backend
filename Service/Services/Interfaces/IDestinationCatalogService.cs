@@ -18,6 +18,12 @@ public interface IDestinationCatalogService
     /// </summary>
     Task<IReadOnlyList<DestinationFlightDto>> GetCityFlightsAsync(int cityId, string? fromCode = null, CancellationToken cancellationToken = default);
 
+    /// <summary>Adds a country to the catalog (active, last in the order, no photograph yet). 409 when the code exists or the code is one the seed retires.</summary>
+    Task<DestinationCountryDto> CreateCountryAsync(DestinationCountryCreateDto request, CancellationToken cancellationToken = default);
+
+    /// <summary>Adds a city with its first airport to a country. 409 for a name or airport that already exists (or an airport that belongs to another city); returns the country.</summary>
+    Task<DestinationCountryDto> CreateCityAsync(int countryId, DestinationCityCreateDto request, CancellationToken cancellationToken = default);
+
     Task<DestinationCountryDto> UpdateCountryAsync(int id, DestinationCountryRequestDto request, CancellationToken cancellationToken = default);
 
     Task<DestinationCountryDto> UpdateCityAsync(int id, DestinationCityRequestDto request, CancellationToken cancellationToken = default);
