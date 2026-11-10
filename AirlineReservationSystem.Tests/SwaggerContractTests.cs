@@ -90,6 +90,8 @@ public class SwaggerContractTests : IClassFixture<ApiFactory>
         { "put", "/api/admin/airports/{id}", true },
         { "delete", "/api/admin/airports/{id}", true },
         { "get", "/api/admin/destinations", true },
+        { "post", "/api/admin/destinations/countries", true },
+        { "post", "/api/admin/destinations/countries/{id}/cities", true },
         { "put", "/api/admin/destinations/countries/{id}", true },
         { "put", "/api/admin/destinations/cities/{id}", true },
         { "put", "/api/admin/destinations/countries/{id}/active", true },
