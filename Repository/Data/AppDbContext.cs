@@ -57,8 +57,8 @@ public class AppDbContext : DbContext
     {
         base.OnModelCreating(modelBuilder);
 
-        // Domain.Configurations contains one IEntityTypeConfiguration<T> per entity.
-        modelBuilder.ApplyConfigurationsFromAssembly(typeof(Domain.Entities.Airport).Assembly);
+        // Repository.Configurations contains one IEntityTypeConfiguration<T> per entity; the mapping belongs to the data layer, not to the domain.
+        modelBuilder.ApplyConfigurationsFromAssembly(typeof(AppDbContext).Assembly);
 
         // A seat belongs to only one paid ticket per flight leg. A ticket that is still Pending (its payment not taken yet) only records the
         // traveller's choice and owns nothing, so any number of unpaid bookings may point at the same seat; the first payment to be confirmed
