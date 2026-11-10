@@ -3,9 +3,9 @@ using Domain.Constants;
 using Domain.Entities;
 using Domain.Enums;
 using FluentValidation;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
+using Repository.Exceptions;
 using Repository.Repositories.Interfaces;
 using Service.Helpers.DTOs.Reservation;
 using Service.Helpers.Exceptions;
@@ -190,7 +190,7 @@ public class BookingService : IBookingService
         {
             await _bookingRepository.SaveChangesAsync(cancellationToken);
         }
-        catch (DbUpdateException)
+        catch (DataConflictException)
         {
             // Another booking changed one of these seats in the meantime (row version) or already holds an
             // active ticket for it (unique index). Nothing was saved.

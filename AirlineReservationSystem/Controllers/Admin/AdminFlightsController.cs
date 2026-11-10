@@ -4,7 +4,6 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Service.Helpers;
 using Service.Helpers.DTOs.Flight;
-using Repository.Repositories.Interfaces;
 using Service.Helpers.DTOs.Seat;
 using Service.Services.Interfaces;
 
@@ -40,7 +39,7 @@ public class AdminFlightsController : ControllerBase
         [FromQuery] int? aircraftId, [FromQuery] string? flightType, [FromQuery] bool? active, [FromQuery] string? timing,
         [FromQuery] int skip = 0, [FromQuery] int take = 100, CancellationToken cancellationToken = default)
         => Ok(await _flightService.GetFilteredPageAsync(
-            new AdminFlightFilter(search, origin, destination, status, date, month, year, aircraftId, flightType, active, timing),
+            new AdminFlightFilterDto(search, origin, destination, status, date, month, year, aircraftId, flightType, active, timing),
             skip, take, cancellationToken));
 
     /// <summary>The journeys with a transfer between two airports over up to 62 departure days (no seat filter).</summary>

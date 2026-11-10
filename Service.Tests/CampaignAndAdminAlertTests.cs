@@ -71,6 +71,7 @@ internal class FakeEmailCampaignRepository : FakeRepository<EmailCampaign>, IEma
 public class CampaignAndAdminAlertTests
 {
     private readonly FakeEmailSender _sender = new();
+    private readonly FakeNotificationPreferenceRepository _preferences = new();
     private readonly MovableClock _clock = new();
     private readonly FakeAdminAlertRepository _alerts = new();
 
@@ -271,7 +272,7 @@ public class CampaignAndAdminAlertTests
         var newsletter = new NewsletterService(subscriberRepository, _sender, new NewsletterSubscribeRequestValidator(), new NewsletterTokenRequestValidator(),
             newsletterSettings, auth, Options.Create(new JwtSettings { Secret = "campaign-tests-secret-campaign-tests-secret" }), _clock, NullLogger<NewsletterService>.Instance);
         var service = new CampaignService(promos, repository, subscriberRepository, newsletter, CreateAlerts(), _sender, newsletterSettings, auth, _clock,
-            NullLogger<CampaignService>.Instance);
+            NullLogger<CampaignService>.Instance, _preferences);
         return new Campaigns { Service = service, Repository = repository, Subscribers = subscriberRepository, Promos = promos };
     }
 
@@ -448,6 +449,21 @@ public class CampaignAndAdminAlertTests
     }
 
     [Fact]
+    public async Task AnAccountThatTurnedCampaignEmailsOff_GetsNothing_EvenWhenItsAddressIsOnTheNewsletterList()
+    {
+        var c = CreateCampaigns(null, Sub(1, "a@example.com"), Sub(2, "b@example.com"));
+        var campaign = await QueueAsync(c);
+        _preferences.MarketingOptedOutEmails.Add("B@Example.com");
+
+        await c.Service.ProcessDueAsync();
+
+        Assert.Equal("a@example.com", Assert.Single(_sender.Sent).To);
+        var done = await c.Service.GetAsync(campaign.Id);
+        Assert.Equal(1, done.Sent);
+        Assert.Equal(1, done.Skipped);
+    }
+
+    [Fact]
     public async Task WhenTheMailServerFails_RecipientsAreRetried_AndMarkedFailedAfterTheAllowedAttempts()
     {
         var c = CreateCampaigns(new NewsletterSettings { CampaignMaxAttempts = 2 }, Sub(1, "a@example.com"), Sub(2, "b@example.com"));
@@ -529,7 +545,8 @@ public class CampaignAndAdminAlertTests
     {
         var c = CreateCampaigns(null, Sub(1, "a@example.com"));
         var broken = new CampaignService(c.Promos, new MissingTableCampaignRepository(), c.Subscribers, null!, CreateAlerts(), _sender,
-            Options.Create(new NewsletterSettings()), Options.Create(new AuthSettings { FrontendBaseUrl = "https://aerova.test" }), _clock, NullLogger<CampaignService>.Instance);
+            Options.Create(new NewsletterSettings()), Options.Create(new AuthSettings { FrontendBaseUrl = "https://aerova.test" }), _clock, NullLogger<CampaignService>.Instance,
+            new FakeNotificationPreferenceRepository());
 
         var preview = await Assert.ThrowsAsync<BusinessRuleException>(() => broken.PreviewAsync(1, "en"));
         var history = await Assert.ThrowsAsync<BusinessRuleException>(() => broken.GetRecentAsync());
@@ -558,7 +575,8 @@ public class CampaignAndAdminAlertTests
     {
         var c = CreateCampaigns(null, Sub(1, "a@example.com"));
         var broken = new CampaignService(c.Promos, new ThrowingCampaignRepository(new InvalidOperationException("something else")), c.Subscribers, null!, CreateAlerts(), _sender,
-            Options.Create(new NewsletterSettings()), Options.Create(new AuthSettings { FrontendBaseUrl = "https://aerova.test" }), _clock, NullLogger<CampaignService>.Instance);
+            Options.Create(new NewsletterSettings()), Options.Create(new AuthSettings { FrontendBaseUrl = "https://aerova.test" }), _clock, NullLogger<CampaignService>.Instance,
+            new FakeNotificationPreferenceRepository());
 
         await Assert.ThrowsAsync<InvalidOperationException>(() => broken.GetRecentAsync());
         Assert.False(CampaignService.IsMissingTable(new InvalidOperationException("something else")));

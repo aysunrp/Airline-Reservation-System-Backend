@@ -29,7 +29,7 @@ public class NotificationEmailService : INotificationEmailService
     private readonly TimeProvider _timeProvider;
     private readonly ILogger<NotificationEmailService> _logger;
     private readonly IAdminAlertService? _adminAlerts;
-    private readonly INotificationPreferenceRepository? _preferences;
+    private readonly INotificationPreferenceRepository _preferences;
 
     public NotificationEmailService(
         INotificationRepository notifications,
@@ -38,8 +38,8 @@ public class NotificationEmailService : INotificationEmailService
         IOptions<AuthSettings> auth,
         TimeProvider timeProvider,
         ILogger<NotificationEmailService> logger,
-        IAdminAlertService? adminAlerts = null,
-        INotificationPreferenceRepository? preferences = null)
+        INotificationPreferenceRepository preferences,
+        IAdminAlertService? adminAlerts = null)
     {
         _preferences = preferences;
         _adminAlerts = adminAlerts;
@@ -122,11 +122,6 @@ public class NotificationEmailService : INotificationEmailService
 
     private async Task<bool> WantsEmailAsync(Notification notification, CancellationToken cancellationToken)
     {
-        if (_preferences is null)
-        {
-            return true;
-        }
-
         var optional = notification.Type is NotificationType.FlightUpdate or NotificationType.CheckInReminder or NotificationType.SupportUpdate;
         if (!optional)
         {

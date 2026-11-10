@@ -2,7 +2,7 @@ using Domain.Entities;
 using Domain.Enums;
 using FluentValidation;
 using FluentValidation.Results;
-using Microsoft.EntityFrameworkCore;
+using Repository.Exceptions;
 using Repository.Repositories.Interfaces;
 using Service.Helpers.DTOs.Flight;
 using Service.Helpers.DTOs.Seat;
@@ -60,9 +60,11 @@ public class AdminFlightService : IAdminFlightService
         return flights.Select(f => f.ToResultDto()).ToList();
     }
 
-    public async Task<IReadOnlyList<AdminFlightRowDto>> GetFilteredPageAsync(AdminFlightFilter filter, int skip, int take, CancellationToken cancellationToken = default)
+    public async Task<IReadOnlyList<AdminFlightRowDto>> GetFilteredPageAsync(AdminFlightFilterDto filter, int skip, int take, CancellationToken cancellationToken = default)
     {
-        var flights = await _flightRepository.GetAdminFilteredAsync(filter, Math.Max(0, skip), Math.Clamp(take, 1, 500), cancellationToken);
+        var repositoryFilter = new AdminFlightFilter(filter.Search, filter.OriginCode, filter.DestinationCode, filter.Status, filter.Date,
+            filter.Month, filter.Year, filter.AircraftId, filter.FlightType, filter.Active, filter.Timing);
+        var flights = await _flightRepository.GetAdminFilteredAsync(repositoryFilter, Math.Max(0, skip), Math.Clamp(take, 1, 500), cancellationToken);
         var seats = await _flightRepository.GetSeatCountsAsync(flights.Select(f => f.Id).ToList(), cancellationToken);
 
         return flights.Select(f =>
@@ -318,7 +320,7 @@ public class AdminFlightService : IAdminFlightService
         {
             await _flightSeatRepository.SaveChangesAsync(cancellationToken);
         }
-        catch (DbUpdateConcurrencyException)
+        catch (ConcurrencyConflictException)
         {
             throw new ConflictException($"Seat {label} was just changed by a booking. Refresh the seat map and try again.");
         }
@@ -475,7 +477,7 @@ public class AdminFlightService : IAdminFlightService
         {
             await _flightRepository.SaveChangesAsync(cancellationToken);
         }
-        catch (DbUpdateException)
+        catch (DataConflictException)
         {
             throw new ConflictException("The flight could not be saved because it conflicts with existing data. Refresh and try again.");
         }

@@ -40,8 +40,8 @@ public class AccountEmailService : IAccountEmailService
     private readonly AuthSettings _settings;
     private readonly TimeProvider _timeProvider;
     private readonly ILogger<AccountEmailService> _logger;
-    private readonly IUserStateCache? _stateCache;
-    private readonly IUserSessionRepository? _sessions;
+    private readonly IUserStateCache _stateCache;
+    private readonly IUserSessionRepository _sessions;
 
     public AccountEmailService(
         IUserRepository users,
@@ -57,8 +57,8 @@ public class AccountEmailService : IAccountEmailService
         IOptions<AuthSettings> settings,
         TimeProvider timeProvider,
         ILogger<AccountEmailService> logger,
-        IUserStateCache? stateCache = null,
-        IUserSessionRepository? sessions = null)
+        IUserStateCache stateCache,
+        IUserSessionRepository sessions)
     {
         _stateCache = stateCache;
         _sessions = sessions;
@@ -322,12 +322,9 @@ public class AccountEmailService : IAccountEmailService
         _users.Update(user);
 
         // The open sessions of the account are closed too, so a token made in the same second as the reset cannot slip past the cut-off.
-        if (_sessions is not null)
+        foreach (var session in await _sessions.GetOpenAsync(user.Id, now, cancellationToken))
         {
-            foreach (var session in await _sessions.GetOpenAsync(user.Id, now, cancellationToken))
-            {
-                session.RevokedAt = now;
-            }
+            session.RevokedAt = now;
         }
 
         // This ticket, any other reset link still open and any reset code still open are used up.
@@ -343,7 +340,7 @@ public class AccountEmailService : IAccountEmailService
 
         // A person who just chose a new password should not meet a sign-in pause caused by earlier failures.
         _attempts.Reset(user.Email);
-        _stateCache?.Invalidate(user.Id);
+        _stateCache.Invalidate(user.Id);
     }
 
     private async Task<bool> IssueAndSendAsync(User user, EmailTokenPurpose purpose, string? language, CancellationToken cancellationToken)

@@ -19,7 +19,8 @@ public class NotificationEmailTests
         _context.EmailSender,
         Options.Create(new AuthSettings { FrontendBaseUrl = "https://aerova.test/" }),
         _context.Clock,
-        new ListLogger<NotificationEmailService>());
+        new ListLogger<NotificationEmailService>(),
+        new FakeNotificationPreferenceRepository());
 
     private static User Account(string email, bool verified = true) => new()
     {
@@ -30,13 +31,15 @@ public class NotificationEmailTests
         EmailVerifiedAt = verified ? TestData.Now.AddDays(-3) : null
     };
 
-    private async Task<Notification> NotifyAsync(User user, string title = "Booking Confirmed", string message = "Your booking ABC123 is confirmed.", TimeSpan? age = null)
+    private async Task<Notification> NotifyAsync(User user, string title = "Booking Confirmed", string message = "Your booking ABC123 is confirmed.", TimeSpan? age = null,
+        NotificationType type = NotificationType.PaymentSuccessful)
     {
         var notification = new Notification
         {
             UserId = user.Id,
             User = user,
-            Type = NotificationType.BookingConfirmed,
+            // A payment notification is e-mailed; a booking confirmation stays in the app (see TheBookingConfirmation_StaysInTheApp_AndIsNeverMailed).
+            Type = type,
             Title = title,
             Message = message,
             CreatedAt = _context.Clock.GetUtcNow().UtcDateTime - (age ?? TimeSpan.FromMinutes(1))
@@ -82,11 +85,26 @@ public class NotificationEmailTests
             notification.CreatedAt = _context.Clock.GetUtcNow().UtcDateTime;
         }
 
-        Assert.Equal(2, await CreateService().SendDueAsync());
+        // The booking confirmation stays in the app; only the payment notification is mailed.
+        Assert.Equal(1, await CreateService().SendDueAsync());
 
         Assert.All(_context.EmailSender.Sent, mail => Assert.Equal("registered@gmail.com", mail.To));
         Assert.DoesNotContain(_context.EmailSender.Sent, mail => mail.To.Contains("someone.else"));
-        Assert.Contains(_context.EmailSender.Sent, mail => mail.Subject == "AEROVA: Booking Confirmed");
+        Assert.Contains(_context.EmailSender.Sent, mail => mail.Subject == "AEROVA: Payment Successful");
+    }
+
+    [Fact]
+    public async Task TheBookingConfirmation_StaysInTheApp_AndIsNeverMailed()
+    {
+        var user = Account("aysun.test@gmail.com");
+        var confirmation = await NotifyAsync(user, type: NotificationType.BookingConfirmed);
+
+        Assert.Equal(0, await CreateService().SendDueAsync());
+
+        Assert.Empty(_context.EmailSender.Sent);
+        // It is closed (not tried again), and the in-app notification is still there.
+        Assert.NotNull(confirmation.EmailSentAt);
+        Assert.Contains(confirmation, await _context.Notifications.GetAllAsync());
     }
 
     [Fact]

@@ -3,9 +3,9 @@ using System.Text;
 using Domain.Entities;
 using Domain.Enums;
 using FluentValidation;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using Repository.Exceptions;
 using Repository.Repositories.Interfaces;
 using Service.Helpers.DTOs.Newsletter;
 using Service.Helpers.Exceptions;
@@ -110,7 +110,7 @@ public class NewsletterService : INewsletterService
         {
             await _subscribers.SaveChangesAsync(cancellationToken);
         }
-        catch (DbUpdateException)
+        catch (DataConflictException)
         {
             // Two requests for a new address at once: the other one stored it and sends the e-mail.
             return response;

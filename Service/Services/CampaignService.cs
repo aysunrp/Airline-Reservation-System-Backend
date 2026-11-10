@@ -3,9 +3,9 @@ using System.Security.Cryptography;
 using System.Text;
 using Domain.Entities;
 using Domain.Enums;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using Repository.Exceptions;
 using Repository.Repositories.Interfaces;
 using Service.Helpers.DTOs.Newsletter;
 using Service.Helpers.Exceptions;
@@ -33,7 +33,7 @@ public class CampaignService : ICampaignService
     private readonly AuthSettings _auth;
     private readonly TimeProvider _timeProvider;
     private readonly ILogger<CampaignService> _logger;
-    private readonly INotificationPreferenceRepository? _preferences;
+    private readonly INotificationPreferenceRepository _preferences;
 
     public CampaignService(
         IBaseRepository<PromoCode> promoCodes,
@@ -46,7 +46,7 @@ public class CampaignService : ICampaignService
         IOptions<AuthSettings> auth,
         TimeProvider timeProvider,
         ILogger<CampaignService> logger,
-        INotificationPreferenceRepository? preferences = null)
+        INotificationPreferenceRepository preferences)
     {
         _preferences = preferences;
         _promoCodes = promoCodes;
@@ -158,7 +158,7 @@ public class CampaignService : ICampaignService
         {
             await _campaigns.SaveChangesAsync(cancellationToken);
         }
-        catch (DbUpdateException)
+        catch (DataConflictException)
         {
             // Two confirmations at the same moment: the other one created it.
             throw new ConflictException("A campaign for this promo code was already created.");
@@ -212,7 +212,7 @@ public class CampaignService : ICampaignService
         int sent = 0, failed = 0, skipped = 0;
 
         // An account that turned campaign e-mails off in its settings gets none, even when its address is on the newsletter list.
-        var optedOut = _preferences is null ? new HashSet<string>() : await _preferences.GetEmailsWithoutMarketingAsync(cancellationToken);
+        var optedOut = await _preferences.GetEmailsWithoutMarketingAsync(cancellationToken);
 
         foreach (var recipient in batch)
         {

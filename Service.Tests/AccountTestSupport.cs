@@ -152,12 +152,17 @@ internal sealed class AccountTestContext
     public AccountEmailService CreateAccountEmail() => new(
         Users, Tokens, Sender, Hasher, Attempts,
         new VerifyEmailRequestValidator(), new ForgotPasswordRequestValidator(), new ResetPasswordRequestValidator(),
-        new VerifyResetCodeRequestValidator(), Options.Create(Jwt), Options.Create(Settings), Clock, EmailLog);
+        new VerifyResetCodeRequestValidator(), Options.Create(Jwt), Options.Create(Settings), Clock, EmailLog, StateCache, Sessions);
+
+    public UserStateCache StateCache { get; } = new(Options.Create(new AuthSettings()), new FixedTimeProvider(Start));
+
+    public FakeUserSessionRepository Sessions { get; } = new();
 
     public AuthService CreateAuth(JwtSettings? jwt = null) => new(
-        Users, Hasher, new TokenService(Options.Create(jwt ?? Jwt), Clock),
+        Users, Hasher,
         new RegisterRequestValidator(), new LoginRequestValidator(),
-        Attempts, Options.Create(Settings), AuthLog, CreateAccountEmail());
+        Attempts, Options.Create(Settings), AuthLog, CreateAccountEmail(),
+        new FakeAccountSessionService(new TokenService(Options.Create(jwt ?? Jwt), Clock)));
 
     public static User Customer(string password, AuthSettings? settings = null, int id = 5, string email = "aysun@example.com") => new()
     {

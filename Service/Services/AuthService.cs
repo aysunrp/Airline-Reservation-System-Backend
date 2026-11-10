@@ -19,31 +19,28 @@ public class AuthService : IAuthService
 
     private readonly IUserRepository _userRepository;
     private readonly IPasswordHasher _passwordHasher;
-    private readonly ITokenService _tokenService;
     private readonly IValidator<RegisterRequestDto> _registerValidator;
     private readonly IValidator<LoginRequestDto> _loginValidator;
     private readonly ILoginAttemptTracker _attempts;
     private readonly IOptions<AuthSettings> _settings;
     private readonly ILogger<AuthService> _logger;
     private readonly IAccountEmailService _accountEmail;
-    private readonly IAccountSessionService? _sessions;
+    private readonly IAccountSessionService _sessions;
 
     public AuthService(
         IUserRepository userRepository,
         IPasswordHasher passwordHasher,
-        ITokenService tokenService,
         IValidator<RegisterRequestDto> registerValidator,
         IValidator<LoginRequestDto> loginValidator,
         ILoginAttemptTracker attempts,
         IOptions<AuthSettings> settings,
         ILogger<AuthService> logger,
         IAccountEmailService accountEmail,
-        IAccountSessionService? sessions = null)
+        IAccountSessionService sessions)
     {
         _sessions = sessions;
         _userRepository = userRepository;
         _passwordHasher = passwordHasher;
-        _tokenService = tokenService;
         _registerValidator = registerValidator;
         _loginValidator = loginValidator;
         _attempts = attempts;
@@ -141,10 +138,8 @@ public class AuthService : IAuthService
 
     private async Task<AuthResponseDto> CreateResponseAsync(User user, CancellationToken cancellationToken)
     {
-        // Every sign-in is a session of its own, so it can be listed and ended; without the session service (unit tests) the token stands alone.
-        var (accessToken, expiresAt) = _sessions is null
-            ? _tokenService.CreateToken(user)
-            : await _sessions.IssueAsync(user, cancellationToken);
+        // Every sign-in is a session of its own, so it can be listed and ended.
+        var (accessToken, expiresAt) = await _sessions.IssueAsync(user, cancellationToken);
         return new AuthResponseDto(accessToken, expiresAt, user.ToUserDto());
     }
 }

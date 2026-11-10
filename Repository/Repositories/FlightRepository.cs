@@ -3,6 +3,7 @@ using Domain.Enums;
 using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
 using Repository.Data;
+using Repository.Exceptions;
 using Repository.Repositories.Interfaces;
 
 namespace Repository.Repositories;
@@ -117,6 +118,11 @@ public class FlightRepository : BaseRepository<Flight>, IFlightRepository
             }
 
             return false;
+        }
+        catch (DbUpdateException ex)
+        {
+            // Any other refusal (a broken reference, for example) is reported without naming the data access library.
+            throw new DataConflictException(ex);
         }
     }
 

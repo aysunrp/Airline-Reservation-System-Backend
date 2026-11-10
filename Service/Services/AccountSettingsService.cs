@@ -462,7 +462,7 @@ public class AccountSettingsService : IAccountSettingsService
     private DateTime Now() => _timeProvider.GetUtcNow().UtcDateTime;
 
     /// <summary>"a***@gmail.com": enough to recognise the address, not enough to read it.</summary>
-    public static string MaskEmail(string email)
+    internal static string MaskEmail(string email)
     {
         var at = email.IndexOf('@');
         if (at <= 0)
