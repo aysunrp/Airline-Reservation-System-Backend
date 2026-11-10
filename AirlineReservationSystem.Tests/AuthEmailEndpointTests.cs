@@ -201,7 +201,7 @@ public class AuthEmailEndpointTests : IClassFixture<ApiFactory>
     {
         var client = _factory.CreateClient();
         var email = UniqueEmail("states");
-        await client.RegisterAsync(email);
+        await client.RegisterUnconfirmedAsync(email);
         var token = _factory.Emails.TokenFor(email);
 
         var unknown = await client.PostAsJsonAsync("/api/auth/verify-email", new VerifyEmailRequestDto { Token = "not-a-real-token" }, Json);
@@ -222,7 +222,7 @@ public class AuthEmailEndpointTests : IClassFixture<ApiFactory>
         Assert.Equal(HttpStatusCode.Unauthorized, (await client.PostAsJsonAsync("/api/auth/resend-verification", new ResendVerificationRequestDto(), Json)).StatusCode);
 
         var email = UniqueEmail("resend");
-        var account = await client.RegisterAsync(email);
+        var account = await client.RegisterUnconfirmedAsync(email);
         var signedIn = _factory.CreateClient().WithToken(account.AccessToken);
 
         // A moment after registering, a second e-mail is held back.

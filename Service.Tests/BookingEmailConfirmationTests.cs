@@ -33,7 +33,31 @@ public class BookingEmailConfirmationTests
     }
 
     private async Task<BookingDto> BookAsync(string contactEmail = "typed.by.hand@example.com", string? language = null)
-        => await _context.CreateBookingService().CreateBookingAsync(Owner, Request(contactEmail, language));
+        => await BookRequestAsync(Request(contactEmail, language));
+
+    /// <summary>
+    /// Makes the booking and sends its link the way the API does. The API sends the link from a background task (so the booking answers at
+    /// once); a unit test has no such task, so it asks the confirmation service for the same message right after the booking, and a failed
+    /// message is swallowed as in the background task (the booking stays unconfirmed).
+    /// </summary>
+    private async Task<BookingDto> BookRequestAsync(CreateBookingRequestDto request)
+    {
+        var booking = await _context.CreateBookingService().CreateBookingAsync(Owner, request);
+        if (!booking.ContactConfirmed)
+        {
+            var entity = (await _context.Bookings.GetByIdAsync(booking.Id))!;
+            try
+            {
+                await _context.CreateBookingEmailConfirmation().SendAsync(entity, request.Language);
+            }
+            catch (Exception)
+            {
+                // Best effort, as in the background task.
+            }
+        }
+
+        return booking;
+    }
 
     private void Advance(TimeSpan by) => _context.Clock = new FixedTimeProvider(_context.Clock.GetUtcNow().UtcDateTime + by);
 
@@ -63,7 +87,7 @@ public class BookingEmailConfirmationTests
     public async Task EachBooking_GetsAnotherLink_EvenForTheSameAccount()
     {
         var first = await BookAsync();
-        var second = await _context.CreateBookingService().CreateBookingAsync(Owner, BookingWith("Orkhan", 104));
+        var second = await BookRequestAsync(BookingWith("Orkhan", 104));
 
         Assert.Equal(2, _context.EmailSender.Sent.Count);
         Assert.NotEqual(_context.Tokens.All[0].TokenHash, _context.Tokens.All[1].TokenHash);

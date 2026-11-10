@@ -5,6 +5,7 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using Domain.Entities;
 using Domain.Enums;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Repository.Data;
 using Service.Helpers.DTOs.Account;
@@ -54,6 +55,31 @@ internal static class ApiTestHelpers
     }
 
     /// <summary>
+    /// Registers a client account and does NOT open the link that was e-mailed to it (the e-mail sender must be on, so the link was sent).
+    /// While the API can send mail an unconfirmed account cannot sign in, so the token is made for the stored account directly, as a token
+    /// that was issued before the address was checked would be. Use it for the tests of the confirmation itself.
+    /// </summary>
+    public static async Task<AuthResponseDto> RegisterUnconfirmedAsync(this HttpClient client, string? email = null, string password = "secret1")
+    {
+        email ??= UniqueEmail();
+        var response = await client.PostAsJsonAsync("/api/auth/register", new RegisterRequestDto
+        {
+            FirstName = "Aysun",
+            LastName = "Panahli",
+            Email = email,
+            Password = password,
+            ConfirmPassword = password
+        }, Json);
+        response.EnsureSuccessStatusCode();
+
+        var factory = ApiFactory.FromClient(client) ?? throw new InvalidOperationException("The client does not belong to an ApiFactory.");
+        using var scope = factory.Services.CreateScope();
+        var user = await scope.ServiceProvider.GetRequiredService<AppDbContext>().Users.SingleAsync(u => u.Email == email.ToLowerInvariant());
+        var (token, expiresAt) = scope.ServiceProvider.GetRequiredService<ITokenService>().CreateToken(user);
+        return new AuthResponseDto(token, expiresAt, new UserDto(user.Id, user.Email, user.FirstName, user.LastName, user.Role.ToString(), user.EmailVerifiedAt is not null));
+    }
+
+    /// <summary>
     /// There is no public way to become an admin, so the test writes an Admin account straight into the
     /// test database and signs in through the API like the admin panel would.
     /// </summary>
@@ -65,7 +91,7 @@ internal static class ApiTestHelpers
         => (await factory.CreateAccountAsync(UserRole.SuperAdmin)).Client;
 
     /// <summary>Writes an account with the given role straight into the test database and signs it in through the API.</summary>
-    public static async Task<TestAccount> CreateAccountAsync(this ApiFactory factory, UserRole role)
+    public static async Task<TestAccount> CreateAccountAsync(this ApiFactory factory, UserRole role, bool confirmed = false)
     {
         const string password = "admin-pass";
         var email = UniqueEmail(role.ToString().ToLowerInvariant());
@@ -74,7 +100,8 @@ internal static class ApiTestHelpers
         {
             var hasher = scope.ServiceProvider.GetRequiredService<IPasswordHasher>();
             var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-            var user = new User { Email = email, PasswordHash = hasher.Hash(password), FirstName = "Aerova", LastName = role.ToString(), Role = role };
+            // Unconfirmed unless asked: a customer (role User) cannot sign in while the API sends mail until its address is confirmed.
+            var user = new User { Email = email, PasswordHash = hasher.Hash(password), FirstName = "Aerova", LastName = role.ToString(), Role = role, EmailVerifiedAt = confirmed ? DateTime.UtcNow : null };
             db.Users.Add(user);
             await db.SaveChangesAsync();
             id = user.Id;

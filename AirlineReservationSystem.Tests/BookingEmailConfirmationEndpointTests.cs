@@ -60,13 +60,24 @@ public class BookingEmailConfirmationEndpointTests : IClassFixture<BookingLinkAp
         return (_factory.ClientWith(account.AccessToken), email);
     }
 
+    private int LinkMailsSent() => _factory.Emails.Sent.Count(m => m.To == ContactEmail);
+
     private async Task<BookingDto> BookAsync(HttpClient customer)
     {
         var seed = await _factory.GetSeedAsync();
         var request = BookingEndpointTests.Request(seed, null);
         request.Passengers[0].Seats.Add(new PassengerSeatRequestDto { FlightId = seed.FlightId, FlightSeatId = await NewSeatAsync(seed) });
+        var before = LinkMailsSent();
         var response = await customer.PostAsJsonAsync("/api/bookings", request, Json);
         Assert.True(response.StatusCode == HttpStatusCode.Created, await response.Content.ReadAsStringAsync());
+
+        // The API answers at once and sends the link from a background task, so the test waits for the mail the way a person does.
+        for (var waited = 0; LinkMailsSent() <= before && waited < 100; waited++)
+        {
+            await Task.Delay(100);
+        }
+
+        Assert.True(LinkMailsSent() > before, "The booking link was not e-mailed within ten seconds.");
         return await response.ReadAsync<BookingDto>();
     }
 

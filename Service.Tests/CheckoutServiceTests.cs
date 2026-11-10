@@ -27,13 +27,26 @@ public class CheckoutServiceTests
     private static CreateCheckoutSessionRequestDto For(string pnr, string? lastName = null) => new() { Pnr = pnr, LastName = lastName };
 
     [Fact]
-    public async Task WithoutStripeSecrets_CheckoutIsUnavailable()
+    public async Task WithoutTheStripeSecretKey_CheckoutIsUnavailable()
     {
         var pnr = await CreateBookingAsync();
-        _context.Stripe.WebhookSecret = null;
+        _context.Stripe.SecretKey = null;
 
         await Assert.ThrowsAsync<ServiceUnavailableException>(() => _context.CreateCheckoutService().CreateSessionAsync(Owner, For(pnr)));
         Assert.Empty(_context.Gateway.Created);
+    }
+
+    [Fact]
+    public async Task WithoutTheWebhookSecret_CheckoutStillOpens_BecauseOnlyTheKeyIsNeededForThatStep()
+    {
+        // Only the secret key is needed to open a Checkout page; the webhook secret is needed to verify what Stripe sends back later.
+        var pnr = await CreateBookingAsync();
+        _context.Stripe.WebhookSecret = null;
+
+        var session = await _context.CreateCheckoutService().CreateSessionAsync(Owner, For(pnr));
+
+        Assert.False(string.IsNullOrEmpty(session.CheckoutUrl));
+        Assert.Single(_context.Gateway.Created);
     }
 
     [Fact]
