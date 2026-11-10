@@ -33,6 +33,32 @@ public class AdminDestinationsController : ControllerBase
     public async Task<ActionResult<IReadOnlyList<DestinationCountryDto>>> GetAll(CancellationToken cancellationToken)
         => Ok(await _catalog.GetAllAsync(cancellationToken));
 
+    /// <summary>Adds a country to the catalog: 201 with the country, 400 for invalid text, 409 when its code already exists or is retired.</summary>
+    [HttpPost("countries")]
+    [ProducesResponseType<DestinationCountryDto>(StatusCodes.Status201Created)]
+    [ProducesResponseType<ValidationProblemDetails>(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
+    public async Task<ActionResult<DestinationCountryDto>> CreateCountry([FromBody] DestinationCountryCreateDto request, CancellationToken cancellationToken)
+    {
+        var created = await _catalog.CreateCountryAsync(request, cancellationToken);
+        await _audit.RecordAsync(User.ToAuditActor(), AuditActions.DestinationCountryCreated, "Country", created.Id.ToString(), created.Code, cancellationToken);
+        return StatusCode(StatusCodes.Status201Created, created);
+    }
+
+    /// <summary>Adds a city with its first airport to a country: 201 with the country, 404 for an unknown country, 409 for a name or airport that is taken.</summary>
+    [HttpPost("countries/{id:int}/cities")]
+    [ProducesResponseType<DestinationCountryDto>(StatusCodes.Status201Created)]
+    [ProducesResponseType<ValidationProblemDetails>(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
+    public async Task<ActionResult<DestinationCountryDto>> CreateCity(int id, [FromBody] DestinationCityCreateDto request, CancellationToken cancellationToken)
+    {
+        var country = await _catalog.CreateCityAsync(id, request, cancellationToken);
+        var city = country.Cities.Single(c => string.Equals(c.Name, request.Name.Trim(), StringComparison.OrdinalIgnoreCase));
+        await _audit.RecordAsync(User.ToAuditActor(), AuditActions.DestinationCityCreated, "DestinationCity", city.Id.ToString(), country.Code + "/" + city.Name, cancellationToken);
+        return StatusCode(StatusCodes.Status201Created, country);
+    }
+
     /// <summary>Edits a country's names and descriptions (400 for invalid text); everything that shows the destination reads the same record.</summary>
     [HttpPut("countries/{id:int}")]
     [ProducesResponseType<DestinationCountryDto>(StatusCodes.Status200OK)]
